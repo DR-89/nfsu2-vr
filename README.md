@@ -10,6 +10,10 @@ An experimental VR port of **Need for Speed: Underground 2**, based on the
 original Xbox USA / NTSC-U version. It uses static recompilation with
 **xboxrecomp**, **Vulkan** rendering and **OpenXR** tracking and presentation.
 
+This VR mod is based on the work of **antoxa2584x** in
+**[nfsu2-sw](https://github.com/antoxa2584x/nfsu2-sw)**. The PCVR and Meta Quest 3
+adaptations build on that project's Xbox recompilation and runtime work.
+
 > [!WARNING]
 > **DEV BUILD — NOT 100% TESTED.** This project is under active development.
 > Bugs, crashes, freezes, visual glitches, audio issues, stuttering and
