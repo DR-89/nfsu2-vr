@@ -1,4 +1,4 @@
-# NFSU2 VR — PCVR & Meta Quest 3
+# Need For Speed Underground 2 VR — PCVR & Meta Quest 3
 
 ![PCVR](https://img.shields.io/badge/PCVR-Windows_x64-blue)
 ![Meta Quest 3](https://img.shields.io/badge/Meta_Quest_3-Standalone_ARM64-blue)
