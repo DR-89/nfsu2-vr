@@ -16,7 +16,7 @@ compatibility are incomplete. Stable VR frame rates are not guaranteed.
   regression tests and engineering documentation.
 - The vendored xboxrecomp toolkit with its license texts and attribution.
 
-## What is excluded
+## What is excluded from Git
 
 - Retail game files, disc images, `default.xbe` and the `NFSUNDER` data directory.
 - Generated retail C, disassembly output and extracted executable sections.
@@ -36,10 +36,13 @@ tests remain in the source so it can recognize and validate user-supplied files.
 
 ## Building and testing
 
-This publication is **source only**, not a ready-to-play download. Supply your
-own supported Xbox USA / NTSC-U copy of Need for Speed: Underground 2 and
-generate the private game code locally before building either platform.
-Do not upload those inputs or outputs to this repository or its issues.
+The Git repository contains source only. The development release also offers
+a Meta Quest 3 APK and Windows PCVR package, with no original game assets.
+Supply your own supported Xbox USA / NTSC-U copy of Need for Speed: Underground 2.
+Both built applications offer game-data import; the PCVR application prompts
+for an ISO/XISO automatically when the required data is absent. Source builds
+still require generating the private game code locally. Do not upload your
+game inputs, generated C or saves to the repository or its issues.
 
 The platform notes describe previous development tests and unresolved issues.
 Their references to `reports/`, captures and local APKs are historical evidence
@@ -55,3 +58,16 @@ checked. These are focused checks, not a full platform rebuild or an end-to-end
 headset test of the published snapshot.
 
 See [README.md](README.md) for setup, platform links and credits.
+
+## Binary release update
+
+The PCVR first-run importer passed 43 synthetic native assertions, a full
+import of the user's local USA ISO with SHA-256 verification, and inspection
+of the native setup dialog, file picker and cancellation. Both the Windows
+Release executable and Quest debug APK were rebuilt. No new complete gameplay
+or performance acceptance test is claimed. Native dependency notices are
+bundled in both packages; the APK also retains importer dependency notices.
+
+The release's initial source tag is retained. For the updated binaries use
+the matching source ZIP and exact commit identified in BUILD-INFO.json and
+the release notes, rather than the initial tag's automatic source links.

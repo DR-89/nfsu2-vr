@@ -6,7 +6,6 @@ $pcvrExe=Join-Path $pcvrRoot 'build/pcvr/game/nfsu2-pcvr.exe'
 $pcvrRun=Join-Path $pcvrRoot 'build/pcvr-run'
 if(-not (Test-Path -LiteralPath $pcvrExe)) { throw 'Run tools/build-pcvr.ps1 first.' }
 if(-not $GameDirectory) { $GameDirectory=Join-Path $pcvrRoot 'game' }
-if(-not (Test-Path -LiteralPath (Join-Path $GameDirectory 'default.xbe'))) { throw 'The extracted US Xbox game is required.' }
 if(Get-Process -Name 'nfsu2-pcvr' -ErrorAction SilentlyContinue) { throw 'NFSU2 PCVR is already running.' }
 New-Item -ItemType Directory -Force $pcvrRun | Out-Null
 foreach($line in Get-Content (Join-Path $pcvrRoot 'pcvr/benchmark.env')) {
@@ -16,7 +15,8 @@ foreach($entry in $EnvironmentOverrides.GetEnumerator()) {
     if($entry.Key -notmatch '^(NFSU2_|RECOMP_)[A-Z0-9_]+$') { throw "Invalid game option: $($entry.Key)" }
     [Environment]::SetEnvironmentVariable($entry.Key,[string]$entry.Value,'Process')
 }
-$env:NFSU2_GAME_DIR=(Resolve-Path -LiteralPath $GameDirectory).Path
+# Missing data is handled by the native first-run ISO importer before OpenXR.
+$env:NFSU2_GAME_DIR=$ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($GameDirectory)
 if($Capture) {
     $env:NFSU2_VR_CAPTURE='1'
     New-Item -ItemType Directory -Force (Join-Path $pcvrRun 'frames') | Out-Null

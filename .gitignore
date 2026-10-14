@@ -123,3 +123,9 @@ xboxrecomp/tools/*/output/
 
 # Documented synthetic test audio; contains no recorded or game audio.
 !xboxrecomp/tests/wma_decoder/fixtures/sine.wma
+
+# Source templates for the downloadable PCVR bundle.
+!pcvr/release/
+pcvr/release/*
+!pcvr/release/Start-PCVR.cmd
+!pcvr/release/README.txt

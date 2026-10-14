@@ -28,6 +28,7 @@ Copy-Item -LiteralPath "$repo/build/quest-runtime/SDL/libSDL2.so" -Destination $
 Copy-Item -LiteralPath "$repo/build/quest-runtime/openxr/src/loader/libopenxr_loader.so" -Destination $jni
 Copy-Item -LiteralPath "$Ndk/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/lib/aarch64-linux-android/libc++_shared.so" -Destination $jni
 Invoke-Checked "$Ndk/toolchains/llvm/prebuilt/windows-x86_64/bin/llvm-strip.exe" @('--strip-unneeded', "$jni/libnfsu2_quest.so")
+Invoke-Checked "$repo/.venv/Scripts/python.exe" @("$repo/tools/collect-runtime-notices.py", '--ndk', $Ndk)
 Invoke-Checked $Gradle @('-p', "$repo/android", 'assembleDebug', '--console=plain')
 Write-Host "APK: $repo/android/app/build/outputs/apk/debug/app-debug.apk"
 Write-Host 'Development build. Native game boot and VR functionality must be validated on hardware.'

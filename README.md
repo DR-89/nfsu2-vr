@@ -4,7 +4,7 @@
 ![Meta Quest 3](https://img.shields.io/badge/Meta_Quest_3-Standalone_ARM64-blue)
 ![Status](https://img.shields.io/badge/Status-DEV_BUILD-orange)
 ![Testing](https://img.shields.io/badge/Testing-Incomplete-orange)
-![Distribution](https://img.shields.io/badge/Distribution-Source_only-green)
+![Distribution](https://img.shields.io/badge/Distribution-Source_and_dev_builds-green)
 
 An experimental VR port of **Need for Speed: Underground 2**, based on the
 original Xbox USA / NTSC-U version. It uses static recompilation with
@@ -21,11 +21,11 @@ adaptations build on that project's Xbox recompilation and runtime work.
 > and stable VR frame rates are not guaranteed. This is not a stable release.
 
 > [!IMPORTANT]
-> **No game content is included.** This repository and its development release
-> contain source code only. You must supply your own supported Xbox USA / NTSC-U
-> game files and generate the private game code locally. No disc images,
-> original game executables, generated retail C, artwork, music, movies, saves,
-> APKs or PC game builds are distributed here.
+> **No original game content is included.** You must supply your own supported
+> Xbox USA / NTSC-U disc image or extracted game files. The development builds
+> contain the port and its runtime, but no disc images, original Xbox executable,
+> retail game assets, music, movies or saves. Building from source additionally
+> requires generating the private game code locally.
 
 ## Platforms
 
@@ -37,6 +37,28 @@ adaptations build on that project's Xbox recompilation and runtime work.
 Other PC OpenXR runtimes and other Quest models have not been established as
 supported configurations. Inherited Linux and Nintendo Switch code remains in
 the tree; the focus of this development publication is PCVR and Meta Quest 3.
+
+## Development downloads
+
+The [current development release](https://github.com/DR-89/nfsu2-vr/releases/tag/dev-2026-10-14)
+includes:
+
+- [Meta Quest 3 APK](https://github.com/DR-89/nfsu2-vr/releases/download/dev-2026-10-14/NFSU2VR-Quest3-dev-2026-10-14.apk):
+  sideload the development APK, then use its setup panel to import your own
+  supported Xbox USA ZIP, 7z or ISO/XISO.
+- [Windows PCVR package](https://github.com/DR-89/nfsu2-vr/releases/download/dev-2026-10-14/NFSU2VR-PCVR-dev-2026-10-14.zip):
+  extract the whole ZIP to a writable folder and run **Start-PCVR.cmd**.
+  If game data is missing, **Game data setup** opens automatically. Select your
+  Xbox USA ISO/XISO; progress and cancellation are available. All 12 required
+  files are verified before VR starts. Saved games are preserved.
+- Matching source archive, build information and SHA-256 checksums.
+
+The PCVR ZIP includes the EXE, SDL/OpenXR loader DLLs, Visual C++ runtime DLLs,
+launcher, preset and notices. Install your GPU's Vulkan driver and a compatible
+OpenXR runtime separately; development testing uses Virtual Desktop / VDXR.
+No Python, Java or external ISO extractor is required to run the PCVR importer.
+See the included README for system requirements. These downloads remain
+**development builds, not fully tested**, with possible bugs and performance issues.
 
 ## Get the source and prepare your own game files
 

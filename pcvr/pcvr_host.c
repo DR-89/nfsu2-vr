@@ -1,5 +1,6 @@
 #include <SDL.h>
 #include "quest_xr.h"
+#include "game_data.h"
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -175,6 +176,9 @@ void xbox_nx_retag_thread(void *entry) { (void)entry; }
 void xbox_nx_raise_host_thread(void) { }
 int pcvr_run_game(int (*entry)(void))
 {
+    int ready=pcvr_prepare_game_data();
+    if(ready<=0) return ready<0?1:0;
+    atexit(pcvr_release_game_data);
     extern int (*xbox_wait_completion_hook)(uint32_t);
     extern int nfsu2_guest_wait_completed(uint32_t);
     xbox_wait_completion_hook=nfsu2_guest_wait_completed;

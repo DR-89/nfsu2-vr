@@ -208,7 +208,13 @@ static void install_crash_reporter(void)
 
 static void *load_file(const char *path, size_t *out_size)
 {
+#if defined(NFSU2_PCVR)
+    wchar_t wide_path[1024];
+    if(!MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,path,-1,wide_path,1024)) return NULL;
+    FILE *f = _wfopen(wide_path, L"rb");
+#else
     FILE *f = fopen(path, "rb");
+#endif
     long size;
     void *data;
 

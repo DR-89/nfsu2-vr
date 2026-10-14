@@ -2,8 +2,8 @@
 
 > **DEV BUILD — NOT 100% TESTED.** Bugs, crashes, rendering and audio issues,
 > stuttering and performance problems may occur. Stable VR frame rates are not
-> guaranteed. This is a source-only publication; no game content or prebuilt
-> applications are included. See [publication details](../PUBLICATION.md).
+> guaranteed. No original game content is included. Development binaries are
+> available in [GitHub Releases](https://github.com/DR-89/nfsu2-vr/releases/tag/dev-2026-10-14).
 > References below to private reports, captures and local builds describe past
 > development work; those files are not distributed.
 
@@ -12,6 +12,36 @@ game runs on the PC; Virtual Desktop streams the eye images to Quest 3 through
 VDXR. The existing standalone Quest APK is unchanged.
 
 ## Build and launch
+
+### First launch: import your Xbox ISO
+
+The Windows application checks for all 12 required game files before starting
+SDL or OpenXR. If the files are missing or incomplete, it automatically opens
+an English **Game data setup** window. Choose **Select ISO...** and select your
+unmodified **Xbox USA / NTSC-U ISO or XISO**. Bare game-partition images and
+the supported full-disc/video-partition layouts are accepted. PC and European
+discs are not supported. Compressed archives must be unpacked to an ISO first.
+
+Import runs in the background with progress and cancellation. Every imported
+file is checked against the same sizes and SHA-256 hashes as the Quest importer.
+Allow approximately 2.5 GB of free space in addition to the source ISO. The ISO
+is read in place and remains untouched. Existing saved games and unrelated
+files are preserved. A failed or interrupted installation cannot boot; setup
+can be retried. Only one instance can use a game-data folder at a time.
+
+Once verification succeeds, PCVR starts automatically. Later launches skip the
+dialog when the required file sizes and executable checksum are correct.
+The development launcher uses the repository's `game/` folder, including an
+explicit `-GameDirectory` path that does not yet exist. A direct EXE launch
+uses an existing complete `game/` in the working directory or beside the EXE;
+otherwise it installs to `%LOCALAPPDATA%\NFSU2VR\game`. `NFSU2_GAME_DIR` overrides
+that choice. The release launcher keeps data in its own `game/` folder.
+
+No Python, Java, external extractor or mounted virtual DVD is needed to import
+an ISO in the built PCVR application. Building the game from source still
+requires your own disc and locally generated game code as described below.
+
+### Build from source
 
 Requires Visual Studio 2022 C++ x64 tools, CMake, Ninja, a working Windows Vulkan
 driver and Vulkan headers. The existing source dependencies in `build/deps`
