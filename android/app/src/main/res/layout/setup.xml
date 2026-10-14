@@ -1,0 +1,39 @@
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="match_parent"
+    android:fillViewport="true" android:background="#101820">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:orientation="vertical" android:padding="32dp">
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:text="@string/setup_title" android:textColor="#F2F5FA" android:textSize="30sp" android:textStyle="bold" />
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="6dp" android:text="@string/setup_intro" android:textColor="#88E3B2" android:textSize="20sp" />
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="22dp" android:text="@string/setup_instructions" android:textColor="#F2F5FA"
+            android:textSize="19sp" android:lineSpacingExtra="5dp" />
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="12dp" android:text="@string/setup_note" android:textColor="#BDC9D6" android:textSize="16sp" />
+        <TextView android:id="@+id/status_title" android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="24dp" android:textSize="23sp" android:textStyle="bold" android:textColor="#F2F5FA" />
+        <TextView android:id="@+id/status_detail" android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="6dp" android:textSize="18sp" android:textColor="#BDC9D6" />
+        <ProgressBar android:id="@+id/progress" style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="match_parent" android:layout_height="12dp" android:layout_marginTop="16dp"
+            android:progressTint="#88E3B2" android:indeterminateTint="#88E3B2" android:max="100" />
+        <TextView android:id="@+id/progress_label" android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:gravity="end" android:textColor="#F2F5FA" android:textSize="18sp" />
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="16dp" android:orientation="horizontal">
+            <Button android:id="@+id/choose_zip" android:layout_width="wrap_content" android:layout_height="64dp"
+                android:minWidth="220dp" android:text="@string/choose_zip" android:textAllCaps="false" android:textSize="18sp" />
+            <Button android:id="@+id/play" android:layout_width="wrap_content" android:layout_height="64dp"
+                android:layout_marginStart="12dp" android:minWidth="180dp" android:text="@string/play" android:textAllCaps="false"
+                android:textSize="18sp" android:visibility="gone" />
+        </LinearLayout>
+        <Button android:id="@+id/cancel" android:layout_width="wrap_content" android:layout_height="56dp"
+            android:text="@string/cancel_import" android:textAllCaps="false" android:textSize="18sp" android:visibility="gone" />
+        <Button android:id="@+id/retry" android:layout_width="wrap_content" android:layout_height="56dp"
+            android:text="@string/retry" android:textAllCaps="false" android:textSize="18sp" android:visibility="gone" />
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="16dp" android:text="@string/setup_footer" android:textColor="#BDC9D6" android:textSize="16sp" />
+    </LinearLayout>
+</ScrollView>

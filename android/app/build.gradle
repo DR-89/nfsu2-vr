@@ -1,0 +1,37 @@
+plugins { id 'com.android.application' }
+
+android {
+    namespace 'org.nfsu2.quest'
+    compileSdk 35
+    buildToolsVersion '35.0.0'
+    defaultConfig {
+        applicationId 'org.nfsu2.quest'
+        minSdk 30
+        targetSdk 32
+        versionCode 1
+        versionName '0.1-dev'
+        ndk { abiFilters 'arm64-v8a' }
+    }
+    sourceSets.main {
+        java.srcDirs += '../../build/deps/SDL/android-project/app/src/main/java'
+        jniLibs.srcDirs = ['../../build/quest-jni']
+    }
+    packagingOptions { jniLibs { useLegacyPackaging true } }
+    buildTypes { debug { debuggable true } }
+}
+
+dependencies {
+    implementation 'org.apache.commons:commons-compress:1.28.0'
+    implementation 'org.tukaani:xz:1.12'
+    testImplementation 'junit:junit:4.13.2'
+}
+
+tasks.named('preBuild').configure {
+    doFirst {
+        ['libSDL2.so', 'libnfsu2_quest.so', 'libopenxr_loader.so', 'libc++_shared.so'].each { name ->
+            if (!file('../../build/quest-jni/arm64-v8a/' + name).isFile()) {
+                throw new GradleException('Missing ' + name + '. Run tools/build-quest.ps1 first.')
+            }
+        }
+    }
+}

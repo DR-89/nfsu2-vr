@@ -1,0 +1,146 @@
+cmake_minimum_required(VERSION 3.22)
+project(nfsu2_android_runtime LANGUAGES C CXX)
+
+if(NOT ANDROID OR NOT ANDROID_ABI STREQUAL "arm64-v8a")
+    message(FATAL_ERROR "Use the Android NDK toolchain with ANDROID_ABI=arm64-v8a")
+endif()
+
+if(ANDROID_PLATFORM_LEVEL LESS 30)
+    message(FATAL_ERROR "The Quest runtime requires Android API 30 or newer")
+endif()
+
+# This builds the real Xbox runtime, including its Vulkan renderer. It does
+# not substitute a sample game or generated-code stubs for the retail XBE.
+set(CMAKE_C_STANDARD 11)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+get_filename_component(NFSU2_ROOT "${CMAKE_CURRENT_LIST_DIR}/../.." ABSOLUTE)
+set(NFSU2_DEPS_DIR "${NFSU2_ROOT}/build/deps" CACHE PATH "Pinned dependency checkouts")
+list(PREPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/../cmake")
+
+set(SDL_SHARED ON CACHE BOOL "" FORCE)
+set(SDL_STATIC OFF CACHE BOOL "" FORCE)
+set(SDL_TEST OFF CACHE BOOL "" FORCE)
+set(SDL_TESTS OFF CACHE BOOL "" FORCE)
+add_subdirectory("${NFSU2_DEPS_DIR}/SDL" "${CMAKE_BINARY_DIR}/SDL")
+
+set(ENABLE_GLSLANG_BINARIES OFF CACHE BOOL "" FORCE)
+set(ENABLE_OPT OFF CACHE BOOL "" FORCE)
+set(ENABLE_SPVREMAPPER OFF CACHE BOOL "" FORCE)
+set(ENABLE_HLSL OFF CACHE BOOL "" FORCE)
+set(GLSLANG_TESTS OFF CACHE BOOL "" FORCE)
+set(GLSLANG_ENABLE_INSTALL OFF CACHE BOOL "" FORCE)
+add_subdirectory("${NFSU2_DEPS_DIR}/glslang" "${CMAKE_BINARY_DIR}/glslang")
+
+set(XBOXRECOMP_VULKAN ON CACHE BOOL "" FORCE)
+add_subdirectory("${NFSU2_ROOT}/xboxrecomp" "${CMAKE_BINARY_DIR}/xboxrecomp")
+add_custom_target(quest_runtime ALL DEPENDS
+    xbox_kernel xbox_devbus xbox_d3d8 xbox_dsound xbox_input xbox_usb
+    xbox_apu xbox_nv2a xbox_video xbox_nv2a_vk)
+
+# Existing synthetic-XBE regressions also provide a real Android link check.
+# They are command-line test executables, not the game, and must be run on
+# the device separately before memory mapping can be considered validated.
+option(NFSU2_ANDROID_MEMORY_CHECKS "Build the upstream memory regressions" ON)
+if(NFSU2_ANDROID_MEMORY_CHECKS)
+    add_executable(quest_pb_scan_test "${NFSU2_ROOT}/tests/quest_pb_scan_test.c"
+        "${NFSU2_ROOT}/xboxrecomp/src/kernel/nv2a_pb_scan.c")
+    add_dependencies(quest_runtime quest_pb_scan_test)
+    add_executable(quest_feedback_test "${NFSU2_ROOT}/tests/quest_feedback_test.c")
+    target_include_directories(quest_feedback_test PRIVATE "${CMAKE_CURRENT_LIST_DIR}")
+    target_link_libraries(quest_feedback_test PRIVATE m)
+    add_dependencies(quest_runtime quest_feedback_test)
+    add_executable(quest_multiview_test "${NFSU2_ROOT}/tests/quest_multiview_test.c")
+    target_include_directories(quest_multiview_test PRIVATE "${CMAKE_CURRENT_LIST_DIR}")
+    target_link_libraries(quest_multiview_test PRIVATE vulkan)
+    add_dependencies(quest_runtime quest_multiview_test)
+    add_executable(quest_vertex_layout_gpu_test "${NFSU2_ROOT}/tests/quest_multiview_test.c")
+    target_include_directories(quest_vertex_layout_gpu_test PRIVATE "${CMAKE_CURRENT_LIST_DIR}")
+    target_compile_definitions(quest_vertex_layout_gpu_test PRIVATE NFSU2_VERTEX_LAYOUT_TEST=1)
+    target_link_libraries(quest_vertex_layout_gpu_test PRIVATE vulkan)
+    add_dependencies(quest_runtime quest_vertex_layout_gpu_test)
+    add_executable(quest_depth_layout_test "${NFSU2_ROOT}/tests/quest_multiview_test.c")
+    target_include_directories(quest_depth_layout_test PRIVATE "${CMAKE_CURRENT_LIST_DIR}")
+    target_compile_definitions(quest_depth_layout_test PRIVATE NFSU2_DEPTH_LAYOUT_TEST=1)
+    target_link_libraries(quest_depth_layout_test PRIVATE vulkan)
+    add_dependencies(quest_runtime quest_depth_layout_test)
+    add_executable(quest_instance_bytes_test "${NFSU2_ROOT}/tests/quest_instance_bytes_test.c")
+    target_include_directories(quest_instance_bytes_test PRIVATE "${CMAKE_CURRENT_LIST_DIR}")
+    add_dependencies(quest_runtime quest_instance_bytes_test)
+    add_executable(quest_instance_state_test "${NFSU2_ROOT}/tests/quest_instance_state_test.c")
+    target_include_directories(quest_instance_state_test PRIVATE "${CMAKE_CURRENT_LIST_DIR}")
+    add_dependencies(quest_runtime quest_instance_state_test)
+    add_executable(quest_instance_span_test "${NFSU2_ROOT}/tests/quest_instance_span_test.c")
+    target_include_directories(quest_instance_span_test PRIVATE "${CMAKE_CURRENT_LIST_DIR}")
+    add_dependencies(quest_runtime quest_instance_span_test)
+    add_executable(quest_frame_timing_test "${NFSU2_ROOT}/tests/quest_frame_timing_test.c")
+    target_include_directories(quest_frame_timing_test PRIVATE "${CMAKE_CURRENT_LIST_DIR}")
+    add_dependencies(quest_runtime quest_frame_timing_test)
+    add_executable(quest_vertex_bindings_test "${NFSU2_ROOT}/tests/quest_vertex_bindings_test.c")
+    target_include_directories(quest_vertex_bindings_test PRIVATE "${CMAKE_CURRENT_LIST_DIR}")
+    add_dependencies(quest_runtime quest_vertex_bindings_test)
+    add_executable(quest_draw_arena_test "${NFSU2_ROOT}/tests/quest_draw_arena_test.c")
+    target_include_directories(quest_draw_arena_test PRIVATE "${CMAKE_CURRENT_LIST_DIR}")
+    target_compile_options(quest_draw_arena_test PRIVATE -UNDEBUG)
+    add_dependencies(quest_runtime quest_draw_arena_test)
+    add_executable(quest_projection_test "${NFSU2_ROOT}/tests/quest_projection_test.c")
+    target_include_directories(quest_projection_test PRIVATE "${CMAKE_CURRENT_LIST_DIR}")
+    target_link_libraries(quest_projection_test PRIVATE m)
+    add_dependencies(quest_runtime quest_projection_test)
+    add_executable(quest_culling_test "${NFSU2_ROOT}/tests/quest_culling_test.c")
+    target_include_directories(quest_culling_test PRIVATE "${CMAKE_CURRENT_LIST_DIR}")
+    target_link_libraries(quest_culling_test PRIVATE m)
+    add_dependencies(quest_runtime quest_culling_test)
+    add_executable(quest_shader_test "${NFSU2_ROOT}/tests/quest_shader_test.c"
+        "${NFSU2_ROOT}/xboxrecomp/src/nv2a_gl/gl_vsh.c"
+        "${NFSU2_ROOT}/xboxrecomp/src/nv2a_gl/gl_psh.c")
+    target_include_directories(quest_shader_test PRIVATE "${NFSU2_ROOT}/xboxrecomp/src/nv2a_gl")
+    add_dependencies(quest_runtime quest_shader_test)
+    foreach(test_name memory_layout_posix kernel_memory_posix)
+        add_executable(${test_name}_test
+            "${NFSU2_ROOT}/xboxrecomp/tests/${test_name}/test_main.c")
+        target_link_libraries(${test_name}_test PRIVATE xboxrecomp)
+        add_dependencies(quest_runtime ${test_name}_test)
+    endforeach()
+endif()
+
+option(NFSU2_ANDROID_GAME "Link the generated retail game into an Android library" OFF)
+if(NFSU2_ANDROID_GAME)
+    set(BUILD_API_LAYERS OFF CACHE BOOL "" FORCE)
+    set(BUILD_TESTS OFF CACHE BOOL "" FORCE)
+    set(BUILD_CONFORMANCE_TESTS OFF CACHE BOOL "" FORCE)
+    set(BUILD_SDK_TESTS OFF CACHE BOOL "" FORCE)
+    set(BUILD_LOADER ON CACHE BOOL "" FORCE)
+    set(DYNAMIC_LOADER ON CACHE BOOL "" FORCE)
+    add_subdirectory("${NFSU2_DEPS_DIR}/OpenXR-SDK" "${CMAKE_BINARY_DIR}/openxr")
+    add_library(nfsu2_xr STATIC quest_xr.c)
+    target_include_directories(nfsu2_xr PUBLIC "${CMAKE_CURRENT_LIST_DIR}")
+    target_link_libraries(nfsu2_xr PUBLIC openxr_loader SDL2::SDL2 vulkan android log m)
+    target_link_libraries(xbox_nv2a_vk PUBLIC nfsu2_xr)
+    target_link_libraries(xbox_input PUBLIC nfsu2_xr)
+    target_compile_definitions(xbox_nv2a_vk PRIVATE NFSU2_OPENXR=1)
+    target_compile_definitions(xbox_input PRIVATE NFSU2_OPENXR=1)
+    set(NFSU2_GEN_DIR "${NFSU2_ROOT}/gen" CACHE PATH "Generated Xbox game sources")
+    if(NOT EXISTS "${NFSU2_GEN_DIR}/recomp_funcs.h")
+        message(FATAL_ERROR "Generate the retail game first: tools/regen.py game")
+    endif()
+    file(GLOB GENERATED CONFIGURE_DEPENDS "${NFSU2_GEN_DIR}/*.c")
+    add_library(nfsu2_quest SHARED
+        quest_entry.c
+        "${NFSU2_ROOT}/src/main.c"
+        "${NFSU2_ROOT}/src/recomp_manual.c"
+        "${NFSU2_ROOT}/src/switch_nx.c"
+        "${NFSU2_ROOT}/src/text_patch.c"
+        "${NFSU2_ROOT}/src/movie_crop.c"
+        "${NFSU2_ROOT}/src/nic.c"
+        ${GENERATED})
+    target_include_directories(nfsu2_quest PRIVATE
+        "${NFSU2_GEN_DIR}" "${NFSU2_ROOT}/src" "${NFSU2_ROOT}/xboxrecomp/include")
+    target_compile_definitions(nfsu2_quest PRIVATE NFSU2_VULKAN=1)
+    target_link_libraries(nfsu2_quest PRIVATE xboxrecomp nfsu2_xr SDL2::SDL2 log m)
+    target_link_options(nfsu2_quest PRIVATE "-Wl,--no-undefined")
+    set_source_files_properties(${GENERATED} PROPERTIES
+        COMPILE_OPTIONS "-O1;-w;-fno-strict-aliasing;-fwrapv")
+    set_source_files_properties("${NFSU2_ROOT}/src/recomp_manual.c" PROPERTIES
+        COMPILE_OPTIONS "-fno-strict-aliasing;-fwrapv;-ffp-contract=off")
+endif()

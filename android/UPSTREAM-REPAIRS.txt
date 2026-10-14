@@ -1,0 +1,10 @@
+The vendored nfsu2-sw snapshot omitted three Python source modules required
+by its code-generation pipeline. Restored unchanged from the original toolkit:
+
+https://github.com/sp00nznet/xboxrecomp
+commit 193e2995ffaec871bb3be43a43bd66aa5fccfeb1
+tools/disasm/output.py
+tools/func_id/output.py
+tools/recomp/output.py
+
+These are toolkit sources under xboxrecomp/LICENSE, not generated game code.

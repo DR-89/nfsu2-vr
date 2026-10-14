@@ -1,0 +1,29 @@
+<resources>
+    <string name="app_name">NFSU2 Quest Development</string>
+    <string name="data_setup_name">NFSU2 · Game data</string>
+    <string name="setup_title">NFSU2 · Import game data</string>
+    <string name="setup_intro">Set up once. Then jump straight into VR.</string>
+    <string name="setup_instructions">1. Copy your Xbox USA (NTSC-U) ZIP or 7z to the Download folder on your Quest.
+\n2. Select the archive below. Xbox ISO images inside it are unpacked automatically.
+\n3. Wait for the import to finish, then start the game.</string>
+    <string name="setup_note">Supports ZIP/7z containing default.xbe + NFSUNDER or one Xbox ISO, and ISO/XISO files directly. PC and European editions are unsupported. A disc import can take several minutes and need about 17 GB free in addition to the archive (about 5 GB for an archive of extracted game files). Existing saved games are kept.</string>
+    <string name="setup_footer">Open “NFSU2 · Game data” to return here later. The normal game entry starts directly in VR.</string>
+    <string name="choose_zip">Select archive</string>
+    <string name="replace_data">Reimport game data</string>
+    <string name="play">Start game</string>
+    <string name="resume_game">Return to game</string>
+    <string name="retry">Check again</string>
+    <string name="cancel_import">Cancel import</string>
+    <string name="canceling">Canceling …</string>
+    <string name="replace_title">Reimport game data?</string>
+    <string name="replace_message">The existing data will only be replaced after the new archive has been fully verified. Your saved games and settings will be kept.</string>
+    <string name="back">Back</string>
+    <string name="select_zip">Select archive</string>
+    <string name="progress_percent">%1$d %%</string>
+    <string name="please_wait">Please wait …</string>
+    <string name="picker_unavailable">File picker unavailable</string>
+    <string name="picker_unavailable_message">Could not open the Android file picker. Restart your Quest, then open “NFSU2 · Game data” again.</string>
+    <string name="cancel_title">Cancel the import?</string>
+    <string name="cancel_message">Your existing game data and saved games will be kept.</string>
+    <string name="keep_importing">Keep importing</string>
+</resources>

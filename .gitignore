@@ -1,0 +1,125 @@
+# Build artifacts
+build/
+out/
+bin/
+*.obj
+*.o
+*.lib
+*.a
+*.exe
+*.dll
+*.pdb
+*.ilk
+*.exp
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+
+# Visual Studio
+.vs/
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+*.sln
+Debug/
+Release/
+x64/
+
+# Generated recompiled code (regenerate from XBE with the recomp pipeline)
+src/recomp/gen/
+
+# Game files (user must provide their own legally-owned copies)
+game/
+*.xbe
+*.iso
+*.xiso
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Switch SD staging (contains game data)
+switch_sd/
+!xboxrecomp/tools/conformance/test.xbe
+
+# Build outputs and captures
+*.nro
+*.nacp
+*.wav
+*.raw
+__pycache__/
+*.pyc
+gen/
+
+# Local Quest tooling, private input and validation outputs
+.venv/
+upstream/
+reports/
+android/local.properties
+android/.gradle/
+*.7z
+# Tiny synthetic solid-archive fixture, contains no retail data.
+!android/app/src/test/resources/solid-import.7z
+*.apk
+*.aab
+
+# Per-game toolkit output (disassembly of the retail XBE)
+xboxrecomp/tools/*/output/
+
+# Source-only VR publication: private game inputs, outputs and captures
+/build*/
+/dist/
+/artifacts/
+/game*/
+/NFSUNDER/
+/assets/
+**/UDATA/
+**/TDATA/
+*.bin
+*.dat
+*.pak
+*.wad
+*.rom
+*.zip
+*.rar
+*.tar
+*.gz
+*.so
+*.dylib
+*.elf
+*.nsp
+*.xci
+*.mp4
+*.mkv
+*.avi
+*.webm
+*.bmp
+*.dds
+*.png
+*.jpg
+*.jpeg
+*.mp3
+*.ogg
+*.wma
+*.log
+*.dmp
+*.keystore
+*.jks
+*.pem
+*.key
+.env
+.env.*
+.pytest_cache/
+
+# Documented synthetic test audio; contains no recorded or game audio.
+!xboxrecomp/tests/wma_decoder/fixtures/sine.wma
