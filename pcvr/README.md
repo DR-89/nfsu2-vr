@@ -1,17 +1,69 @@
 # Windows PCVR development port
 
-> **DEV BUILD — NOT 100% TESTED.** Bugs, crashes, rendering and audio issues,
-> stuttering and performance problems may occur. Stable VR frame rates are not
-> guaranteed. No original game content is included. Development binaries are
-> available in [GitHub Releases](https://github.com/DR-89/nfsu2-vr/releases/tag/dev-2026-10-14).
-> References below to private reports, captures and local builds describe past
-> development work; those files are not distributed.
-
 The shared Quest Vulkan/OpenXR renderer now also builds for Windows x64. The
 game runs on the PC; Virtual Desktop streams the eye images to Quest 3 through
 VDXR. The existing standalone Quest APK is unchanged.
 
 ## Build and launch
+
+### Shared cockpit prototype
+
+Use the normal camera-change control while driving to cycle into Cockpit
+View, after the four usual driving camera slots. No separate button or long press is
+needed. Both stick clicks recenter. All cars currently share one interior with both door cards,
+rear bench and floor from one Tripo model in anthracite/blue, and a
+steering wheel animated from player-one steering input.
+The build copies `cockpits/shared.ncpk` beside the EXE. Keep this folder when
+moving the application. See [asset details](../assets/cockpits/README.md).
+The Windows build and math/asset tests pass. The full cabin, normal camera cycle
+and wheel animation are user-confirmed on native Quest; PCVR cockpit rendering
+still needs a separate headset test.
+
+Touch controls now use left stick click to cycle cameras and right stick click
+to hold rear view outside Cockpit View. The cockpit has no button-driven rear
+view; turn your head there. Grip near the rim enables one- or two-hand motion
+steering with translucent ghost hands, visible only in the cockpit. Releasing
+both grips retains the last steering angle until grabbing again or deliberately
+deflecting the left stick at least 25%. Stick steering then remains active,
+including centering on release, until the next grab. Either grasped hand takes
+priority over the stick; small stick drift does not release a held angle.
+Diagonal hub crossings and pose interruptions retain the grip and rebase
+angular tracking without a steering jump. Real Grip release still takes effect
+without a pose; unavailable button input is tolerated for up to 500 ms.
+Held gloves keep the same wheel-local acquisition point through these events;
+only release/regrip changes the contact location. The hand-only jumping fix
+passes Windows/Quest pose tests and was accepted on native Quest.
+Wheel travel is 360 degrees lock to
+lock, with half a turn left and half a turn right. Both clicks recenter. The shared
+grip/control tests pass on Windows and Quest; PCVR hand interaction is untested.
+Stick-click actions use the game's analog White/Black buttons. Grips no longer
+send those buttons, so gripping cannot change cameras, and the left click
+remains usable to leave the cockpit while steering.
+While driving, Touch A is nitro, B is handbrake, and right stick up/down shifts
+gears once per deflection (return to center to shift again). Use the game's
+manual transmission setting. In menus A/B and right-stick navigation retain
+their original behavior. The shared headliner is removed and the eye is lower
+and closer to the wheel; this fit is user-confirmed on Quest. The mirror glass
+detector now uses car-relative bounds and the same seat definition as the camera.
+The new driving mapping and mirror repair pass packet/geometry tests and are
+user-confirmed on native Quest. PCVR headset validation remains pending.
+
+The shared renderer also maps the live 512x128 rear-camera image onto the
+original interior and outside mirror glass, using three sectors of one rear
+camera, not three separate reflection cameras. The additional floating mirror
+rectangle is removed. The cockpit map is lower left and the smaller speed
+instrument is behind the wheel, composed before the wheel and hands without an
+added black backing. See [implementation and verification](../android/README.md).
+Pause/options menus use a complete panel selected from the active frontend
+package list, retaining both lower corners; the HUD split returns during driving.
+The Windows build and geometry tests pass; PCVR visual behavior needs a separate
+headset test. The user accepted the native final instrument/mirror layout.
+
+The shared OpenXR code also forwards the game's vibration strengths to both
+Touch controllers through VDXR, using the same bounded pulses and focus handling
+as the Quest build. Enable **Vibration** in the game; `RECOMP_RUMBLE=0` disables
+XR output. See [Touch vibration details](../android/README.md#touch-vibration).
+The Windows haptic timing tests pass; physical PCVR feedback remains untested.
 
 ### First launch: import your Xbox ISO
 

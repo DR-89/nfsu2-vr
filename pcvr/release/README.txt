@@ -33,8 +33,30 @@ Bundled: port EXE, SDL2, OpenXR loader, Microsoft Visual C++ runtime DLLs,
 development preset, launcher and dependency license notices. The original
 Xbox executable, disc images, game assets and saves are NOT included.
 
-Controls: Touch face buttons map to Xbox face buttons; left menu = Start;
-right stick navigates menus; both stick clicks recenter; grips = White/Black.
+Controls (Touch controllers):
+- Left menu button: pause/Start. Right stick navigates menus.
+- Left stick click: cycle cameras, including Cockpit View.
+- Right stick click: hold rear view outside the cockpit; disabled inside it.
+- Both stick clicks: recenter the view and release wheel grips.
+- A: nitro while driving. B: handbrake while driving.
+- Right stick up/down: shift up/down with Manual transmission; return it to
+  center between shifts. Menu confirm/back retain their normal mapping.
+- Grip near any rim point: one- or two-hand motion steering in the cockpit,
+  including crossed hands. The wheel has 360 degrees total travel (+/-180).
+- Releasing both grips retains steering. Move the left stick at least 25%
+  sideways to resume ordinary stick steering. A held glove stays attached to
+  its initial rim point; release/regrip to choose another point.
+- Controller vibration follows the game's rumble; enable Vibration in-game.
+
+The shared anthracite/blue Tripo cabin includes doors, front seats, rear bench,
+floor, dashboard and animated wheel. Its extra headliner/window pillars were
+removed to fit the original car body and hood. Three original mirror surfaces
+use sectors of one live rear camera. The speed display sits behind the wheel,
+with the map lower left; the pause menu is displayed as one complete panel.
+Keep the entire bundled cockpits/ folder, including the racing gloves.
+These recent cockpit/control changes were accepted on native Quest. The PCVR
+build shares the implementation but has not had a fresh headset acceptance
+test for this release. Vehicle-by-vehicle cabin fitting is still incomplete.
 
 If startup fails, read logs/stderr.log. Logs from the previous launch are
 replaced. Performance and streaming quality depend on your PC and connection.

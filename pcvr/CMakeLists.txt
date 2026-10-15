@@ -68,6 +68,11 @@ add_executable(pcvr_vertex_layout_test "${NFSU2_ROOT}/tests/quest_multiview_test
 target_compile_definitions(pcvr_vertex_layout_test PRIVATE NFSU2_VERTEX_LAYOUT_TEST=1)
 target_link_libraries(pcvr_vertex_layout_test PRIVATE Vulkan::Vulkan)
 add_executable(pcvr_culling_test "${NFSU2_ROOT}/tests/quest_culling_test.c")
+add_executable(pcvr_cockpit_test "${NFSU2_ROOT}/tests/quest_cockpit_test.c")
+add_executable(pcvr_wheel_grip_test "${NFSU2_ROOT}/tests/quest_wheel_grip_test.c")
+add_executable(pcvr_haptics_test "${NFSU2_ROOT}/tests/quest_haptics_test.c")
+add_executable(pcvr_projection_test "${NFSU2_ROOT}/tests/quest_projection_test.c")
+target_include_directories(pcvr_projection_test PRIVATE "${NFSU2_ROOT}/android/runtime")
 add_executable(pcvr_shader_test "${NFSU2_ROOT}/tests/quest_shader_test.c"
     "${NFSU2_ROOT}/xboxrecomp/src/nv2a_gl/gl_vsh.c"
     "${NFSU2_ROOT}/xboxrecomp/src/nv2a_gl/gl_psh.c")
@@ -92,6 +97,10 @@ file(GLOB pcvr_generated "${NFSU2_GEN_DIR}/*.c")
 set_source_files_properties(${pcvr_generated} DIRECTORY "${NFSU2_ROOT}" PROPERTIES COMPILE_OPTIONS "/O1;/w")
 set_source_files_properties("${NFSU2_ROOT}/src/recomp_manual.c" DIRECTORY "${NFSU2_ROOT}" PROPERTIES COMPILE_OPTIONS "/fp:strict")
 add_custom_target(pcvr_bundle
+    COMMAND ${CMAKE_COMMAND} -E copy_directory "${NFSU2_ROOT}/assets/cockpits/runtime/cockpits" "$<TARGET_FILE_DIR:nfsu2_recomp>/cockpits"
     COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:SDL2>" "$<TARGET_FILE_DIR:nfsu2_recomp>"
     COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:openxr_loader>" "$<TARGET_FILE_DIR:nfsu2_recomp>"
-    DEPENDS nfsu2_recomp pcvr_game_data_test pcvr_multiview_test pcvr_vertex_layout_test pcvr_culling_test pcvr_shader_test pcvr_fence_test pcvr_surface_lookup_test pcvr_bulk_shadow_test pcvr_indices_test pcvr_index_packets_test pcvr_texture_decode_test pcvr_dispatch_wait_test pcvr_pb_boundary_test pcvr_threads)
+    DEPENDS nfsu2_recomp pcvr_cockpit_test pcvr_game_data_test pcvr_multiview_test pcvr_vertex_layout_test pcvr_culling_test pcvr_shader_test pcvr_fence_test pcvr_surface_lookup_test pcvr_bulk_shadow_test pcvr_indices_test pcvr_index_packets_test pcvr_texture_decode_test pcvr_dispatch_wait_test pcvr_pb_boundary_test pcvr_threads)
+add_dependencies(pcvr_bundle pcvr_haptics_test)
+add_dependencies(pcvr_bundle pcvr_wheel_grip_test)
+add_dependencies(pcvr_bundle pcvr_projection_test)

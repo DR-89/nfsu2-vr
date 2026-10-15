@@ -560,6 +560,7 @@ typedef struct {
     uint32_t aa_sx, aa_sy;
     int dirty;                 /* written since the last barrier */
     uint32_t gen;              /* bumped by every draw and clear into it */
+    uint32_t draw_frame;       /* real draw freshness for the cockpit mirror */
 } VkSurf;
 #ifdef NFSU2_OPENXR
 static VkSurf s_feedback_spare;
@@ -1044,6 +1045,9 @@ static VkSurf *surf_get(uint32_t va, uint32_t w, uint32_t h, uint32_t aa_sx, uin
         }
     }
     if(xr_stereo()) {
+        if(w==256 && h==64 && aa_sx==1 && aa_sy==1) {
+            s->pw=512; s->ph=128;
+        }
         static double eye_scale=-1;
         if(eye_scale<0) {
             const char *e=getenv("NFSU2_VR_RESOLUTION");
@@ -2556,7 +2560,7 @@ static int program_has_tracked_mvp(const VkProg *p,const Nv2aRawBatch *b)
 typedef struct {
     int      prog;
     uint32_t blend, bsrc, bdst, beq, cmask, depth, topo;
-    uint32_t fragment_flags; /* bits 0/1: FS checks; bit 2: instanced VS; bit 3: two views */
+    uint32_t fragment_flags; /* bits 0/1: FS checks; bit 2: instances; bit 3: two views; bit 4: cockpit near clipping */
 } PipeKey;
 
 static int fragment_specialization(void)
@@ -2738,13 +2742,20 @@ static VkPipeline pipe_get(const PipeKey *k)
     vp.scissorCount = 1;
     rs.polygonMode = VK_POLYGON_MODE_FILL;
     rs.lineWidth = 1.0f;
-    rs.depthClampEnable = s_have_depth_clamp ? VK_TRUE : VK_FALSE;
+    rs.depthClampEnable = s_have_depth_clamp && !(k->fragment_flags & 16) ? VK_TRUE : VK_FALSE;
     ms.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
     memset(&ba, 0, sizeof ba);
     ba.blendEnable = k->blend ? VK_TRUE : VK_FALSE;
     ba.srcColorBlendFactor = ba.srcAlphaBlendFactor = blend_factor(k->bsrc);
     ba.dstColorBlendFactor = ba.dstAlphaBlendFactor = blend_factor(k->bdst);
     ba.colorBlendOp = ba.alphaBlendOp = blend_op(k->beq);
+    /* A transparent cockpit HUD accumulates coverage independently of RGB.
+     * Ordinary guest render targets retain the original blend equation. */
+    if(k->fragment_flags & 32) {
+        ba.srcAlphaBlendFactor=VK_BLEND_FACTOR_ONE;
+        ba.dstAlphaBlendFactor=VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+        ba.alphaBlendOp=VK_BLEND_OP_ADD;
+    }
     ba.colorWriteMask = k->cmask;
     cb.attachmentCount = 1;
     cb.pAttachments = &ba;
@@ -2897,6 +2908,7 @@ static void prewarm(void)
             k.fragment_flags = fragment_specialization() ? pr.pad & 3u : 0;
             if(shared_instances()) k.fragment_flags |= pr.pad & 4u;
             if(s_multiview) k.fragment_flags |= pr.pad & 8u;
+            k.fragment_flags |= pr.pad & (16u|32u);
             if (pipe_get(&k))
                 npipe++;
         }
@@ -2968,6 +2980,10 @@ static int create_swapchain(void)
             s_sc_extent.width, s_sc_extent.height, s_sc_count, s_sc_format, mode);
     return 1;
 }
+
+#ifdef NFSU2_OPENXR
+#include "quest_cockpit_vk.inc"
+#endif
 
 static int ready(void)
 {
@@ -3408,7 +3424,7 @@ static int ready(void)
             s_have_depth_clamp ? "yes" : "no", (unsigned)s_ubo_align);
     prewarm();
 #ifdef NFSU2_OPENXR
-    if (quest_xr_enabled()) quest_xr_begin();
+    if (quest_xr_enabled()) { cockpit_initialize(); quest_xr_begin(); }
 #endif
     return 1;
 }
@@ -4025,7 +4041,7 @@ typedef struct {
 } VsBlock;
 
 #ifdef NFSU2_OPENXR
-static FILE *s_xr_trace;
+static FILE *s_xr_trace, *s_xr_trace_geometry;
 static unsigned s_xr_trace_draw, s_xr_trace_step, s_xr_trace_shots, s_xr_trace_start;
 static void dump_surface(VkSurf *s, const char *path);
 static void dump_surface_layer(VkSurf *s, const char *path, uint32_t layer);
@@ -4057,6 +4073,7 @@ static void xr_trace_flip(VkSurf *s)
     if(!enabled) return;
     if(s_xr_trace) {
         fclose(s_xr_trace); s_xr_trace=NULL;
+        if(s_xr_trace_geometry) { fclose(s_xr_trace_geometry); s_xr_trace_geometry=NULL; }
         if(s) dump_surface(s,"frames/xr-trace-final.bmp");
         if(s_last_eye[1]) dump_surface_layer(s_last_eye[1],"frames/xr-trace-right.bmp",s_multiview?1:0);
         LOGE("XR draw trace complete: %u main draws\n",s_xr_trace_draw);
@@ -4071,6 +4088,7 @@ static void xr_trace_flip(VkSurf *s)
     fclose(request);
     remove("frames/xr-trace.request");
     s_xr_trace=fopen("frames/xr-draws.csv","w");
+    if(s_cockpit_frame) s_xr_trace_geometry=fopen("frames/xr-near-geometry.bin","wb");
     s_xr_trace_draw=s_xr_trace_shots=0; s_xr_trace_step=stride; s_xr_trace_start=start;
     if(s_xr_trace) fprintf(s_xr_trace,"draw,target,w,h,program,vr,verts,depth,write,blend,src,dst,ps,tex0,tex1,tex2,tex3,rt0,rt1,rt2,rt3,c99x,c99y,c99z,c99w,cmask,full,zeta,depthfunc,stencil,cull,polyoffset,offsetscale,offsetbias,scx,scy,scw,sch,scale_x,scale_y,mvp00,mvp01,mvp02,mvp03,mvp10,mvp11,mvp12,mvp13,mvp20,mvp21,mvp22,mvp23,mvp30,mvp31,mvp32,mvp33,pr00,pr01,pr02,pr03,pr10,pr11,pr12,pr13,pr20,pr21,pr22,pr23,viewport_x,viewport_y,viewport_z,viewport_w\n");
 }
@@ -4699,7 +4717,7 @@ static void vk_draw_raw_eye(const Nv2aRawBatch *b)
     uint32_t inst_room = 0;
     void *map;
 #ifdef NFSU2_OPENXR
-    int feedback_swapped=0;
+    int feedback_swapped=0, cockpit_hud=0;
 #endif
 
     if (!ready())
@@ -4765,6 +4783,13 @@ static void vk_draw_raw_eye(const Nv2aRawBatch *b)
     for (i = 0; i < 4; i++)
         bind_stage(r, (int)i, tscale[i], &img[i], &sampled[i]);
 #ifdef NFSU2_OPENXR
+    /* The cockpit has its own physical mirror. Omit only the matching retail
+     * screen-space display quad; retain the independent rear-camera passes. */
+    if(s_cockpit_frame && s_cockpit.mirror_pipeline[s_multiview!=0] &&
+       s->w==640 && s->h==480 && sampled[0] &&
+       sampled[0]->w==256 && sampled[0]->h==64 &&
+       !r[0x30c/4] && b->vertex_count==4 && r[0x1e70/4]==1 &&
+       !sampled[1] && !sampled[2] && !sampled[3]) return;
     {
         for(i=0;i<4;++i) {
             uint32_t mode=(pk.shader_program>>(5*i))&31;
@@ -4797,6 +4822,19 @@ static void vk_draw_raw_eye(const Nv2aRawBatch *b)
             break;
         }
 
+#ifdef NFSU2_OPENXR
+    if(s_cockpit_frame && s_cockpit.ready && s_cockpit.hud_pipeline[s_multiview!=0] &&
+       xr_stereo() && quest_xr_tracking() && s_stereo_frame && s->va==s_world_color_va &&
+       !r[0x30c/4] && !r[0x32c/4] && !xr_fullscreen_quad(b) &&
+       (b->xform==0 || (b->xform==2 && (b->vp_start==0 ||
+        (b->vp_const_count>=100 && program_has_tracked_mvp(p,b) &&
+         fabsf(b->vp_consts[99][0])+fabsf(b->vp_consts[99][1])+fabsf(b->vp_consts[99][2])<1e-6f)))) &&
+       b->tex_va[0] && s->aa_sx==1 && s->w==640 && s->h==480 &&
+       !sampled[0] && !sampled[1] && !sampled[2] && !sampled[3]) {
+        if(s_eye) return; /* same 2D HUD for both eyes; never blend it twice */
+        cockpit_hud=1;s=&s_cockpit.hud;d=NULL;
+    }
+#endif
     memset(&key, 0, sizeof key);
     key.prog = (int)(p - s_prog);
     if (r[0x304 / 4]) {
@@ -4810,6 +4848,9 @@ static void vk_draw_raw_eye(const Nv2aRawBatch *b)
         if (cm & 0x01000000u) m |= VK_COLOR_COMPONENT_A_BIT;
         key.cmask = m;
     }
+#ifdef NFSU2_OPENXR
+    if(cockpit_hud) { key.fragment_flags|=32;key.cmask|=VK_COLOR_COMPONENT_A_BIT; }
+#endif
     key.depth = d != NULL;
     key.topo = cls;
     {
@@ -4830,9 +4871,24 @@ static void vk_draw_raw_eye(const Nv2aRawBatch *b)
             s_f->ring_off = 0;
         }
     }
+#ifdef NFSU2_OPENXR
+    if(cockpit_hud && (!s->gen || s->draw_frame!=s_frame)) {
+        /* Snapshot once with this UI image, not separately for each eye or
+         * at composition time when guest pause state may have changed. */
+        s_cockpit.hud_split=!quest_xr_cockpit_menu_active();
+        static int previous_split=-1;
+        if(previous_split!=s_cockpit.hud_split) {
+            LOGE("Cockpit UI: %s\n",s_cockpit.hud_split?"driving instrument panels":"complete menu plane");
+            previous_split=s_cockpit.hud_split;
+        }
+        VkClearAttachment clear={0};clear.aspectMask=VK_IMAGE_ASPECT_COLOR_BIT;
+        end_rendering();begin_rendering_clear(s,NULL,&clear,1);
+    } else
+#endif
     begin_rendering(s, d);
     s->dirty = 1;
     s->gen++;
+    s->draw_frame=s_frame;
     apply_dynamic(r, d != NULL, topo);
     set_surface_scissor(r, s);
 
@@ -4884,10 +4940,11 @@ static void vk_draw_raw_eye(const Nv2aRawBatch *b)
             program_has_tracked_mvp(p,b) &&
             ((b->vp_const_count>=116 && quest_projection_constants(&b->vp_consts[113][0],vb->vr_params)) ||
              quest_projection_scales(&b->vp_consts[96][0], vb->vr_params))) {
-            quest_xr_matrix(s_eye, vb->vr_matrix);
+            if(!s_stereo_frame) s_cockpit_frame=quest_xr_cockpit_active();
+            quest_xr_matrix(s_eye,s_cockpit_frame,vb->vr_matrix);
             vb->vr_params[2] = 1;
             if(b->vp_const_count>=116)
-                quest_projection_depth(&b->vp_consts[113][0],quest_xr_depth_coefficient(),vb->vr_depth);
+                quest_projection_depth(&b->vp_consts[113][0],quest_xr_depth_coefficient(s_cockpit_frame),vb->vr_depth);
             if (s->w == 640) {
                 s_stereo_frame = 1;
                 if(r[0x30c/4] && r[0x35c/4]) s_world_color_va=s->va;
@@ -4924,7 +4981,7 @@ static void vk_draw_raw_eye(const Nv2aRawBatch *b)
                  (!sampled[0] || (sampled[0]->w==256 && sampled[0]->h==64 &&
                     !r[0x30c/4] && b->vertex_count==4 && r[0x1e70/4]==1)) &&
                  !sampled[1] && !sampled[2] && !sampled[3]) {
-            quest_xr_matrix(s_eye,vb->vr_matrix);
+            quest_xr_matrix(s_eye,s_cockpit_frame,vb->vr_matrix);
             /* CPU-transformed depth-tested particles/shadows still carry
              * perspective w. They need the same eye transform as the meshes. */
             if(r[0x30C/4] && s_game_projection[0]>0 && (b->xform==0 || b->vp_start==0)) {
@@ -4949,7 +5006,48 @@ static void vk_draw_raw_eye(const Nv2aRawBatch *b)
                 vkCmdSetScissor(s_cb,0,1,&sc); s_sc_cur=sc;
             }
         }
-        if(s_multiview && vb->vr_params[2]>0) quest_xr_matrix(1,vb->vr_matrix_right);
+        if(s_multiview && vb->vr_params[2]>0) quest_xr_matrix(1,s_cockpit_frame,vb->vr_matrix_right);
+        if(s_cockpit_frame && vb->vr_params[2]>1.5f) {
+            quest_cockpit_hud(vb->vr_matrix);
+            if(s_multiview) quest_cockpit_hud(vb->vr_matrix_right);
+        }
+        /* From inside the retail shell, clamping surfaces behind the near
+         * plane can smear opaque backfaces across the view as the head tilts.
+         * Clip those in cockpit 3D only; flat UI retains NV2A depth clamping. */
+        if(s_cockpit_frame && vb->vr_params[2]==1.0f) {
+            static int near_clip=-1;
+            if(near_clip<0) {
+                const char *e=getenv("NFSU2_VR_COCKPIT_CLIP");
+                near_clip=!(e && *e=='0');
+                LOGE("Cockpit world near clipping %s (%.0f cm)\n",near_clip?"on":"off",QUEST_COCKPIT_WORLD_NEAR_M*100);
+            }
+            if(near_clip) key.fragment_flags|=16;
+        }
+        if(!s_eye && s_cockpit_frame && vb->vr_params[2]==1 && r[0x30c/4] && r[0x35c/4] &&
+           b->vertex_count<=512 && (b->attr_present&1) && topo==VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST &&
+           quest_cockpit_own_car(&b->vp_consts[96][0],vb->vr_params[0],vb->vr_params[1],quest_cockpit_seat)) {
+            if(s_cockpit.mirror_frame!=s_frame) {
+                s_cockpit.mirror_frame=s_frame;memset(s_cockpit.mirror_count,0,sizeof s_cockpit.mirror_count);
+            }
+            float seated[512][3];
+            for(uint32_t v=0;v<b->vertex_count;++v) {
+                float pos[4],clip[4]={0};
+                if(b->attr_direct&1)attr_to_float4(b,0,v,pos);else memcpy(pos,b->attrs+(size_t)v*64,16);
+                for(int a=0;a<4;++a)for(int c=0;c<4;++c)clip[a]+=b->vp_consts[96+a][c]*pos[c];
+                seated[v][0]=clip[0]/vb->vr_params[0];seated[v][1]=clip[1]/vb->vr_params[1];seated[v][2]=-clip[3];
+            }
+            const float center[3]={b->vp_consts[96][3]/vb->vr_params[0],
+                b->vp_consts[97][3]/vb->vr_params[1],-b->vp_consts[99][3]};
+            for(int part=0;part<3;++part) if(!s_cockpit.mirror_count[part]) {
+                unsigned count=quest_cockpit_mirror_mesh(s_cockpit.mirror_vertices[part],192,
+                    seated,b->vertex_count,idx,n,center,part);
+                s_cockpit.mirror_count[part]=count;
+                static unsigned reported;
+                if(count && !(reported&(1u<<part))) {
+                    reported|=1u<<part;LOGE("Cockpit original mirror glass %d: %u triangles\n",part,count/3);
+                }
+            }
+        }
         xr_set_shading_rate(vb->vr_params[2]==1.0f);
         if(!s_eye && s->aa_sx==1 && s->w==640 && s->h==480)
             ++s_xr_kind[vb->vr_params[2]>0 ? (vb->vr_params[2]>1 ? 4:3) : b->xform<3 ? b->xform:0];
@@ -4968,6 +5066,34 @@ static void vk_draw_raw_eye(const Nv2aRawBatch *b)
             for(int row=113;row<116;++row) for(int c=0;c<4;++c) fprintf(s_xr_trace,",%.9g",b->vp_consts[row][c]);
             for(int c=0;c<4;++c) fprintf(s_xr_trace,",%.9g",b->vp_consts[160][c]);
             fputc('\n',s_xr_trace);
+            /* One requested diagnostic frame only. Nearby retail triangles
+             * locate the actual car's mirror glass without guessing a fixed
+             * mirror position for every different body model. */
+            if(s_xr_trace_geometry && vb->vr_params[2]==1.0f && s->w==640 &&
+               s->h==480 && b->vertex_count<=20000 && n<=120000 &&
+               (b->attr_present&1) && topo==VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST) {
+                float *positions=malloc((size_t)b->vertex_count*16);
+                int nearby=0;
+                if(positions) {
+                    for(uint32_t v=0;v<b->vertex_count;++v) {
+                        float *pos=positions+v*4;
+                        if(b->attr_direct&1) attr_to_float4(b,0,v,pos);
+                        else memcpy(pos,b->attrs+(size_t)v*64,16);
+                        float clip[4]={0};
+                        for(int a=0;a<4;++a) for(int c=0;c<4;++c)
+                            clip[a]+=b->vp_consts[96+a][c]*pos[c];
+                        if(fabsf(clip[0]/vb->vr_params[0])<2 &&
+                           fabsf(clip[1]/vb->vr_params[1])<2 && fabsf(clip[3])<3) nearby=1;
+                    }
+                    if(nearby) {
+                        uint32_t header[3]={s_xr_trace_draw,b->vertex_count,n};
+                        fwrite(header,sizeof header,1,s_xr_trace_geometry);
+                        fwrite(positions,16,b->vertex_count,s_xr_trace_geometry);
+                        fwrite(idx,4,n,s_xr_trace_geometry);
+                    }
+                    free(positions);
+                }
+            }
         }
 #endif
         ub[0].buffer = s_f->ring;
@@ -5697,6 +5823,23 @@ static void vk_flip(void)
     s_rt = NULL;
     s_rt_depth = NULL;
 #ifdef NFSU2_OPENXR
+    /* The opt-in, single-frame capture separates retail geometry/effects
+     * from the added interior when investigating an obscured cockpit view. */
+    if(s_xr_trace && s_stereo_frame && s) {
+        dump_surface(s,"frames/xr-trace-world.bmp");
+        VkSurf *mirror=cockpit_mirror_surface();
+        if(mirror) dump_surface(mirror,"frames/xr-trace-mirror.bmp");
+        if(s_cockpit.hud.gen && s_cockpit.hud.draw_frame+1==s_frame)
+            dump_surface(&s_cockpit.hud,"frames/xr-trace-hud.bmp");
+        if(s_last_eye[1]) dump_surface_layer(s_last_eye[1],
+            "frames/xr-trace-world-right.bmp",s_multiview?1:0);
+        LOGE("XR cockpit trace: frame=%u selected=%d active=%d tracked=%d\n",
+             s_frame,quest_xr_cockpit_requested(),s_cockpit_frame,quest_xr_tracking());
+    }
+    if(s_stereo_frame && s_cockpit_frame && quest_xr_tracking()) {
+        cockpit_draw(s,0);
+        if(!s_multiview && s_last_eye[1] && s_last_eye[1]!=s) cockpit_draw(s_last_eye[1],1);
+    }
     xr_trace_flip(s);
 #endif
     if (s && s_drew_any && dump_every && ((s_frame % (uint32_t)dump_every) == 0
@@ -5943,7 +6086,7 @@ static void vk_flip(void)
 #if !defined(__SWITCH__)
     if (s_win) {
         SDL_Event e;
-        while (SDL_PollEvent(&e)) { }
+        while (SDL_PollEvent(&e)) {}
     }
 #endif
 }

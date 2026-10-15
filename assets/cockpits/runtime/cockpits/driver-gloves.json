@@ -1,0 +1,38 @@
+{
+  "source_task": "5e8ee832-072e-42f9-8edf-a4566c71d52b",
+  "source_sha256": "328a80ac05cca2d5889a7e24d777498891ce5e512128d68d6422670aa09727f6",
+  "sha256": "0250c9503c8876d04957fc4ac6ed8407c8b8f700144269382ab17b950424dce0",
+  "triangles_per_hand": 5980,
+  "texture": [
+    1024,
+    1024
+  ],
+  "canonical_axes": "right glove, +Y fingertips, +Z back, thumb -X",
+  "pose_bounds_m": [
+    [
+      [
+        -0.09802003581523897,
+        -0.07698363494873046,
+        -0.02880025910139084
+      ],
+      [
+        0.0827037493467331,
+        0.14288132059574127,
+        0.019690276962518693
+      ]
+    ],
+    [
+      [
+        -0.05417149231623706,
+        -0.07698363494873046,
+        -0.07971475326312372
+      ],
+      [
+        0.0827037493467331,
+        0.0848061296297759,
+        0.019690276962518693
+      ]
+    ]
+  ],
+  "preparation": "Source geometry/texture retained; metric fit, thumb rotation and continuous finger curl baked offline."
+}

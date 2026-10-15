@@ -13,9 +13,22 @@
 #include "xinput_xbox.h"
 #include <stdlib.h>
 #include <string.h>
-#if defined(NFSU2_OPENXR) && defined(_WIN32)
+#if defined(NFSU2_OPENXR)
 #include "quest_xr.h"
 #endif
+
+/* Observe the final state delivered to player one (Touch, pad or keyboard),
+ * after backend selection/merging. This never changes the game's controls. */
+static DWORD input_success(DWORD port,const XBOX_INPUT_STATE *state)
+{
+#ifdef NFSU2_OPENXR
+    if(port==0 && quest_xr_enabled())
+        quest_xr_cockpit_steering_input(state->Gamepad.sThumbLX);
+#else
+    (void)port; (void)state;
+#endif
+    return ERROR_SUCCESS;
+}
 
 /* ======================================================================== */
 #if defined(_WIN32)
@@ -156,7 +169,7 @@ DWORD xbox_InputGetState(DWORD dwPort, XBOX_INPUT_STATE *pState)
             pState->Gamepad.sThumbLX=sticks[0]; pState->Gamepad.sThumbLY=sticks[1];
             pState->Gamepad.sThumbRX=sticks[2]; pState->Gamepad.sThumbRY=sticks[3];
             g_controller_connected[0]=TRUE;
-            return ERROR_SUCCESS;
+            return input_success(dwPort,pState);
         }
     }
 #endif
@@ -165,7 +178,7 @@ DWORD xbox_InputGetState(DWORD dwPort, XBOX_INPUT_STATE *pState)
         g_controller_connected[dwPort] = FALSE;
         if (dwPort == 0 && keyboard_enabled()) {
             keyboard_state(pState);
-            return ERROR_SUCCESS;
+            return input_success(dwPort,pState);
         }
         return result;
     }
@@ -226,7 +239,7 @@ DWORD xbox_InputGetState(DWORD dwPort, XBOX_INPUT_STATE *pState)
         pState->dwPacketNumber = kb.dwPacketNumber;
     }
 
-    return ERROR_SUCCESS;
+    return input_success(dwPort,pState);
 }
 
 DWORD xbox_InputSetState(DWORD dwPort, const XBOX_VIBRATION *pVibration)
@@ -235,6 +248,13 @@ DWORD xbox_InputSetState(DWORD dwPort, const XBOX_VIBRATION *pVibration)
 
     if (dwPort >= XBOX_MAX_CONTROLLERS || !pVibration)
         return ERROR_DEVICE_NOT_CONNECTED;
+
+#ifdef NFSU2_OPENXR
+    if(dwPort==0 && quest_xr_enabled()) {
+        quest_xr_haptic_input(pVibration->wLeftMotorSpeed,pVibration->wRightMotorSpeed);
+        return ERROR_SUCCESS;
+    }
+#endif
 
     xi_vib.wLeftMotorSpeed = pVibration->wLeftMotorSpeed;
     xi_vib.wRightMotorSpeed = pVibration->wRightMotorSpeed;
@@ -332,7 +352,7 @@ DWORD xbox_InputGetState(DWORD dwPort, XBOX_INPUT_STATE *pState)
         pState->Gamepad.sThumbLY = th[1];
         pState->Gamepad.sThumbRX = th[2];
         pState->Gamepad.sThumbRY = th[3];
-        return ERROR_SUCCESS;
+        return input_success(dwPort,pState);
     }
 #endif
 
@@ -347,7 +367,7 @@ DWORD xbox_InputGetState(DWORD dwPort, XBOX_INPUT_STATE *pState)
             pState->Gamepad.sThumbLX = sticks[0]; pState->Gamepad.sThumbLY = sticks[1];
             pState->Gamepad.sThumbRX = sticks[2]; pState->Gamepad.sThumbRY = sticks[3];
             g_controller_connected[dwPort] = TRUE;
-            return ERROR_SUCCESS;
+            return input_success(dwPort,pState);
         }
     }
 #endif
@@ -402,7 +422,7 @@ DWORD xbox_InputGetState(DWORD dwPort, XBOX_INPUT_STATE *pState)
     pState->Gamepad.sThumbRY =
         (SHORT)(-1 - SDL_GameControllerGetAxis(c, SDL_CONTROLLER_AXIS_RIGHTY));
 
-    return ERROR_SUCCESS;
+    return input_success(dwPort,pState);
 }
 
 DWORD xbox_InputSetState(DWORD dwPort, const XBOX_VIBRATION *pVibration)
@@ -416,6 +436,12 @@ DWORD xbox_InputSetState(DWORD dwPort, const XBOX_VIBRATION *pVibration)
                        pVibration->wRightMotorSpeed);
     return ERROR_SUCCESS;
 #else
+#ifdef NFSU2_OPENXR
+    if(dwPort==0 && quest_xr_enabled()) {
+        quest_xr_haptic_input(pVibration->wLeftMotorSpeed,pVibration->wRightMotorSpeed);
+        return ERROR_SUCCESS;
+    }
+#endif
     SDL_GameController *c = g_pads[dwPort];
     if (!c) return ERROR_DEVICE_NOT_CONNECTED;
 

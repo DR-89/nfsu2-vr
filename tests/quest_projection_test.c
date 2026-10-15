@@ -7,6 +7,29 @@ static int failed;
 
 int main(void)
 {
+    /* Near roof/window geometry must survive in cockpit while geometry
+     * behind the eye and inside the short near plane remains clipped. */
+    float outside[16]={0}, seated[16]={0};
+    quest_projection_set_depth(outside,.5f,QUEST_WORLD_FAR);
+    quest_projection_set_depth(seated,QUEST_COCKPIT_WORLD_NEAR_M,QUEST_WORLD_FAR);
+    REQUIRE(outside[10]*-.25f+outside[14]<0);
+    REQUIRE(seated[10]*-.25f+seated[14]>0);
+    REQUIRE(seated[10]*.1f+seated[14]<0); /* behind the eye */
+    for(int pitch=-65;pitch<=65;++pitch) {
+        double a=pitch*3.141592653589793/180;
+        double distance=.25*cos(a)+.20*sin(a);
+        double clip_z=-seated[10]*distance+seated[14];
+        REQUIRE((clip_z>=0)==(distance>=QUEST_COCKPIT_WORLD_NEAR_M));
+    }
+    double last_depth=-1;
+    for(double distance=QUEST_COCKPIT_WORLD_NEAR_M;distance<=QUEST_WORLD_FAR;distance*=1.4) {
+        double z=(-seated[10]*distance+seated[14])/distance;
+        REQUIRE(z>=last_depth && z>=-1e-6 && z<=1.000001);
+        last_depth=z;
+    }
+    REQUIRE(fabsf((-seated[10]*QUEST_COCKPIT_WORLD_NEAR_M+seated[14])/
+                  QUEST_COCKPIT_WORLD_NEAR_M)<1e-6f);
+    REQUIRE(fabsf(-seated[10]+seated[14]/QUEST_WORLD_FAR-1)<1e-6f);
     float scale[2], m[16]={0};
     float projection[12]={2,0,0,0, 0,-3,0,0, 0,0,1.0001f,-0.5f};
     REQUIRE(quest_projection_constants(projection,scale));
@@ -24,6 +47,19 @@ int main(void)
     }
     REQUIRE(quest_projection_depth(projection,-0.05f,depth));
     REQUIRE(fabsf(depth[2]-0.1f)<1e-6f);
+    /* Decals/particles must use the same depth mapping as nearby car meshes
+     * for both projections, including signed guest-only depth offsets. */
+    for(int cockpit=0;cockpit<2;++cockpit) {
+        const float *p=cockpit?seated:outside;
+        REQUIRE(quest_projection_depth(projection,p[14],depth));
+        for(int sign=-1;sign<=1;++sign) {
+            double distance=5, offset=sign*.0005;
+            double guest=depth[0]*distance+depth[1]+offset;
+            double corrected=-p[10]*distance+p[14]+(guest-(depth[0]*distance+depth[1]))*depth[2];
+            double expected=-p[10]*distance+p[14]+offset*p[14]/projection[11];
+            REQUIRE(fabs(corrected-expected)<1e-8);
+        }
+    }
     REQUIRE(!quest_projection_depth(projection,NAN,depth));
     REQUIRE(!quest_projection_depth(projection,0.5f,depth));
     projection[2]=1; REQUIRE(!quest_projection_constants(projection,scale));

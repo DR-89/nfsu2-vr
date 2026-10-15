@@ -19,6 +19,11 @@
 #include "quest_xr.h"
 #include "quest_culling.h"
 #include "quest_frame_timing.h"
+#include "quest_cockpit.h"
+#include "quest_driving_input.h"
+#include "quest_haptics.h"
+#include "quest_projection.h"
+#include "quest_wheel_grip.h"
 
 static XrInstance instance;
 static XrSystemId system_id;
@@ -36,6 +41,8 @@ static VkDevice device;
 static XrView views[2];
 static XrPosef origin;
 static float matrices[2][16];
+static float cockpit_world_matrices[2][16];
+static float cockpit_matrices[2][16];
 static pthread_mutex_t culling_lock = PTHREAD_MUTEX_INITIALIZER;
 static float culling_planes[6][4];
 static int culling_valid;
@@ -62,10 +69,141 @@ static uint32_t game_tid;
 static XrActionSet actions;
 enum { A, B, X, Y, MENU, LCLICK, RCLICK, LTRIGGER, RTRIGGER, LGRIP, RGRIP, LSTICK, RSTICK, ACTION_COUNT };
 static XrAction action[ACTION_COUNT];
+static XrAction haptic_action[2];
+static XrAction hand_action[2];
+static XrSpace hand_space[2];
+static QuestWheelGrip wheel_grip;
+static int wheel_configured, hand_valid[2], frame_focused;
+static float hand_matrix[2][16], frame_squeeze[2];
+static uint16_t frame_buttons;
+static uint8_t frame_analog[8];
+static int16_t frame_sticks[4];
+static QuestHaptics haptics;
+static float haptic_sent;
+static uint32_t haptic_sent_tick;
+static int haptics_enabled=1;
 static pthread_mutex_t input_lock = PTHREAD_MUTEX_INITIALIZER;
 static uint16_t input_buttons;
 static uint8_t input_analog[8];
 static int16_t input_sticks[4];
+static int cockpit_ready, cockpit_requested, cockpit_available, cockpit_active;
+static int driving_active;
+static int cockpit_menu=1;
+static uint32_t driving_tick;
+static uint32_t cockpit_tick;
+static int16_t cockpit_steering;
+static uint32_t cockpit_steering_tick;
+
+void quest_xr_haptic_input(uint16_t low, uint16_t high)
+{
+    pthread_mutex_lock(&input_lock);
+    quest_haptics_report(&haptics,SDL_GetTicks(),low,high);
+    pthread_mutex_unlock(&input_lock);
+}
+
+void quest_xr_cockpit_steering_input(int16_t steering)
+{
+    pthread_mutex_lock(&input_lock);
+    cockpit_steering=steering; cockpit_steering_tick=SDL_GetTicks();
+    pthread_mutex_unlock(&input_lock);
+}
+float quest_xr_cockpit_steering(void)
+{
+    pthread_mutex_lock(&input_lock);
+    int v=(uint32_t)(SDL_GetTicks()-cockpit_steering_tick)<500?cockpit_steering:0;
+    pthread_mutex_unlock(&input_lock);
+    return v/(v<0?32768.0f:32767.0f);
+}
+
+void quest_xr_cockpit_ready(int ready)
+{
+    pthread_mutex_lock(&input_lock);
+    cockpit_ready=ready;
+    pthread_mutex_unlock(&input_lock);
+}
+int quest_xr_cockpit_requested(void)
+{
+    pthread_mutex_lock(&input_lock);
+    int result=cockpit_ready && cockpit_requested;
+    pthread_mutex_unlock(&input_lock);
+    return result;
+}
+void quest_xr_cockpit_publish(int available, int active)
+{
+    pthread_mutex_lock(&input_lock);
+    cockpit_available=available; cockpit_active=active; cockpit_tick=SDL_GetTicks();
+    pthread_mutex_unlock(&input_lock);
+}
+void quest_xr_driving_publish(int driving)
+{
+    pthread_mutex_lock(&input_lock);
+    driving_active=driving;driving_tick=SDL_GetTicks();
+    pthread_mutex_unlock(&input_lock);
+}
+void quest_xr_cockpit_menu_publish(int menu)
+{
+    pthread_mutex_lock(&input_lock);
+    cockpit_menu=menu;
+    pthread_mutex_unlock(&input_lock);
+}
+int quest_xr_cockpit_menu_active(void)
+{
+    pthread_mutex_lock(&input_lock);
+    int menu=cockpit_menu;
+    pthread_mutex_unlock(&input_lock);
+    return menu;
+}
+static int driving_input_active(void)
+{
+    uint32_t now=SDL_GetTicks();
+    pthread_mutex_lock(&input_lock);
+    int active=driving_active && cockpit_available &&
+        (uint32_t)(now-driving_tick)<500 && (uint32_t)(now-cockpit_tick)<500;
+    pthread_mutex_unlock(&input_lock);
+    return active;
+}
+int quest_xr_cockpit_active(void)
+{
+    pthread_mutex_lock(&input_lock);
+    int result=cockpit_ready && cockpit_active && (uint32_t)(SDL_GetTicks()-cockpit_tick)<500;
+    pthread_mutex_unlock(&input_lock);
+    return result;
+}
+int quest_xr_cockpit_enabled(void)
+{
+    pthread_mutex_lock(&input_lock);
+    int result=cockpit_ready;
+    pthread_mutex_unlock(&input_lock);
+    return result;
+}
+void quest_xr_cockpit_select(int selected)
+{
+    pthread_mutex_lock(&input_lock);
+    int next=cockpit_ready && selected;
+    if(next!=cockpit_requested)
+        fprintf(stderr,"[Cockpit] %s via normal camera cycle\n",next?"selected":"original camera selected");
+    cockpit_requested=next;
+    pthread_mutex_unlock(&input_lock);
+}
+void quest_xr_cockpit_matrix(int eye, float matrix[16])
+{
+    memcpy(matrix,cockpit_matrices[eye?1:0],16*sizeof(float));
+    for(int c=0;c<3;++c) for(int r=0;r<4;++r) matrix[4*c+r]*=units_per_meter;
+}
+
+void quest_xr_wheel_configure(const float pivot[3],const float axis[3],float radius)
+{
+    quest_wheel_configure(&wheel_grip,pivot,axis,radius); wheel_configured=1;
+}
+int quest_xr_hand_matrix(int hand,float steering,float matrix[16],int *grasped)
+{
+    if(hand<0 || hand>1 || !frame_focused || !quest_xr_cockpit_active()) return 0;
+    *grasped=wheel_grip.grabbed[hand];
+    if(!hand_valid[hand] && !*grasped) return 0;
+    if(*grasped) quest_wheel_hand_matrix(&wheel_grip,hand,steering,matrix);
+    else memcpy(matrix,hand_matrix[hand],64);
+    return 1;
+}
 
 static int check(XrResult result, const char *call)
 {
@@ -100,7 +238,7 @@ static int setup_actions(void)
         "/user/hand/right/input/trigger/value", "/user/hand/left/input/squeeze/value",
         "/user/hand/right/input/squeeze/value", "/user/hand/left/input/thumbstick",
         "/user/hand/right/input/thumbstick"};
-    XrActionSuggestedBinding suggested[ACTION_COUNT];
+    XrActionSuggestedBinding suggested[ACTION_COUNT+4];
     for (int i = 0; i < ACTION_COUNT; ++i) {
         XrActionCreateInfo ai = {XR_TYPE_ACTION_CREATE_INFO};
         strcpy(ai.actionName, names[i]);
@@ -110,15 +248,36 @@ static int setup_actions(void)
         if (!XR_OK(xrCreateAction(actions, &ai, &action[i]))) return 0;
         suggested[i] = (XrActionSuggestedBinding){action[i], path(bindings[i])};
     }
+    const char *haptic_names[2]={"left_vibration","right_vibration"};
+    const char *haptic_paths[2]={"/user/hand/left/output/haptic","/user/hand/right/output/haptic"};
+    for(int hand=0;hand<2;++hand) {
+        XrActionCreateInfo ai={XR_TYPE_ACTION_CREATE_INFO};
+        strcpy(ai.actionName,haptic_names[hand]);
+        strcpy(ai.localizedActionName,haptic_names[hand]);
+        ai.actionType=XR_ACTION_TYPE_VIBRATION_OUTPUT;
+        if(!XR_OK(xrCreateAction(actions,&ai,&haptic_action[hand]))) return 0;
+        suggested[ACTION_COUNT+hand]=(XrActionSuggestedBinding){haptic_action[hand],path(haptic_paths[hand])};
+    }
+    const char *pose_names[2]={"left_hand_pose","right_hand_pose"};
+    const char *pose_paths[2]={"/user/hand/left/input/grip/pose","/user/hand/right/input/grip/pose"};
+    for(int hand=0;hand<2;++hand) {
+        XrActionCreateInfo ai={XR_TYPE_ACTION_CREATE_INFO};
+        strcpy(ai.actionName,pose_names[hand]); strcpy(ai.localizedActionName,pose_names[hand]);
+        ai.actionType=XR_ACTION_TYPE_POSE_INPUT;
+        if(!XR_OK(xrCreateAction(actions,&ai,&hand_action[hand]))) return 0;
+        suggested[ACTION_COUNT+2+hand]=(XrActionSuggestedBinding){hand_action[hand],path(pose_paths[hand])};
+    }
     XrInteractionProfileSuggestedBinding binding = {XR_TYPE_INTERACTION_PROFILE_SUGGESTED_BINDING};
     binding.interactionProfile = path("/interaction_profiles/oculus/touch_controller");
-    binding.countSuggestedBindings = ACTION_COUNT;
+    binding.countSuggestedBindings = ACTION_COUNT+4;
     binding.suggestedBindings = suggested;
     return XR_OK(xrSuggestInteractionProfileBindings(instance, &binding));
 }
 
 int quest_xr_initialize(void)
 {
+    const char *rumble=getenv("RECOMP_RUMBLE");
+    haptics_enabled=!(rumble && *rumble=='0');
     const char *opt = getenv("NFSU2_VR");
     if (opt && !strcmp(opt, "0")) return 1;
 #ifdef __ANDROID__
@@ -277,6 +436,11 @@ int quest_xr_start(VkInstance vk, VkPhysicalDevice pd, VkDevice dev, uint32_t fa
     XrSessionActionSetsAttachInfo attach = {XR_TYPE_SESSION_ACTION_SETS_ATTACH_INFO};
     attach.countActionSets = 1; attach.actionSets = &actions;
     if (!XR_OK(xrAttachSessionActionSets(session, &attach))) return 0;
+    for(int hand=0;hand<2;++hand) {
+        XrActionSpaceCreateInfo pose={XR_TYPE_ACTION_SPACE_CREATE_INFO};
+        pose.action=hand_action[hand]; pose.poseInActionSpace.orientation.w=1;
+        if(!XR_OK(xrCreateActionSpace(session,&pose,&hand_space[hand]))) return 0;
+    }
     XrReferenceSpaceCreateInfo space = {XR_TYPE_REFERENCE_SPACE_CREATE_INFO};
     space.poseInReferenceSpace.orientation.w = 1;
     space.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_LOCAL;
@@ -354,12 +518,16 @@ static void update_matrices(void)
         multiply(combined, view, base);
         XrFovf f=views[eye].fov;
         float l=tanf(f.angleLeft), r=tanf(f.angleRight), d=tanf(f.angleDown), u=tanf(f.angleUp);
-        /* The captured game projection uses a 0.5-unit near plane. Moving it
-         * ten times closer needlessly loses tenfold D24 depth precision. */
-        float near_z=0.5f, far_z=10000.0f;
+        /* Ordinary cameras keep retail depth precision. The seated view
+         * also needs the original shell within 0.5 m to remain visible. */
         p[0]=2/(r-l); p[5]=-2/(u-d); p[8]=(r+l)/(r-l); p[9]=-(u+d)/(u-d);
-        p[10]=-far_z/(far_z-near_z); p[11]=-1; p[14]=-far_z*near_z/(far_z-near_z);
+        quest_projection_set_depth(p,0.5f,QUEST_WORLD_FAR);
         multiply(matrices[eye], p, combined);
+        quest_projection_set_depth(p,QUEST_COCKPIT_WORLD_NEAR_M*units_per_meter,QUEST_WORLD_FAR);
+        multiply(cockpit_world_matrices[eye],p,combined);
+        /* Added interior uses a separate depth attachment. */
+        quest_projection_set_depth(p,0.025f*units_per_meter,20.0f*units_per_meter);
+        multiply(cockpit_matrices[eye],p,combined);
     }
     float planes[6][4];
     int valid=visible && quest_culling_stereo(planes,matrices[0],matrices[1],0.25f*units_per_meter);
@@ -378,13 +546,57 @@ int quest_xr_culling_planes(float planes[6][4])
     return valid;
 }
 
+/* A finite pulse is renewed at most every 50 ms unless intensity changes.
+ * If rendering stalls, hardware stops after 100 ms instead of buzzing on. */
+static void poll_haptics(int focused)
+{
+    uint32_t now=SDL_GetTicks();
+    pthread_mutex_lock(&input_lock);
+    quest_haptics_focus(&haptics,focused && haptics_enabled);
+    float amplitude=quest_haptics_sample(&haptics,now);
+    pthread_mutex_unlock(&input_lock);
+    if(amplitude==0 && haptic_sent==0) return;
+    if(amplitude>0 && fabsf(amplitude-haptic_sent)<1.0f/255.0f &&
+       (uint32_t)(now-haptic_sent_tick)<50) return;
+    int ok=1;
+    for(int hand=0;hand<2;++hand) {
+        XrHapticActionInfo info={XR_TYPE_HAPTIC_ACTION_INFO};
+        info.action=haptic_action[hand];
+        XrResult result;
+        if(amplitude>0) {
+            XrHapticVibration pulse={XR_TYPE_HAPTIC_VIBRATION};
+            pulse.duration=100000000; pulse.frequency=XR_FREQUENCY_UNSPECIFIED;
+            pulse.amplitude=amplitude;
+            result=xrApplyHapticFeedback(session,&info,(const XrHapticBaseHeader *)&pulse);
+        } else result=xrStopHapticFeedback(session,&info);
+        if(result!=XR_SUCCESS) {
+            ok=0;
+            if(XR_FAILED(result)) {
+                static unsigned errors;
+                if(errors++<4) check(result,"Touch haptics");
+            }
+        }
+    }
+    static int trace=-1;
+    if(trace<0) trace=getenv("NFSU2_VR_HAPTICS_TRACE")!=NULL;
+    if(trace && (amplitude==0 || fabsf(amplitude-haptic_sent)>=.02f))
+        fprintf(stderr,"[XR] haptics amplitude=%.3f both hands result=%d\n",amplitude,ok);
+    haptic_sent=ok?amplitude:0; haptic_sent_tick=now;
+}
+
 static void poll_input(void)
 {
+    static QuestDrivingButtons driving_buttons;
+    static QuestShiftInput shift_input;
+    static int recenter_held;
     XrActiveActionSet active = {actions, XR_NULL_PATH};
     XrActionsSyncInfo sync = {XR_TYPE_ACTIONS_SYNC_INFO};
     sync.countActiveActionSets=1; sync.activeActionSets=&active;
     uint16_t buttons=0; uint8_t analog[8]={0}; int16_t sticks[4]={0};
-    if (state == XR_SESSION_STATE_FOCUSED && XR_SUCCEEDED(xrSyncActions(session,&sync))) {
+    int focused=state == XR_SESSION_STATE_FOCUSED;
+    int synced=focused && xrSyncActions(session,&sync)==XR_SUCCESS;
+    frame_squeeze[0]=frame_squeeze[1]=NAN;
+    if (synced) {
         int pressed[7]={0};
         for(int i=0;i<ACTION_COUNT;++i) {
             XrActionStateGetInfo get={XR_TYPE_ACTION_STATE_GET_INFO}; get.action=action[i];
@@ -394,8 +606,9 @@ static void poll_input(void)
             } else if(i < LSTICK) {
                 XrActionStateFloat value={XR_TYPE_ACTION_STATE_FLOAT};
                 if(XR_SUCCEEDED(xrGetActionStateFloat(session,&get,&value)) && value.isActive) {
-                    int index=i==LTRIGGER?6:i==RTRIGGER?7:i==LGRIP?5:4;
-                    analog[index]=(uint8_t)(fminf(1,fmaxf(0,value.currentState))*255);
+                    uint8_t amount=(uint8_t)(fminf(1,fmaxf(0,value.currentState))*255);
+                    if(i==LGRIP || i==RGRIP) frame_squeeze[i-LGRIP]=amount/255.0f;
+                    else analog[i==LTRIGGER?6:7]=amount;
                 }
             } else {
                 XrActionStateVector2f value={XR_TYPE_ACTION_STATE_VECTOR2F};
@@ -408,18 +621,82 @@ static void poll_input(void)
         }
         for(int i=0;i<4;++i) analog[i]=pressed[i]?255:0;
         if(pressed[MENU]) buttons|=0x10;
-        if(pressed[LCLICK]) buttons|=0x40;
-        if(pressed[RCLICK]) buttons|=0x80;
-        /* Right thumbstick doubles as D-pad for menus; left stays analog steering. */
-        if(sticks[2]<-16000) buttons|=4; if(sticks[2]>16000) buttons|=8;
-        if(sticks[3]<-16000) buttons|=2; if(sticks[3]>16000) buttons|=1;
-        static int recenter_held;
+        quest_driving_analog(&driving_buttons,SDL_GetTicks(),pressed[LCLICK],pressed[RCLICK],
+                             quest_xr_cockpit_requested(),analog);
+        int driving=driving_input_active();
+        static int previous_driving=-1;
+        if(driving!=previous_driving) {
+            fprintf(stderr,"[XR] input mode: %s\n",driving?"driving (A nitro, B handbrake, right stick gears)":"menu (original face buttons and D-pad)");
+            previous_driving=driving;
+        }
+        quest_driving_input(&shift_input,SDL_GetTicks(),driving,&buttons,analog,sticks);
         int recenter_now=pressed[LCLICK] && pressed[RCLICK];
-        if(recenter_now && !recenter_held) recentered=0;
+        if(recenter_now && !recenter_held) { recentered=0; quest_wheel_reset(&wheel_grip); }
         recenter_held=recenter_now;
+    } else {
+        memset(&driving_buttons,0,sizeof driving_buttons);
+        memset(&shift_input,0,sizeof shift_input);recenter_held=0;
+    }
+    frame_buttons=buttons; memcpy(frame_analog,analog,8); memcpy(frame_sticks,sticks,sizeof sticks);
+    frame_focused=focused;
+    poll_haptics(focused);
+}
+
+/* Sample controller poses at the same predicted display time as the eyes,
+ * after recentering. All geometry/angle state belongs to the renderer thread;
+ * publish the finished input packet atomically for the guest USB thread. */
+static void poll_wheel_grips(void)
+{
+    float inverse_origin[16],position[2][3]={{0}};
+    pose_matrix(inverse_origin,origin,1);
+    for(int hand=0;hand<2;++hand) {
+        hand_valid[hand]=0;
+        if(!frame_focused || !tracked || !recentered || !wheel_configured) continue;
+        XrActionStateGetInfo get={XR_TYPE_ACTION_STATE_GET_INFO}; get.action=hand_action[hand];
+        XrActionStatePose pose={XR_TYPE_ACTION_STATE_POSE};
+        XrSpaceLocation loc={XR_TYPE_SPACE_LOCATION};
+        XrSpaceLocationFlags required=XR_SPACE_LOCATION_POSITION_VALID_BIT|XR_SPACE_LOCATION_ORIENTATION_VALID_BIT|
+            XR_SPACE_LOCATION_POSITION_TRACKED_BIT|XR_SPACE_LOCATION_ORIENTATION_TRACKED_BIT;
+        if(xrGetActionStatePose(session,&get,&pose)!=XR_SUCCESS || !pose.isActive ||
+           xrLocateSpace(hand_space[hand],local_space,display_time,&loc)!=XR_SUCCESS ||
+           (loc.locationFlags&required)!=required) continue;
+        float local[16],relative[16]; pose_matrix(local,loc.pose,0); multiply(relative,inverse_origin,local);
+        memcpy(hand_matrix[hand],relative,64);
+        for(int row=0;row<3;++row) {
+            position[hand][row]=relative[12+row]/units_per_meter;
+            hand_matrix[hand][12+row]=position[hand][row];
+            /* Grip -Z runs from little finger to thumb, +X is the palm
+             * normal with opposite handedness. Mesh +Y is fingertips. */
+            hand_matrix[hand][row]=relative[8+row];
+            hand_matrix[hand][4+row]=-relative[4+row];
+            hand_matrix[hand][8+row]=relative[row]*(hand?1:-1);
+        }
+        hand_valid[hand]=1;
+    }
+    /* A temporary invalid head/hand pose freezes grip motion. Only an actual
+     * focus/camera/recenter change resets ownership and requires a regrip. */
+    int active=frame_focused && recentered && wheel_configured &&
+               quest_xr_cockpit_requested() && quest_xr_cockpit_active();
+    /* Use this frame's physical stick for a new grab after stick takeover,
+     * not the older guest packet (which may still contain the held angle). */
+    float fallback=frame_sticks[0]/(frame_sticks[0]<0?32768.0f:32767.0f);
+    quest_wheel_update(&wheel_grip,SDL_GetTicks(),active,hand_valid,position,frame_squeeze,fallback);
+    frame_sticks[0]=quest_wheel_input(&wheel_grip,active,frame_sticks[0]);
+    /* Grips are separate pose/squeeze inputs. Preserve the camera command
+     * emitted by the left stick click, including while gripping the wheel. */
+    static int previous_mask=-1,trace=-1;
+    if(trace<0) {
+        const char *e=getenv("NFSU2_VR_GRIP_TRACE");trace=e && *e && *e!='0';
+    }
+    int mask=wheel_grip.grabbed[0]|(wheel_grip.grabbed[1]<<1);
+    if(trace && mask!=previous_mask) {
+        fprintf(stderr,"[XR] wheel grip mask=%d tracked=%d,%d squeeze=%.2f,%.2f blocked=%d,%d active=%d steering=%.3f\n",
+            mask,hand_valid[0],hand_valid[1],frame_squeeze[0],frame_squeeze[1],
+            wheel_grip.blocked[0],wheel_grip.blocked[1],active,wheel_grip.angle/QUEST_WHEEL_LOCK_RADIANS);
+        previous_mask=mask;
     }
     pthread_mutex_lock(&input_lock);
-    input_buttons=buttons; memcpy(input_analog,analog,8); memcpy(input_sticks,sticks,sizeof sticks);
+    input_buttons=frame_buttons; memcpy(input_analog,frame_analog,8); memcpy(input_sticks,frame_sticks,sizeof input_sticks);
     pthread_mutex_unlock(&input_lock);
 }
 
@@ -450,6 +727,7 @@ int quest_xr_begin(void)
         if(event.type==XR_TYPE_EVENT_DATA_SESSION_STATE_CHANGED) {
             state=((XrEventDataSessionStateChanged *)&event)->state;
             fprintf(stderr,"[XR] session state %d\n",state);
+            if(state!=XR_SESSION_STATE_FOCUSED) { poll_haptics(0); quest_wheel_reset(&wheel_grip); }
             if(state==XR_SESSION_STATE_READY) {
                 XrSessionBeginInfo begin={XR_TYPE_SESSION_BEGIN_INFO};
                 begin.primaryViewConfigurationType=XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO;
@@ -462,7 +740,7 @@ int quest_xr_begin(void)
                 }
             } else if(state==XR_SESSION_STATE_STOPPING) { xrEndSession(session); running=0; }
             else if(state==XR_SESSION_STATE_EXITING || state==XR_SESSION_STATE_LOSS_PENDING) running=0;
-        } else if(event.type==XR_TYPE_EVENT_DATA_REFERENCE_SPACE_CHANGE_PENDING) recentered=0;
+        } else if(event.type==XR_TYPE_EVENT_DATA_REFERENCE_SPACE_CHANGE_PENDING) { recentered=0; quest_wheel_reset(&wheel_grip); }
         else if(event.type==XR_TYPE_EVENT_DATA_DISPLAY_REFRESH_RATE_CHANGED_FB) {
             XrEventDataDisplayRefreshRateChangedFB *rate=(XrEventDataDisplayRefreshRateChangedFB *)&event;
             fprintf(stderr,"[XR] display refresh changed %.2f -> %.2f Hz\n",rate->fromDisplayRefreshRate,rate->toDisplayRefreshRate);
@@ -502,8 +780,10 @@ int quest_xr_begin(void)
             float yaw=atan2f(2*(q.w*q.y+q.x*q.z),1-2*(q.y*q.y+q.x*q.x));
             origin.orientation=(XrQuaternionf){0,sinf(yaw/2),0,cosf(yaw/2)};
             recentered=1;
+            quest_wheel_reset(&wheel_grip);
         }
     }
+    poll_wheel_grips();
     if(tracked && recentered) update_matrices();
     ++frame_number;
     if(frame_number <= 3 || frame_number % 300 == 0)
@@ -513,8 +793,15 @@ int quest_xr_begin(void)
     return visible && tracked;
 }
 
-void quest_xr_matrix(int eye,float matrix[16]) { memcpy(matrix,matrices[eye],64); }
-float quest_xr_depth_coefficient(void) { return -10000.0f*0.5f/(10000.0f-0.5f); }
+void quest_xr_matrix(int eye,int cockpit,float matrix[16])
+{
+    memcpy(matrix,cockpit?cockpit_world_matrices[eye]:matrices[eye],64);
+}
+float quest_xr_depth_coefficient(int cockpit)
+{
+    float near_z=cockpit?QUEST_COCKPIT_WORLD_NEAR_M*units_per_meter:0.5f;
+    return -QUEST_WORLD_FAR*near_z/(QUEST_WORLD_FAR-near_z);
+}
 int quest_xr_tracking(void) { return begun && visible && tracked && recentered; }
 
 void quest_xr_eye_extent(uint32_t *width,uint32_t *height)
@@ -615,6 +902,7 @@ int quest_xr_input(uint16_t *buttons,uint8_t analog[8],int16_t sticks[4])
 
 void quest_xr_shutdown(void)
 {
+    if(session) poll_haptics(0);
     if(device) vkDeviceWaitIdle(device);
     if(begun) quest_xr_end();
     for(int i=0;i<2;++i) { if(eyes[i].handle) xrDestroySwapchain(eyes[i].handle); free(eyes[i].images); }
@@ -622,6 +910,7 @@ void quest_xr_shutdown(void)
     free(cinema.images);
     if(view_space) xrDestroySpace(view_space);
     if(local_space) xrDestroySpace(local_space);
+    for(int hand=0;hand<2;++hand) if(hand_space[hand]) xrDestroySpace(hand_space[hand]);
     if(session) xrDestroySession(session);
     if(actions) xrDestroyActionSet(actions);
     if(instance) xrDestroyInstance(instance);

@@ -8,11 +8,12 @@ android {
         applicationId 'org.nfsu2.quest'
         minSdk 30
         targetSdk 32
-        versionCode 1
-        versionName '0.1-dev'
+        versionCode 2
+        versionName '0.2-dev'
         ndk { abiFilters 'arm64-v8a' }
     }
     sourceSets.main {
+        assets.srcDirs += '../../assets/cockpits/runtime'
         java.srcDirs += '../../build/deps/SDL/android-project/app/src/main/java'
         jniLibs.srcDirs = ['../../build/quest-jni']
     }

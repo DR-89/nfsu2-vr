@@ -1,0 +1,99 @@
+{
+  "id": "shared-tripo-full-cabin-v2",
+  "source_project": "bdc7cbdd-2a2f-417f-ab90-78152027aeb6",
+  "source_result": "c3fc9baa-0f8c-47fe-8f6f-d03200a20fd2",
+  "source_sha256": "4e44b9898ac18002aae5d5986e32c76a6843bbf6cf69c4a4a6cfa71af0ae5ae8",
+  "geometry_origin": "One Tripo cabin; existing trim refitted/mirrored, no procedural cabin geometry",
+  "excluded_nodes": [
+    "tripo_part_1",
+    "tripo_part_10",
+    "tripo_part_11",
+    "tripo_part_12",
+    "tripo_part_13",
+    "tripo_part_21",
+    "tripo_part_3",
+    "tripo_part_31",
+    "tripo_part_38",
+    "tripo_part_41",
+    "tripo_part_43",
+    "tripo_part_44",
+    "tripo_part_46",
+    "tripo_part_47",
+    "tripo_part_51",
+    "tripo_part_63",
+    "tripo_part_64",
+    "tripo_part_67",
+    "tripo_part_70",
+    "tripo_part_71",
+    "tripo_part_84",
+    "tripo_part_86",
+    "tripo_part_90",
+    "tripo_part_96",
+    "tripo_part_98"
+  ],
+  "mirrored_nodes": [
+    "tripo_part_19",
+    "tripo_part_22",
+    "tripo_part_25",
+    "tripo_part_28",
+    "tripo_part_35",
+    "tripo_part_36",
+    "tripo_part_42",
+    "tripo_part_59",
+    "tripo_part_60",
+    "tripo_part_72",
+    "tripo_part_77",
+    "tripo_part_82",
+    "tripo_part_85",
+    "tripo_part_87",
+    "tripo_part_89",
+    "tripo_part_9",
+    "tripo_part_94"
+  ],
+  "node_adjustments": {},
+  "removed_glass_remnant_faces": {},
+  "palette": "anthracite leather/plastic, cobalt blue fabric, silver trim, colored gauges",
+  "triangles": 50410,
+  "vertices": 68947,
+  "atlas": [
+    4096,
+    4096
+  ],
+  "coordinates": "OpenXR, meters, driver eye at origin",
+  "game_seat_forward_left_up_m": [
+    -0.1,
+    0.35,
+    0.95
+  ],
+  "steering": {
+    "nodes": [
+      "tripo_part_32",
+      "tripo_part_48"
+    ],
+    "pivot": [
+      0.00015533109681729266,
+      -0.21272192348029012,
+      -0.3287600412573509
+    ],
+    "axis": [
+      -0.0017505425014253525,
+      0.2886369365560391,
+      0.9574370237548241
+    ],
+    "first_index": 147552,
+    "index_count": 3678,
+    "max_degrees": 180,
+    "input": "player 1 left-stick X delivered to the game"
+  },
+  "includes": [
+    "dashboard",
+    "animated steering rim and hub",
+    "fixed steering column",
+    "front seats and backs",
+    "left and right door interiors",
+    "full rear bench with headrests",
+    "rear parcel shelf",
+    "carpet floor",
+    "center console"
+  ]
+}

@@ -42,6 +42,9 @@
 #include "quest_xr.h"
 #include "quest_culling.h"
 #include "quest_frame_timing.h"
+#include "quest_cockpit.h"
+#include "quest_cockpit_fit.h"
+#include "quest_cockpit_ui.h"
 #include <time.h>
 #endif
 
@@ -103,6 +106,167 @@ static void crt_memmove(void)
 }
 
 void sub_002A7EE0(void) { crt_memmove(); }
+
+/* The TrackCarCameraMover applies its final camera at 0x612CD. Intercept
+ * this one call before Camera::SetMatrix computes derived position/history;
+ * menus, race-intro cameras, reflections and other players keep their paths.
+ * US retail Car has render origin +0x50 and local-to-world axes +0x90. */
+extern void sub_00055C80_gen(void);
+void sub_00055C80(void)
+{
+#if defined(__ANDROID__) || defined(NFSU2_PCVR)
+    uint32_t camera=ecx, mover=edi, target=MEM32(esp+4);
+    int main_camera=camera && camera==MEM32(0x003f5b70u);
+    int available=0, active=0;
+    float saved[16];
+    uint32_t m=mover&0x7fffffffu;
+    if(main_camera && MEM32(0x00428e34u)!=6) quest_xr_cockpit_select(0);
+    if (main_camera && MEM32(esp)==0x000612d2u &&
+        m>=0x10000 && m<0x03fff000 && MEM32(mover)==0x00344880u &&
+        MEM32(mover+0x10)==1 && MEM32(mover+0x1c)==camera && MEM32(0x00428e34u)==6) {
+        static uint32_t last_mover, last_mode=~0u;
+        uint32_t mode=MEM32(mover+0x4c);
+        if(mover!=last_mover || mode!=last_mode) {
+            fprintf(stderr,"[Cockpit] driving camera mover=%08x mode=%u requested=%u\n",
+                mover,mode,MEM32(mover+0x48));
+            last_mover=mover; last_mode=mode;
+        }
+        uint32_t car=MEM32(mover+0x2c), c=car&0x7fffffffu, t=target&0x7fffffffu;
+        if(c>=0x10000 && c<0x03fff000 && t>=0x10000 && t<0x03ffffc0) {
+            float rotation[12], position[3], matrix[16];
+            /* Matched to full-cabin-fit.json: eye 8 cm closer and 10 cm
+             * lower, with the cabin fixed relative to the original shell. */
+            memcpy(rotation,(const void *)XBOX_PTR(car+0x90),sizeof rotation);
+            memcpy(position,(const void *)XBOX_PTR(car+0x50),sizeof position);
+            available=quest_cockpit_view(matrix,rotation,position,quest_cockpit_seat);
+            if(available && quest_xr_cockpit_requested()) {
+                memcpy(saved,(const void *)XBOX_PTR(target),sizeof saved);
+                memcpy((void *)XBOX_PTR(target),matrix,sizeof matrix);
+                /* Keep the original body and hood. The fitted cabin asset
+                 * omits its window pillars to avoid overlapping frames. */
+                MEM32(camera+0x280)=0;
+                active=1;
+            }
+        }
+    }
+#endif
+    sub_00055C80_gen();
+#if defined(__ANDROID__) || defined(NFSU2_PCVR)
+    if(active) memcpy((void *)XBOX_PTR(target),saved,sizeof saved);
+    if(main_camera) quest_xr_cockpit_publish(available,active);
+#endif
+}
+
+#if defined(__ANDROID__) || defined(NFSU2_PCVR)
+/* Use the game's owner-managed rear-camera mover, including its normal car
+ * tracking, projection and player-body exclusion. The profile may have the
+ * mirror disabled, so enabling the render target alone is insufficient. */
+static void cockpit_rear_camera(uint32_t manager,int enable)
+{
+    uint32_t regs[9]={eax,ecx,edx,ebx,esi,edi,esp,g_ebp,g_seh_ebp};
+    double fp[8]; memcpy(fp,g_fp_stack,sizeof fp);
+    int top=g_fp_top,cmp=g_fp_cmp; uint16_t cc=g_fp_cc,cw=g_fp_control_word;
+    ecx=manager;
+    PUSH32(esp,enable?1u:0u);
+    PUSH32(esp,0x000e1f0bu); /* normal caller continuation; no guest code jump */
+    sub_001E2080();
+    eax=regs[0];ecx=regs[1];edx=regs[2];ebx=regs[3];esi=regs[4];edi=regs[5];
+    esp=regs[6];g_ebp=regs[7];g_seh_ebp=regs[8];
+    memcpy(g_fp_stack,fp,sizeof fp);g_fp_top=top;g_fp_cmp=cmp;g_fp_cc=cc;g_fp_control_word=cw;
+}
+#endif
+
+/* The driving input at 0x1f2c69 cycles the profile camera through 0,2,4,1
+ * (sub_113250 / sub_113200), not the six-slot director at sub_1eba00.
+ * Insert cockpit at that profile cycle's wrap without changing save values. */
+extern void sub_001E32E0_gen(void);
+void sub_001E32E0(void)
+{
+#if defined(__ANDROID__) || defined(NFSU2_PCVR)
+    uint32_t manager=ecx, p=manager&0x7fffffffu;
+    if(quest_xr_enabled() && MEM32(esp)==0x001f2c6eu &&
+       p>=0x10000 && p<0x03fffd00 && MEM32(0x00428e34u)==6) {
+        uint32_t mover=MEM32(manager+0x238),m=mover&0x7fffffffu;
+        if(m>=0x10000 && m<0x03fff000 && MEM32(mover)==0x00344880u &&
+           MEM32(mover+0x10)==1 && MEM32(mover+0x1c)==MEM32(0x003f5b70u)) {
+            uint32_t player=MEM32(manager+0x10);
+            if(player<2) {
+                static int entry_direction;
+                uint32_t slot=MEM32(0x00406d34u+player*40u);
+                int race_type=(int32_t)MEM32(0x003cc460u);
+                unsigned last=(MEM8(0x003cc499u) || MEM32(0x00449464u) ||
+                    (race_type>=0x104e && race_type<=0x1053)) ? 4 : 3;
+                int direction=(int32_t)MEM32(esp+4);
+                int action=quest_cockpit_cycle(slot,last,direction,
+                    quest_xr_cockpit_requested(),quest_xr_cockpit_enabled(),&entry_direction);
+                static uint32_t mirror_owner,mirror_mover;
+                if(action==1 && MEM32(manager+0x1c)==3 && !MEM32(manager+0x244)) {
+                    cockpit_rear_camera(manager,1);
+                    mirror_owner=manager;mirror_mover=MEM32(manager+0x244);
+                    fprintf(stderr,"[Cockpit] attached retail rear-camera mover=%08x\n",mirror_mover);
+                } else if((action==2 || action==3) && mirror_owner==manager &&
+                          mirror_mover && MEM32(manager+0x244)==mirror_mover) {
+                    cockpit_rear_camera(manager,0);
+                    mirror_owner=mirror_mover=0;
+                }
+                fprintf(stderr,"[Cockpit] driving camera event slot=%u/%u direction=%d action=%d\n",
+                    slot,last,direction,action);
+                if(action) quest_xr_cockpit_select(action==1);
+                if(action==1 || action==3) {
+                    eax=MEM32(mover+0x48);
+                    esp+=8; return; /* thiscall, one stack argument */
+                }
+            }
+        }
+    }
+#endif
+    sub_001E32E0_gen();
+}
+
+/* Retail eView 3 is the independently updated rear-mirror camera. The normal
+ * view selector disables its render target in the hood/bumper camera retained
+ * underneath our extra cockpit slot. Enable just that view while driving in
+ * the cockpit; the next retail update restores it on leaving the cockpit.
+ * Do not change the profile option or invoke the look-back camera. */
+extern void sub_000A1800_gen(void);
+#if defined(__ANDROID__) || defined(NFSU2_PCVR)
+static int cockpit_ui_read(void *context,uint32_t address,void *out,size_t size)
+{
+    (void)context;
+    /* The title's active frontend is allocated in the physical-memory
+     * window. It is distinct from low virtual memory in this runtime. */
+    uint64_t end=(uint64_t)address+size;
+    if(!((address>=0x10000u && end<=0x04000000u) ||
+         (address>=0x80000000u && end<=0x84000000u))) return 0;
+    memcpy(out,(const void *)XBOX_PTR(address),size);
+    return 1;
+}
+#endif
+void sub_000A1800(void)
+{
+    sub_000A1800_gen();
+#if defined(__ANDROID__) || defined(NFSU2_PCVR)
+    /* Preserve the driving-input gate. It remains true inside UI_pause.fng,
+     * so it must not select the cockpit UI layout. Publish the actual active
+     * frontend separately; the XR thread never reads mutable guest memory. */
+    quest_xr_driving_publish(MEM32(0x00428e34u)==6 && !MEM8(0x0040245cu));
+    quest_xr_cockpit_menu_publish(quest_cockpit_ui_menu(cockpit_ui_read,NULL));
+    if(quest_xr_cockpit_active() && MEM32(0x00428e34u)==6 &&
+       MEM32(0x003f5c14u)==3 && MEM32(0x003f5c50u)==0x003efb20u) {
+        uint32_t surface=MEM32(0x003f5c68u);
+        if(surface==0x003e8148u) {
+            MEM8(0x003f5c18u)=1;
+            MEM32(surface+0x10)=1;
+            static int reported;
+            if(!reported) {
+                reported=1;
+                fprintf(stderr,"[Cockpit] rear mirror view enabled, camera=%08x mover-link=%08x\n",
+                    MEM32(0x003f5c50u),MEM32(0x003f5c54u));
+            }
+        }
+    }
+#endif
+}
 
 #ifdef NFSU2_PCVR
 /* Guest-thread state, published by the matrix builder before world traversal.

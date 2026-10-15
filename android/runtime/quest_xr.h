@@ -15,11 +15,29 @@ void quest_xr_copy(VkCommandBuffer, VkImage left, VkImage right, uint32_t width,
 /* Call on the queue-owning render thread after vkQueueSubmit. OpenXR orders
  * its compositor use after that submission; no CPU fence wait is required. */
 void quest_xr_end(void);
-void quest_xr_matrix(int eye, float matrix[16]);
+void quest_xr_matrix(int eye, int cockpit, float matrix[16]);
+/* Shared cockpit selection; publication occurs on the guest camera thread. */
+void quest_xr_cockpit_ready(int ready);
+int quest_xr_cockpit_requested(void);
+void quest_xr_cockpit_publish(int available, int active);
+void quest_xr_driving_publish(int driving);
+void quest_xr_cockpit_menu_publish(int menu);
+int quest_xr_cockpit_menu_active(void);
+int quest_xr_cockpit_active(void);
+int quest_xr_cockpit_enabled(void);
+void quest_xr_cockpit_select(int selected);
+void quest_xr_cockpit_matrix(int eye, float matrix[16]);
+void quest_xr_cockpit_steering_input(int16_t steering);
+float quest_xr_cockpit_steering(void);
+/* Renderer-thread fitted wheel and controller poses, in cabin meters. */
+void quest_xr_wheel_configure(const float pivot[3],const float axis[3],float radius);
+int quest_xr_hand_matrix(int hand,float steering,float matrix[16],int *grasped);
 int quest_xr_culling_planes(float planes[6][4]); /* thread-safe guest camera planes */
-float quest_xr_depth_coefficient(void);
+float quest_xr_depth_coefficient(int cockpit);
 int quest_xr_tracking(void);
 void quest_xr_eye_extent(uint32_t *width, uint32_t *height);
 void quest_xr_menu_extent(uint32_t *width, uint32_t *height);
 int quest_xr_input(uint16_t *buttons, uint8_t analog[8], int16_t sticks[4]);
+/* Thread-safe Xbox output reports; actual OpenXR calls stay on the render thread. */
+void quest_xr_haptic_input(uint16_t low, uint16_t high);
 void quest_xr_shutdown(void);

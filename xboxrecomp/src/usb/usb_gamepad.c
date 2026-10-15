@@ -12,6 +12,9 @@
  * pad plugged into the PC drives this one.
  */
 #include "usb_gamepad.h"
+#ifdef NFSU2_OPENXR
+#include "quest_xr.h"
+#endif
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -488,14 +491,20 @@ void usb_gamepad_output(int dev, const uint8_t *data, int len)
     static uint16_t last_r[USB_GAMEPADS] = { 0xFFFF, 0xFFFF };
     XBOX_VIBRATION vib;
 
-    if (len < 6 || data[0] != 0x00 || data[1] < 6)
+    if (dev<0 || dev>=USB_GAMEPADS || len < 6 || data[0] != 0x00 || data[1] < 6)
         return;
     vib.wLeftMotorSpeed  = (uint16_t)(data[2] | (data[3] << 8));
     vib.wRightMotorSpeed = (uint16_t)(data[4] | (data[5] << 8));
     /* The title resends the same speeds every frame or so; the host call
      * can be an IPC (Switch hid), so only changes go out. */
-    if (vib.wLeftMotorSpeed == last_l[dev] && vib.wRightMotorSpeed == last_r[dev])
+    if (vib.wLeftMotorSpeed == last_l[dev] && vib.wRightMotorSpeed == last_r[dev]) {
+#ifdef NFSU2_OPENXR
+        /* XR renews short hardware pulses and expires stale input. Preserve
+         * the USB heartbeat even if motor strengths have not changed. */
+        if(dev==0 && quest_xr_enabled()) xbox_InputSetState((DWORD)dev,&vib);
+#endif
         return;
+    }
     last_l[dev] = vib.wLeftMotorSpeed;
     last_r[dev] = vib.wRightMotorSpeed;
     if (trace < 0)

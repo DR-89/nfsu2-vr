@@ -21,7 +21,8 @@ def main():
     parser.add_argument('--source-dir', type=Path, required=True, help='Clean, published source checkout')
     parser.add_argument('--crt-dir', type=Path, required=True, help='Visual Studio x64 Microsoft.VC143.CRT redistributable directory')
     parser.add_argument('--output', type=Path, required=True, help='New output directory')
-    parser.add_argument('--version', default='dev-2026-10-14')
+    parser.add_argument('--version', required=True)
+    parser.add_argument('--validation', type=Path, required=True, help='JSON list of checks actually completed for this release')
     args = parser.parse_args()
     if any(c not in 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._' for c in args.version):
         parser.error('Version may contain only letters, digits, periods, underscores and hyphens')
@@ -29,12 +30,19 @@ def main():
     if subprocess.check_output(['git', '-C', str(source), 'status', '--porcelain']).strip():
         parser.error('The source checkout must be clean')
     commit = subprocess.check_output(['git', '-C', str(source), 'rev-parse', 'HEAD']).decode().strip()
+    validation = json.loads(args.validation.read_text(encoding='utf-8'))
+    if not isinstance(validation, list) or not validation or not all(isinstance(v, str) and v for v in validation):
+        parser.error('Validation must be a nonempty JSON list of completed check descriptions')
     args.output.mkdir(parents=True, exist_ok=False)
     package = args.output / 'PCVR'
     package.mkdir()
     inputs = {name: ROOT / 'build/pcvr/game' / name for name in ('nfsu2-pcvr.exe', 'SDL2.dll', 'openxr_loader.dll')}
     inputs.update({name: args.crt_dir / name for name in ('msvcp140.dll', 'vcruntime140.dll', 'vcruntime140_1.dll')})
     inputs.update({'Start-PCVR.cmd': ROOT / 'pcvr/release/Start-PCVR.cmd',
+                   'cockpits/shared.ncpk': ROOT / 'assets/cockpits/runtime/cockpits/shared.ncpk',
+                   'cockpits/shared.json': ROOT / 'assets/cockpits/runtime/cockpits/shared.json',
+                   'cockpits/driver-gloves.nghv': ROOT / 'assets/cockpits/runtime/cockpits/driver-gloves.nghv',
+                   'cockpits/driver-gloves.json': ROOT / 'assets/cockpits/runtime/cockpits/driver-gloves.json',
                    'README.txt': ROOT / 'pcvr/release/README.txt',
                    'pcvr.env': ROOT / 'pcvr/benchmark.env',
                    'LICENSES/runtime-third-party-notices.txt': ROOT / 'android/app/src/main/assets/runtime-third-party-notices.txt',
@@ -49,7 +57,9 @@ def main():
     with zipfile.ZipFile(apk_source) as apk:
         names = apk.namelist()
         assets = {n for n in names if n.startswith('assets/') and not n.endswith('/')}
-        expected_assets = {'assets/importer-third-party-notices.txt', 'assets/runtime-third-party-notices.txt'}
+        expected_assets = {'assets/importer-third-party-notices.txt', 'assets/runtime-third-party-notices.txt',
+                           'assets/cockpits/shared.ncpk', 'assets/cockpits/shared.json',
+                           'assets/cockpits/driver-gloves.nghv', 'assets/cockpits/driver-gloves.json'}
         if assets != expected_assets:
             raise ValueError(f'Unexpected APK assets: {sorted(assets)}')
         libraries = {n for n in names if n.startswith('lib/') and n.endswith('.so')}
@@ -68,11 +78,10 @@ def main():
             'source_archive': source_name, 'platforms': ['Windows x64 PCVR', 'Meta Quest 3 standalone'],
             'dependencies': json.loads((ROOT / 'android/dependencies.json').read_text()),
             'game_assets_included': False,
+            'generated_cockpit_and_glove_assets_included': True,
             'pcvr_files': {n: {'bytes': (package / n).stat().st_size, 'sha256': sha256(package / n)} for n in inputs},
             'quest_apk': {'name': apk_name, 'bytes': apk_source.stat().st_size, 'sha256': sha256(apk_source)},
-            'validation': ['43 synthetic native importer assertions', 'Full USA ISO import and SHA-256 verification',
-                           'Native first-run dialog, file picker and cancellation inspected', 'Windows PCVR Release build',
-                           'Quest debug APK build; no new full gameplay/performance acceptance test']}
+            'validation': validation}
     for target in (package / 'BUILD-INFO.json', args.output / 'BUILD-INFO.json'):
         target.write_text(json.dumps(info, indent=2) + '\n', encoding='utf-8')
     zip_name = f'NFSU2VR-PCVR-{args.version}.zip'

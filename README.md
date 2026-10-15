@@ -40,14 +40,14 @@ the tree; the focus of this development publication is PCVR and Meta Quest 3.
 
 ## Development downloads
 
-The [current development release](https://github.com/DR-89/nfsu2-vr/releases/tag/dev-2026-10-14)
+The [current development release](https://github.com/DR-89/nfsu2-vr/releases/tag/dev-2026-10-15)
 includes:
 
-- [Meta Quest 3 APK](https://github.com/DR-89/nfsu2-vr/releases/download/dev-2026-10-14/NFSU2VR-Quest3-dev-2026-10-14.apk):
+- [Meta Quest 3 APK](https://github.com/DR-89/nfsu2-vr/releases/download/dev-2026-10-15/NFSU2VR-Quest3-dev-2026-10-15.apk):
   sideload the development APK, then use its setup panel to import your own
   supported Xbox USA ZIP, 7z or ISO/XISO.
   Follow the [Quest installation guide](#installing-on-meta-quest-3) below.
-- [Windows PCVR package](https://github.com/DR-89/nfsu2-vr/releases/download/dev-2026-10-14/NFSU2VR-PCVR-dev-2026-10-14.zip):
+- [Windows PCVR package](https://github.com/DR-89/nfsu2-vr/releases/download/dev-2026-10-15/NFSU2VR-PCVR-dev-2026-10-15.zip):
   extract the whole ZIP to a writable folder and run **Start-PCVR.cmd**.
   If game data is missing, **Game data setup** opens automatically. Select your
   Xbox USA ISO/XISO; progress and cancellation are available. All 12 required
@@ -60,6 +60,24 @@ OpenXR runtime separately; development testing uses Virtual Desktop / VDXR.
 No Python, Java or external ISO extractor is required to run the PCVR importer.
 See the included README for system requirements. These downloads remain
 **development builds, not fully tested**, with possible bugs and performance issues.
+
+## New in the October 15 development build
+
+- Shared anthracite/blue cockpit with doors, front seats and rear bench from
+  one generated Tripo cabin, fitted inside the original car body and hood.
+- Cockpit View in the normal camera cycle, animated wheel, translucent racing
+  gloves and one/two-hand motion steering, including crossed hands.
+- Live interior/side mirrors using three sectors of the game's rear camera;
+  speed display behind the wheel and map lower left.
+- Collision/road rumble, revised driving controls, 360-degree total wheel travel,
+  retained steering after release and deliberate left-stick takeover.
+- Complete pause-menu presentation and stable glove contact while holding Grip.
+
+The cockpit fit, controls, vibration, mirrors, pause-menu fix and held-hand fix
+have been accepted in native Quest testing. PCVR shares the code and builds
+successfully, but these new cockpit features still need a separate PCVR headset
+test. Stable 72 FPS and vehicle-by-vehicle cabin fitting remain unfinished.
+See [release notes](RELEASE_NOTES.md) and [cockpit asset details](assets/cockpits/README.md).
 
 ## Installing on Meta Quest 3
 
@@ -292,11 +310,19 @@ ISO/XISO. See [Quest build, import, installation and testing notes](android/READ
 
 ## Controls
 
-- Touch A/B/X/Y map to Xbox A/B/X/Y.
-- The left menu button maps to Start; the right stick provides menu navigation.
-- The left stick and triggers map to the corresponding Xbox controls.
-- Left/right grips map to White/Black.
-- Press both sticks together to recenter the seated view.
+- Left menu: pause/Start. Right stick: menu navigation.
+- Left stick click: cycle cameras, including Cockpit View.
+- Right stick click: hold rear view outside the cockpit; no rear-view button inside it.
+- Both stick clicks: recenter the seated view and release grips.
+- While driving, **A = nitro**, **B = handbrake**; right stick up/down shifts
+  gears with **Manual** transmission. Return the stick to center between shifts.
+  Menu confirmation/back retain their normal mapping.
+- Grip near any point on the wheel: steer with one or both hands. The wheel has
+  **360 degrees total travel** (180 each way). Held hands stay at their original
+  contact points; release and regrip to move them, including hand-over-hand turns.
+- Release both grips to retain the steering angle. Deflect the left stick at
+  least 25% sideways to return to ordinary stick steering and centering.
+- Triggers retain acceleration/braking. Enable **Vibration** in-game for rumble.
 
 ## Source layout and development notes
 
@@ -308,6 +334,7 @@ ISO/XISO. See [Quest build, import, installation and testing notes](android/READ
 | `xboxrecomp/` | Vendored recompilation toolkit and host runtime |
 | `tools/` | Build, code-generation, import and performance-analysis tools |
 | `tests/` | Focused regression tests |
+| `assets/cockpits/` | Generated cabin/glove sources, fitted runtime assets and preparation metadata |
 
 The platform documentation contains historical measurements and references to
 private logs and captures. Those files are not part of this publication, and

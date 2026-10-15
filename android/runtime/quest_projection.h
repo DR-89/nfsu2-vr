@@ -2,6 +2,17 @@
 #include <math.h>
 #include <stdint.h>
 
+/* The retail shell can be much closer than the road camera's 0.5-unit
+ * near plane. Use a short world near plane only while seated inside it. */
+#define QUEST_COCKPIT_WORLD_NEAR_M 0.08f
+#define QUEST_WORLD_FAR 10000.0f
+static inline void quest_projection_set_depth(float matrix[16],float near_z,float far_z)
+{
+    matrix[10]=-far_z/(far_z-near_z);
+    matrix[11]=-1;
+    matrix[14]=-far_z*near_z/(far_z-near_z);
+}
+
 /* The NTSC-U road material projects the 320x240 scene reflection through oT1.
  * Recognize its screen-coordinate producer and final projective write, not
  * merely slot 36 (program upload slots can be reused). */

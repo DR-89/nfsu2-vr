@@ -1,20 +1,136 @@
 # Quest 3 development port
 
-> **DEV BUILD — NOT 100% TESTED.** Bugs, crashes, rendering and audio issues,
-> stuttering and performance problems may occur. Stable VR frame rates are not
-> guaranteed. No original game content is included. Development binaries are
-> available in [GitHub Releases](https://github.com/DR-89/nfsu2-vr/releases/tag/dev-2026-10-14).
-> References below to private reports, captures and local builds describe past
-> development work; those files are not distributed.
-
 This branch builds the NTSC-U Xbox executable as native Android ARM64 code and
 runs it standalone on Quest 3. It is based on `antoxa2584x/nfsu2-sw`, revision
 `6e19726414e829d808f7acb0258c0902f04a923a`.
 
-Performance target: 120 newly rendered game frames/s at 120 Hz. The minimum
-requirement is stable 72 game frames/s, including dense scenes and crashes,
-without new rendering regressions at the accepted image quality. Neither the
-target nor the minimum has been met across the game yet.
+Current performance target: stable 72 newly rendered game frames/s, including
+dense scenes and crashes, without new rendering regressions at the accepted
+image quality. This supersedes the earlier 120 Hz target and has not been met
+across the game yet.
+
+## Shared cockpit prototype (2026-10-15)
+
+In a race, use the normal camera-change control to cycle into Cockpit View.
+It is an additional entry after the four usual driving camera slots, with no separate
+button or long press. Both stick clicks recenter.
+One anthracite/blue cabin currently serves all cars. Dashboard, both door
+interiors, front seats, rear bench and floor come from one Tripo
+model, with existing trim refitted for VR. The rim and hub rotate with steering
+input. The race HUD is positioned above the dashboard. Menus and race-intro
+cameras retain their original behavior. Native geometry is bundled in the APK;
+no additional import of cockpit files is required.
+
+The wheel turns up to 180 degrees left or right (360 degrees lock to lock). The current eye is at
+forward/left/up `(-0.10, 0.35, 0.95)` m: 8 cm closer to the wheel and 10 cm
+lower than the previous fit. The cabin remains fixed relative to the car;
+the cabin asset and dashboard panels shift oppositely in eye coordinates.
+The wheel center is approximately 33 cm forward and 21 cm below the eye.
+The shared Tripo headliner and its attached roof trim are omitted (parts
+1, 3, 84, 90 and 96). The original
+player body and hood remain visible in cockpit view. The Tripo cabin's
+duplicate window pillars and upper frames are omitted so the original car
+supplies those parts. The user confirmed the lower/closer seat and roof removal.
+
+Cockpit 3D uses near-plane clipping instead of the retail depth clamp. The user
+confirmed that this removed the black occluder, but the 50-cm near plane also
+cut away the upper car shell when tilting the head. The cockpit world now uses
+an 8-cm near plane, with matching depth-offset conversion for car surfaces,
+decals and particles. The user confirmed the revised fit and retained upper edge
+with head tilt on 2026-10-15.
+`NFSU2_VR_COCKPIT_CLIP=0` restores clamping for comparison. Other driving
+cameras retain the 0.5-unit projection; the 2D UI keeps its existing path.
+
+## Touch vibration
+
+The original Xbox rumble reports feed both Touch controllers. Both Xbox
+motor channels contribute to intensity; they represent heavy/light effects,
+not left/right hands. A continuous strength curve keeps small signals gentle
+while preserving full-strength impacts. Actual road/collision coverage comes
+from the game's effects; enable **Vibration** in the game options.
+
+Output runs on the OpenXR thread using finite 100-ms pulses, renewed at most
+every 50 ms unless strength changes. A 65-ms peak hold preserves collisions
+between rendered frames. Unchanged USB reports refresh feedback; 250 ms
+without reports expires it. Focus loss clears pending effects and stops the
+controllers, so they do not replay an old collision on return. `RECOMP_RUMBLE=0`
+disables XR vibration; `NFSU2_VR_HAPTICS_TRACE=1` and `RECOMP_RUMBLE_TRACE=1`
+temporarily log output and guest motor levels. Disable tracing for performance
+measurements. Synthetic timing, intensity and focus tests pass on Quest and
+Windows. The user confirmed working vibration on native Quest on 2026-10-15;
+detailed strength calibration and road coverage across tracks remain unverified.
+The implementation uses [OpenXR haptic output](https://registry.khronos.org/OpenXR/specs/1.1/man/html/xrApplyHapticFeedback.html).
+
+## Grip steering and ghost hands
+
+In Cockpit View, bring a controller near the steering rim and hold its Grip
+button. One or both hands can steer by moving around the wheel. Releasing both
+retains the last steering angle, including the actual input sent to the game.
+Free hands do not move the wheel; grabbing again at any rim point resumes from
+that retained angle without a jump. To return to left-stick steering, release
+both grips and deflect the stick at least 25% sideways. Ordinary stick steering,
+including centering on release, then remains active until the next wheel grab.
+Small stick drift preserves the held angle; either grasped hand takes priority.
+Regrabbing uses the current physical stick value, not an older guest input packet.
+Repeated hand/stick transfers, one-hand priority, drift, centering and regrabs
+are covered by the native grip test. Triggers still control acceleration/braking.
+The wheel permits 180 degrees of travel in each direction (360 degrees total),
+with the same scale for hand input, animation and stick steering. Adding or releasing
+one hand keeps the current angle. Diagonal movement through the hub or an abrupt
+pose jump rebases angular tracking without releasing the grip or rotating the
+wheel by the discontinuity. Missing poses freeze that hand's contribution while
+its Grip remains held; the other tracked hand can continue steering. Grasped
+gloves remain attached to the rim during pose gaps. A confirmed Grip release
+works even without a pose; unavailable button samples get a bounded 500-ms grace
+period. Focus loss, recentering, leaving the cockpit or longer button loss
+requires releasing Grip before grabbing again. Acquisition uses 65% squeeze,
+release below 15%, so relaxing the pressure slightly does not drop the wheel.
+
+Translucent blue/dark racing gloves generated by Tripo are visible only in
+Cockpit View. Free hands follow controller grip poses; grasped hands follow
+their individual acquisition points on the rotating rim, including crossed
+hands. A held glove keeps that wheel-local contact through tracking recovery,
+hub crossings, unequal two-hand movement and steering stops; those events
+must not reposition it. Release and regrip select a new point anywhere on the
+rim. There are no fixed left/right sockets. Adding a hand at any angle preserves steering.
+The corrected wrists point toward the driver while fingers wrap the rim.
+Each glove has 5,980 triangles and shares a 1024-square texture. Two baked
+poses use immutable GPU geometry and add at most two multiview draws.
+Controller poses use core OpenXR
+[action spaces](https://registry.khronos.org/OpenXR/specs/1.1/man/html/xrCreateActionSpace.html)
+at the eyes' predicted display time. This is controller-driven hand animation,
+not optical finger tracking. The cabin/seat fitting is unchanged.
+
+`tests/quest_wheel_grip_test.c` checks single/two-hand angles at 30 through
+120 FPS, grip transitions, wraparound, lock return, tracking loss, controls and
+mesh validity on Quest and Windows. Both builds pass; the hand/rim fit has also
+been inspected in a 3D preview. The user confirmed the button mapping and
+one/two-hand steering, then reported reversed hands. The corrected orientation,
+Tripo glove appearance and crossed-hand contact fit still need headset acceptance.
+`NFSU2_VR_GRIP_TRACE=1` logs grip, squeeze and tracking changes; 0 or an absent
+setting disables tracing. Regression tests reproduce diagonal hub crossings,
+tracking interruptions, single-hand recovery with two grips, real releases
+without a pose and missing-button timeouts across clock wrap.
+On 2026-10-15 the user confirmed that the grip stays held during diagonal
+movements and that steering and switching back to the left stick work on Quest.
+The later hand-only jumping report reproduced in a regression test: updating
+the visual contact every frame relocated the glove despite retaining grip and
+steering. The contact is now assigned only on acquisition. Tests remove the
+rendered wheel transform and compare the full glove pose before/after tracking
+gaps, hub crossings and steering stops at 30/60/72/90/120 Hz, with one or both
+hands. On 2026-10-15 the user confirmed on native Quest that the hands remain
+stable while held and releasing/regripping at another rim point works.
+Accepted APK: `build/nfsu2-quest-grip-contact-20261015.apk`.
+
+The asset, controls, camera math and steering rotation have passed native unit
+tests on Quest and Windows. On 2026-10-15 the user confirmed the replacement
+full cabin, normal camera cycle and steering-wheel animation together in a
+native Quest race. Vulkan validation was disabled for this test. An earlier
+sample of the previous prototype measured 49.6 FPS (p50 19.98 ms, p95 23.03 ms, maximum
+29.60 ms over 120 frames); this is not a stable 72 FPS result or a controlled
+comparison of cockpit overhead. Seat fitting across every car remains untested.
+See [cockpit asset details](../assets/cockpits/README.md) for source provenance,
+preparation and the path toward separate interiors for different cars.
 
 ## Verified on the headset (2026-10-13)
 
@@ -184,11 +300,89 @@ boot actually begins. Regular Android screenshots do not capture this VR layer.
 
 ## Controls and diagnostics
 
-- Touch A/B/X/Y map to Xbox A/B/X/Y.
+- While driving: Touch A = nitro, B = handbrake; right stick up = shift up,
+  down = shift down. Return the stick to center before another shift.
+  Select manual transmission in the game to use manual shifting.
+- Menus retain A to confirm, B to go back and right-stick D-pad navigation.
+  X/Y retain their original actions (also secondary gear buttons in gameplay).
 - Left menu button maps to Start; right stick also supplies the menu D-pad.
 - Left stick maps to the Xbox left stick; triggers map to the Xbox triggers.
-- Left/right grips map to White/Black.
+- Left stick click cycles cameras, including leaving Cockpit View (on release).
+- Right stick click holds rear view in the original driving cameras. It has
+  no rear-view action in Cockpit View; turn your head there.
+- Grips only grasp the steering wheel in Cockpit View; they do not send
+  camera or rear-view buttons in any view.
 - Press both sticks together to recenter the seated origin.
+
+The stick-click actions map to the retail **analog White/Black buttons**,
+not the Xbox thumb-click bits. This fixes being trapped in the cockpit when
+the old grip-to-White camera shortcut was suppressed for wheel steering.
+The camera pulse is preserved while holding the wheel; only rear view is
+suppressed inside the cockpit. Packet and full camera-cycle regression tests
+cover both views, recenter chords and 25–125 Hz input polling.
+On 2026-10-15 the user confirmed the corrected click mapping, cockpit exit
+while gripping, rear-view restriction and recentering on Quest. The device log
+also records repeated complete camera cycles and a cockpit exit with a hand
+still gripping the wheel.
+
+The driving mapping follows the [original Xbox manual](https://oldgamesdownload.com/wp-content/uploads/manuals/need-for-speed-underground-2_xbox_manual_en_5rt.pdf):
+retail A/B are handbrake/nitrous, X/Y are shift up/down. OpenXR swaps only A/B
+while an unpaused driving camera is active. The right axis produces bounded
+100-ms X/Y pulses with separate activation/release thresholds, and its analog
+throttle/brake and D-pad outputs are consumed in gameplay. Menu/focus transitions
+reset the shift latch and require neutral before the next gear command. Packet
+tests cover held input, entry from menus, axis noise, timers wrapping and
+25–125 Hz polling. Gameplay state is published from the guest thread.
+
+The cockpit mirrors use the game's separate rear camera (retail view 3).
+The Vulkan backend stores its 256x64 logical target at 512x128 and maps the
+horizontally flipped rear image onto the **original car's glass triangles**.
+There is no additional rectangular mirror below the original interior mirror.
+The outside mirrors use left/right sectors of this same wide rear image; these
+are not three independently positioned reflection cameras. Glass detection
+requires the player's rigid car transform and small, thin glass geometry.
+The recorded test car identifies 2 interior and 10 triangles per outside mirror;
+all 42 nearby recorded batches pass the positive/negative geometry checks on
+Windows and Quest. Other car models still need visual coverage. After the seat
+was lowered, a stale forward-seat constant rejected all three glass surfaces.
+The detector now shares the camera's seat definition, and tests glass bounds
+relative to the car origin rather than the eye. All 42 recorded batches are
+checked at four seat positions, including the current fit. On 2026-10-15 the
+user confirmed all three mirrors and the new A/B/right-stick driving mapping
+working on the installed native Quest build.
+Only rear targets and glass drawn in the current frame are eligible. The
+camera-manager hook creates the retail rear-camera mover on cockpit entry if
+needed, and releases only its own mover on exit. Saved mirror options and
+look-back controls are unchanged. The retail 2D mirror quad is omitted in the
+cockpit. Native captures show rear scenery in the original glass; the user accepted
+the combined mirror and instrument layout on 2026-10-15.
+
+Cockpit instruments use a separate transparent 1280x960 HUD target, rendered
+once for both eyes with the original 640x480 coordinates and scissor. The map
+sits lower left (center -0.30, -0.21, -0.38 m). The speed/tachometer plane is
+centered behind the wheel (0, -0.205, -0.56 m), with a 0.24 m square source
+region. It is drawn transparently over the fixed dummy instruments, before
+the moving wheel and hands, so the cabin cannot cut away digits and the wheel
+still covers them naturally. No added black panel or dashboard cutout remains.
+The rest of the race information retains its previous windshield placement.
+In the cockpit, pausing switches this same UI image to one complete windshield
+plane, including both lower corners. Pause submenus use the same complete plane;
+the map/gauge split resumes only with active gameplay. The mode is recorded once
+with the UI image and shared by both eyes. The guest reads the active frontend
+package list, not the input gate (which stays enabled in the pause menu) or the
+loaded package cache (which can retain closed menus). Any active non-HUD package
+uses the complete plane, including options and confirmation dialogs.
+The complete menu is drawn after the
+cabin and hands without depth occlusion. Other camera views retain their existing
+HUD path. Native Windows and Quest tests check all four menu corners and the
+continuous panel diagonal. Private snapshots of the active pause and resumed
+race package lists cover the state detector. On 2026-10-15 the user confirmed
+that the installed native Quest pause menu, including its lower corners, is
+displayed correctly. APK: `build/nfsu2-quest-pause-menu-state-20261015.apk`.
+Pipeline cache
+bit 5 marks separate alpha coverage for this HUD target only; normal title
+blending is unchanged. Both final eye captures show the speed digits behind the wheel and the map
+lower left, without the added black border. The user accepted this final placement on 2026-10-15.
 
 Optional `files/quest-env.txt` accepts `NFSU2_` and `RECOMP_` environment settings:
 
@@ -229,7 +423,13 @@ With that option enabled, writing a snapshot stride (for example `100`) into
 `files/frames/xr-trace.request` captures exactly one subsequent tracked stereo frame's draw
 metadata and intermediate images. It consumes the request, writes
 `xr-draws.csv`, at most 40 `xr-step-*.bmp` images and the final left/right images
-`xr-trace-final.bmp` / `xr-trace-right.bmp`. The CSV includes depth-buffer address,
+`xr-trace-final.bmp` / `xr-trace-right.bmp`. `xr-trace-world.bmp` and
+`xr-trace-world-right.bmp` capture both eyes immediately before the added
+cockpit, separating retail surfaces from the interior when diagnosing blocked
+vision. `xr-trace-mirror.bmp` saves the current rear-camera image when available.
+`xr-trace-hud.bmp` saves the separate cockpit HUD. `xr-near-geometry.bin`
+contains nearby triangles for the requested diagnostic frame only.
+These readbacks run only for a requested trace. The CSV includes depth-buffer address,
 depth comparison, stencil/cull enable and polygon-offset registers. Recognized
 post-processing passes also save `xr-before-blur.bmp`, `xr-before-lights.bmp`
 and `xr-before-grade.bmp` when present in that frame. An absent pass does not
@@ -320,7 +520,8 @@ are shared between eyes; their cameras are independent of headset tracking.
 HUD clipping is evaluated on the original 2D plane before presenting its result
 in VR. This keeps off-screen atlas content clipped and moves the minimap's
 clipping rectangle with the map. The captured 256x64 rear-view camera is shared
-between eyes and its display quad uses the HUD plane.
+between eyes. Outside the cockpit its display quad uses the HUD plane; the
+cockpit maps it onto the original mirror glass as described above.
 Full-screen triangles and quads stay in eye space, including untextured alpha
 updates that still carry a stale texture address in the guest registers.
 Optional OpenXR CPU/GPU performance hints and Android thread classifications
