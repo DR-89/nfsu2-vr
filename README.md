@@ -46,6 +46,7 @@ includes:
 - [Meta Quest 3 APK](https://github.com/DR-89/nfsu2-vr/releases/download/dev-2026-10-14/NFSU2VR-Quest3-dev-2026-10-14.apk):
   sideload the development APK, then use its setup panel to import your own
   supported Xbox USA ZIP, 7z or ISO/XISO.
+  Follow the [Quest installation guide](#installing-on-meta-quest-3) below.
 - [Windows PCVR package](https://github.com/DR-89/nfsu2-vr/releases/download/dev-2026-10-14/NFSU2VR-PCVR-dev-2026-10-14.zip):
   extract the whole ZIP to a writable folder and run **Start-PCVR.cmd**.
   If game data is missing, **Game data setup** opens automatically. Select your
@@ -59,6 +60,164 @@ OpenXR runtime separately; development testing uses Virtual Desktop / VDXR.
 No Python, Java or external ISO extractor is required to run the PCVR importer.
 See the included README for system requirements. These downloads remain
 **development builds, not fully tested**, with possible bugs and performance issues.
+
+## Installing on Meta Quest 3
+
+The Quest build runs standalone on the headset. Install the APK, copy your game
+data to the Quest, then import it in the app. This is an experimental development
+build; rendering and performance issues remain. Quest 3 is the verified target.
+
+### 1. Get the APK and prepare your game data
+
+- Download the `NFSU2VR-Quest3-<version>.apk` asset from the
+  [project releases](https://github.com/DR-89/nfsu2-vr/releases).
+  If building it yourself, follow the [Quest build instructions](android/README.md#build-on-windows);
+  the output is `android/app/build/outputs/apk/debug/app-debug.apk`.
+- Have a computer, a USB-C **data** cable and your own unmodified **original Xbox
+  USA / NTSC-U** copy of Need for Speed: Underground 2 ready.
+- Prepare one of the following supported inputs:
+
+| Input | Contents |
+|---|---|
+| `.iso` or `.xiso` | An original Xbox disc image of the supported USA release. Supported full-disc images are read directly. |
+| `.zip` or `.7z` with game files | `default.xbe` and the complete `NFSUNDER/` folder, including `ZDIR.BIN` and `ZZDATA0.BIN` through `ZZDATA9.BIN`. A common enclosing folder is accepted. |
+| `.zip` or `.7z` with a disc image | Exactly one Xbox `.iso` or `.xiso` inside the archive. The Quest unpacks it automatically. |
+
+Use complete, unencrypted files. PC and European editions, modified game files,
+RAR archives and split archive parts are unsupported. For a RAR or split archive,
+extract it on your computer first, then transfer the resulting ISO or repack the
+complete extracted game files as ZIP/7z. Renaming an extension does not convert it.
+
+Allow space for the source file **and** temporary extraction. After the source
+has been copied to the Quest, these are useful free-space estimates:
+
+| Source already on the Quest | Additional free space for import |
+|---|---|
+| ZIP/7z of extracted game files | About **5 GB** |
+| Full Xbox ISO of about 7.8 GB | About **11 GB** |
+| 7z of about 5.9 GB containing a full 7.8 GB ISO | About **17 GB** |
+
+Actual requirements depend on the archive size and existing saves. The importer
+temporarily copies the source, unpacks any contained ISO and installs about
+2.4 GB of verified game files. Keep some extra space available when reimporting.
+
+### 2. Enable sideloading and connect the Quest
+
+1. Follow [Meta's device setup guide](https://developers.meta.com/horizon/documentation/native/android/mobile-device-setup/)
+   to create or join a developer team and verify the Meta account used on your
+   headset.
+2. In the **Meta Horizon** phone app, select your paired headset, open
+   **Headset Settings > Developer Mode**, and enable it. Menu locations can vary
+   by app version.
+3. On Windows, install the **Oculus ADB Drivers** linked in Meta's guide.
+4. Connect the powered-on Quest to your computer with the USB data cable. Put on
+   the headset and accept **Allow USB debugging**. On your own computer, you can
+   select **Always allow from this computer**.
+
+### 3. Install the APK
+
+**Using SideQuest:**
+
+1. Install the desktop **Advanced Installer** from the
+   [SideQuest setup page](https://sidequestvr.com/setup-howto).
+2. Open SideQuest and wait until it shows the Quest as connected and authorized.
+3. Use **Install APK file from folder** / **Install APK**, select the downloaded
+   `NFSU2VR-Quest3-<version>.apk`, and wait for the installation task to finish.
+
+**Using ADB instead:**
+
+Download and extract Google's [Android SDK Platform Tools](https://developer.android.com/tools/releases/platform-tools).
+Open PowerShell in the extracted `platform-tools` folder and run:
+
+```powershell
+.\adb.exe devices
+.\adb.exe -s YOUR_QUEST_SERIAL install -r "C:\path\to\NFSU2VR-Quest3-<version>.apk"
+```
+
+Replace `YOUR_QUEST_SERIAL` with the serial shown by `devices`, and replace the
+APK path, including `<version>`, with your actual filename. The device state
+must be `device`; if it says `unauthorized`, accept the debugging prompt inside
+the headset. Wait for `Success`. On macOS/Linux, use `./adb` instead of
+`.\adb.exe` and adjust the local paths. See the
+[ADB command reference](https://developer.android.com/tools/adb) for details.
+
+### 4. Copy the ISO or archive to the Quest
+
+Choose **one** of the following transfer methods. Put the file in the Quest's
+shared **Download** folder (`/sdcard/Download/`), which the Android file picker
+may display as **Downloads**. Wait for the entire transfer to finish before
+starting the import.
+
+**Windows File Explorer (USB):**
+
+1. With the Quest connected, accept the headset's USB file/data access prompt
+   or open its USB notification to enable file transfer. This permission is
+   separate from USB debugging. If the prompt is missing, enable **MTP
+   Notification** in the headset's Developer settings and reconnect the cable.
+2. In File Explorer, open **This PC > Quest 3 > Internal shared storage > Download**.
+3. Copy your `.iso`, `.xiso`, `.zip` or `.7z` file into that folder.
+
+**SideQuest file manager:**
+
+Open SideQuest's file manager, browse to `sdcard/Download`, and use its upload or
+file-transfer control to copy your ISO or archive from the computer. For this
+step, use the file manager; the APK installation button is for installing the app.
+
+**ADB (Windows PowerShell):**
+
+From the same `platform-tools` folder, run the command matching your file:
+
+```powershell
+# Direct ISO import:
+.\adb.exe -s YOUR_QUEST_SERIAL push "C:\Games\NFSU2-USA.iso" /sdcard/Download/NFSU2-USA.iso
+
+# Or transfer a ZIP/7z archive (this example uses 7z):
+.\adb.exe -s YOUR_QUEST_SERIAL push "C:\Games\NFSU2-USA.7z" /sdcard/Download/NFSU2-USA.7z
+```
+
+Replace the serial and source filename with your own. Keep the matching file
+extension in the destination path. No manual copying into `Android/data` is
+needed: the app installs the game files into its own private storage during import.
+
+### 5. Import the game data and play
+
+1. In the Quest's app library, select **Unknown Sources** and open
+   **NFSU2 Quest Development**. The first launch opens the game data setup panel.
+   You can also open **NFSU2 · Game data** to access setup directly.
+2. Press **Select archive**, browse to **Downloads** (or the internal storage's
+   `Download` folder), and select your ISO, XISO, ZIP or 7z.
+3. Wait for **Import complete**. The app extracts and verifies the supported game
+   files. A large 7z containing an ISO can take several minutes. Leave the setup
+   panel open; closing it can cancel the import. Progress and **Cancel import**
+   are available while it runs.
+4. Press **Start game**. Later launches through **NFSU2 Quest Development** start
+   VR directly. The computer and USB connection are no longer needed to play.
+5. After a successful import, you may delete the source ISO/archive from the
+   Quest's `Download` folder to recover space. The app keeps its installed copy
+   and never deletes your source file automatically.
+
+To import different data later, close the running game, open **NFSU2 · Game data**
+and select **Reimport game data**. Existing saved games and settings are kept.
+Update the APK by installing over the existing app with SideQuest or `adb install -r`
+using a build signed with the same key. **Uninstalling the app or clearing its
+storage deletes the installed game data and saves.**
+
+### Installation troubleshooting
+
+| Problem | What to check |
+|---|---|
+| SideQuest/ADB cannot see the headset | Check Developer Mode, the USB debugging prompt and the Windows ADB driver. Try another data cable or USB port. |
+| File Explorer does not show Quest storage | Accept the separate USB file access prompt; enable MTP Notification if needed. You can also transfer with SideQuest or ADB. |
+| The APK was copied but no app appears | Install it using SideQuest's APK installer or `adb install -r`, then check the library's Unknown Sources filter. |
+| ISO/archive is missing from the picker | Confirm the transfer finished and browse to internal storage > Download rather than only the Recent view. |
+| Not enough storage | Free space for both the source and the temporary files listed above. An archive of extracted game files uses less temporary space than an archive containing a full ISO. |
+| Incompatible `default.xbe` or failed verification | Use the complete, unmodified Xbox USA / NTSC-U release and recopy the file if the transfer was incomplete. |
+| 7z needs too much memory | Repack with a dictionary of 64 MiB or less, use ZIP, or extract the ISO on your computer and transfer that instead. |
+| Game still running | Close the game before reimporting and press **Check again** in setup. |
+| APK update reports a signature mismatch | Use an APK signed with the same key as the installed build. Preserve your saves before considering an uninstall. |
+
+For build details, importer limits and developer installation tools, see the
+[Quest development notes](android/README.md).
 
 ## Get the source and prepare your own game files
 
