@@ -79,6 +79,11 @@ successfully, but these new cockpit features still need a separate PCVR headset
 test. Stable 72 FPS and vehicle-by-vehicle cabin fitting remain unfinished.
 See [release notes](RELEASE_NOTES.md) and [cockpit asset details](assets/cockpits/README.md).
 
+## Support development
+
+If you enjoy this project and would like to support its continued development,
+visit [OpenSourceDevDirk on Patreon](https://www.patreon.com/c/OpenSourceDevDirk).
+
 ## Installing on Meta Quest 3
 
 The Quest build runs standalone on the headset. Install the APK, copy your game
