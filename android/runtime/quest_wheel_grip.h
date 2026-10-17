@@ -6,7 +6,7 @@
 #include "quest_wheel_limits.h"
 typedef struct {
     float pivot[3], axis[3], right[3], up[3], radius;
-    float angle, previous[2], anchor[2];
+    float angle, previous[2], anchor[2], limit, sensitivity;
     int grabbed[2], blocked[2], latched, rebase[2];
     uint32_t squeeze_tick[2];
 } QuestWheelGrip;
@@ -16,6 +16,7 @@ static inline float quest_wheel_dot(const float a[3],const float b[3])
 static inline void quest_wheel_configure(QuestWheelGrip *w,const float pivot[3],const float axis[3],float radius)
 {
     memset(w,0,sizeof *w);
+    w->limit=QUEST_WHEEL_LOCK_RADIANS;w->sensitivity=1;
     memcpy(w->pivot,pivot,12); memcpy(w->axis,axis,12); w->radius=radius;
     float length=sqrtf(axis[2]*axis[2]+axis[0]*axis[0]);
     w->right[0]=axis[2]/length; w->right[2]=-axis[0]/length;
@@ -40,7 +41,7 @@ static inline int quest_wheel_update(QuestWheelGrip *w,uint32_t now,int active,c
                                     const float position[2][3],const float squeeze[2],float fallback)
 {
     if(!active) { quest_wheel_reset(w); return 0; }
-    if(!w->latched) w->angle=fmaxf(-1,fminf(1,fallback))*QUEST_WHEEL_LOCK_RADIANS;
+    if(!w->latched) w->angle=fmaxf(-1,fminf(1,fallback/w->sensitivity))*w->limit;
     float delta=0; int contributors=0,acquired=0;
     for(int h=0;h<2;++h) {
         if(!isfinite(squeeze[h])) {
@@ -81,7 +82,7 @@ static inline int quest_wheel_update(QuestWheelGrip *w,uint32_t now,int active,c
             w->previous[h]=theta;
         }
     }
-    if(contributors) w->angle=fmaxf(-QUEST_WHEEL_LOCK_RADIANS,fminf(QUEST_WHEEL_LOCK_RADIANS,w->angle+delta/contributors));
+    if(contributors) w->angle=fmaxf(-w->limit,fminf(w->limit,w->angle+delta/contributors));
     /* Capture a wheel-local contact only on acquisition. Rebased tracking,
      * hub crossings, unequal two-hand motion and pushing beyond the steering
      * stop must not slide/teleport a held glove to another part of the rim.
@@ -98,10 +99,10 @@ static inline int16_t quest_wheel_input(QuestWheelGrip *w,int active,int16_t sti
     if(active && w->latched && !w->grabbed[0] && !w->grabbed[1] &&
        (stick<=-8192 || stick>=8192)) {
         w->latched=0;
-        w->angle=(stick/(stick<0?32768.0f:32767.0f))*QUEST_WHEEL_LOCK_RADIANS;
+        w->angle=fmaxf(-1,fminf(1,stick/(stick<0?32768.0f:32767.0f)/w->sensitivity))*w->limit;
     }
     if(!active || !w->latched) return stick;
-    float steering=fmaxf(-1,fminf(1,w->angle/QUEST_WHEEL_LOCK_RADIANS));
+    float steering=fmaxf(-1,fminf(1,w->angle/w->limit*w->sensitivity));
     return (int16_t)lrintf(steering*(steering<0?32768.0f:32767.0f));
 }
 /* A grasped palm follows the actual rendered wheel, including its smoothing.

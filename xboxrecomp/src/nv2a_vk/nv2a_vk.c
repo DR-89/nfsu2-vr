@@ -872,7 +872,9 @@ static VkImageView xr_rate_attachment(const VkSurf *s)
     static VkImageView view;
     static VkDeviceMemory memory;
     static uint32_t width, height;
-    if (!s_foveation || s->w != 640 || s->h != 480 || s->aa_sx != 1 || s->aa_sy != 1)
+    /* Shared mono UI already shades at 1x1. Its separate cockpit resolution
+     * must not replace/reallocate the race map on every HUD/world switch. */
+    if (!s_foveation || s->eye<0 || s->w != 640 || s->h != 480 || s->aa_sx != 1 || s->aa_sy != 1)
         return VK_NULL_HANDLE;
     uint32_t w = (s->pw + s_rate_texel.width - 1) / s_rate_texel.width;
     uint32_t h = (s->ph + s_rate_texel.height - 1) / s_rate_texel.height;
@@ -2985,7 +2987,7 @@ static int create_swapchain(void)
 #include "quest_cockpit_vk.inc"
 #endif
 
-static int ready(void)
+static int initialize_renderer(void)
 {
     VkApplicationInfo ai = { VK_STRUCTURE_TYPE_APPLICATION_INFO };
     VkInstanceCreateInfo ici = { VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO };
@@ -3427,6 +3429,18 @@ static int ready(void)
     if (quest_xr_enabled()) { cockpit_initialize(); quest_xr_begin(); }
 #endif
     return 1;
+}
+
+static int ready(void)
+{
+    int result=initialize_renderer();
+#ifdef NFSU2_PCVR
+    if(!result && quest_xr_enabled()) {
+        extern void pcvr_vr_failure(const char *);
+        pcvr_vr_failure("The VR renderer could not start. Check that your headset is connected and the selected OpenXR runtime is running, then select Retry. Details are in pcvr-stderr.log.");
+    }
+#endif
+    return result;
 }
 
 /* Submit what is recorded and wait for it, then keep recording in the same
@@ -4717,7 +4731,7 @@ static void vk_draw_raw_eye(const Nv2aRawBatch *b)
     uint32_t inst_room = 0;
     void *map;
 #ifdef NFSU2_OPENXR
-    int feedback_swapped=0, cockpit_hud=0;
+    int feedback_swapped=0, cockpit_hud=0, cockpit_body=0;
 #endif
 
     if (!ready())
@@ -4940,7 +4954,10 @@ static void vk_draw_raw_eye(const Nv2aRawBatch *b)
             program_has_tracked_mvp(p,b) &&
             ((b->vp_const_count>=116 && quest_projection_constants(&b->vp_consts[113][0],vb->vr_params)) ||
              quest_projection_scales(&b->vp_consts[96][0], vb->vr_params))) {
-            if(!s_stereo_frame) s_cockpit_frame=quest_xr_cockpit_active();
+            if(!s_stereo_frame) {
+                s_cockpit_frame=quest_xr_cockpit_active();
+                s_cockpit_vehicle=quest_xr_cockpit_vehicle_snapshot(s_cockpit_windows);
+            }
             quest_xr_matrix(s_eye,s_cockpit_frame,vb->vr_matrix);
             vb->vr_params[2] = 1;
             if(b->vp_const_count>=116)
@@ -5023,31 +5040,38 @@ static void vk_draw_raw_eye(const Nv2aRawBatch *b)
             }
             if(near_clip) key.fragment_flags|=16;
         }
-        if(!s_eye && s_cockpit_frame && vb->vr_params[2]==1 && r[0x30c/4] && r[0x35c/4] &&
-           b->vertex_count<=512 && (b->attr_present&1) && topo==VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST &&
-           quest_cockpit_own_car(&b->vp_consts[96][0],vb->vr_params[0],vb->vr_params[1],quest_cockpit_seat)) {
-            if(s_cockpit.mirror_frame!=s_frame) {
-                s_cockpit.mirror_frame=s_frame;memset(s_cockpit.mirror_count,0,sizeof s_cockpit.mirror_count);
+        cockpit_body=s_cockpit_frame && vb->vr_params[2]==1 && b->vp_const_count>=100 &&
+            quest_cockpit_own_car(&b->vp_consts[96][0],vb->vr_params[0],vb->vr_params[1],quest_cockpit_vehicle(s_cockpit_vehicle)->seat);
+        if(quest_cockpit_window_draw(s_cockpit_windows,b->tex_va[0],r,
+                cockpit_body && s->w==640 && s->h==480 && s->aa_sx==1 && s->aa_sy==1)) {
+            static int reported;
+            if(!reported) {
+                LOGE("Cockpit hides player window glass/tint; body, mirrors and exterior views retained\n");
+                reported=1;
             }
-            float seated[512][3];
-            for(uint32_t v=0;v<b->vertex_count;++v) {
-                float pos[4],clip[4]={0};
-                if(b->attr_direct&1)attr_to_float4(b,0,v,pos);else memcpy(pos,b->attrs+(size_t)v*64,16);
-                for(int a=0;a<4;++a)for(int c=0;c<4;++c)clip[a]+=b->vp_consts[96+a][c]*pos[c];
-                seated[v][0]=clip[0]/vb->vr_params[0];seated[v][1]=clip[1]/vb->vr_params[1];seated[v][2]=-clip[3];
+            return;
+        }
+        if(cockpit_body && s->w==640 && s->h==480 && r[0x30c/4] && r[0x35c/4] &&
+           !r[0x304/4] && (b->attr_present&1) && b->vertex_count==8 && n==12 &&
+           topo==VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST) {
+            float positions[8][4];
+            for(unsigned v=0;v<8;++v) {
+                if(b->attr_direct&1)attr_to_float4(b,0,v,positions[v]);
+                else memcpy(positions[v],b->attrs+(size_t)v*64,16);
             }
-            const float center[3]={b->vp_consts[96][3]/vb->vr_params[0],
-                b->vp_consts[97][3]/vb->vr_params[1],-b->vp_consts[99][3]};
-            for(int part=0;part<3;++part) if(!s_cockpit.mirror_count[part]) {
-                unsigned count=quest_cockpit_mirror_mesh(s_cockpit.mirror_vertices[part],192,
-                    seated,b->vertex_count,idx,n,center,part);
-                s_cockpit.mirror_count[part]=count;
-                static unsigned reported;
-                if(count && !(reported&(1u<<part))) {
-                    reported|=1u<<part;LOGE("Cockpit original mirror glass %d: %u triangles\n",part,count/3);
-                }
+            if(quest_cockpit_driver_cards((const float (*)[4])positions,idx)) {
+                static int reported;
+                if(!reported){LOGE("Cockpit hides crossed retail driver cards; original shell retained\n");reported=1;}
+                return;
             }
         }
+        /* Retail exteriors are normally viewed from outside. Most vehicles
+         * have one-sided roof/pillar meshes; keep those visible from the seat.
+         * Apply only to the player's rigid shell, never track/other vehicles. */
+        if(cockpit_body && s_dyn.cull) {p_cull_mode(s_cb,VK_CULL_MODE_NONE);s_dyn.cull=0;}
+        if(!s_eye && cockpit_body && r[0x30c/4] && r[0x35c/4] &&
+           (b->attr_present&1) && topo==VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
+            cockpit_collect_mirrors(b,idx,n,vb->vr_params[0],vb->vr_params[1]);
         xr_set_shading_rate(vb->vr_params[2]==1.0f);
         if(!s_eye && s->aa_sx==1 && s->w==640 && s->h==480)
             ++s_xr_kind[vb->vr_params[2]>0 ? (vb->vr_params[2]>1 ? 4:3) : b->xform<3 ? b->xform:0];
@@ -5294,7 +5318,11 @@ static void vk_draw_raw_eye(const Nv2aRawBatch *b)
 #endif
     /* The constants were the ring's last allocation, so a repeat's set
      * lands right behind them (pend_append). */
-    if (pend_eligible(b) && inst_room > 1) {
+    if (pend_eligible(b) && inst_room > 1
+#ifdef NFSU2_OPENXR
+        && !cockpit_body
+#endif
+    ) {
         pend_hold(b, n, ub[2].offset, inst_room, &key, pipe);
     } else {
         bind_draw_pipeline(pipe);
@@ -6066,7 +6094,11 @@ static void vk_flip(void)
     {
         static uint64_t last_save;
         uint64_t now = hz_now();
-        if (s_pipes_unsaved && now - last_save > 20000000000ull) {
+        if (s_pipes_unsaved && now - last_save > 20000000000ull
+#ifdef NFSU2_OPENXR
+            && (!quest_xr_enabled() || quest_xr_cockpit_menu_active())
+#endif
+        ) {
             last_save = now;
             pcache_save();
         }

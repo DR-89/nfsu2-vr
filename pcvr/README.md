@@ -2,7 +2,94 @@
 
 The shared Quest Vulkan/OpenXR renderer now also builds for Windows x64. The
 game runs on the PC; Virtual Desktop streams the eye images to Quest 3 through
-VDXR. The existing standalone Quest APK is unchanged.
+VDXR. Quest and PCVR share the cockpit, input and VR settings implementation.
+
+## VR settings and controller update (2026-10-17, testing)
+
+Pause during a race and press **X** on Touch or a mapped gamepad to open the
+English **VR Settings** panel. A visible `[X] VR SETTINGS` entry appears below
+the pause menu. Use either stick or the D-pad to select a row and adjust it
+left/right. **A** selects Reset Defaults or Save and Back; **B** saves and
+returns to the game's pause menu without also activating it.
+The entry is authorized only by the active root `UI_Pause.fng` package;
+race notifications, loading screens, options and confirmation dialogs cannot
+open it. Holding X before pausing requires release and a new press.
+
+- **Steering sensitivity:** 50–300%. Higher values reach full game steering
+  with less physical wheel movement.
+- **Wheel rotation:** 180–1080 degrees total, lock to lock; default 360.
+  This controls physical travel independently of steering sensitivity.
+- **Seat height:** ±35 cm, in 1 cm steps. Positive moves the eye upward.
+- **Seat distance:** ±40 cm, in 1 cm steps. Positive moves the eye backward.
+  The interior, instruments and grasp points stay attached to the car.
+- **Render resolution:** Default, 1280×1344, 1680×1760, 2550×2640,
+  2940×3080 or 3360×3520 per eye. The latter four match the community
+  resolution selector. **Save and restart the game** to apply a resolution.
+  Unsupported sizes fall back to the runtime/default size and are logged.
+  Higher resolutions require considerably more GPU time and memory.
+
+Settings persist in `vr-settings.ini` in the app's private files directory on
+Quest, or `%APPDATA%\OpenSourceDevDirk\NFSU2VR` on Windows. Game data and saved
+profiles are separate. Changing the wheel ratio resets the current grab;
+release Grip and grasp the rim again.
+
+Mapped SDL USB/Bluetooth gamepads feed the same driving controls as Touch.
+The active input device is selected by use; a held VR wheel has priority.
+Left stick steers, triggers brake/accelerate, A is nitro, B is handbrake,
+right stick click cycles cameras, and left stick click holds rear view only
+outside the cockpit. Start pauses. Right stick up/down shifts with manual
+transmission; **left reads SMS and right enters a race/shop**, one action per
+sideways deflection. Return to center between actions. Menus retain their
+normal navigation and A/B behavior. Gamepad rumble follows the game effects
+when the controller supports it; enable the game's Vibration option.
+
+This revision also caches original mirror geometry, uploads immutable cabin
+and glove geometry to device-local GPU memory, and defers pipeline-cache disk
+writes until outside races. Player-shell backface culling is disabled only for
+the detected seated player's body. Mirror detection accepts additional heights
+and slants beyond the Peugeot reference; the three mirrors still share sectors
+of one rear camera. These are targeted changes, not a claim of stable 72 FPS.
+
+Seat adjustments use a shared XR eye transform with fixed vehicle/mirror
+coordinates. The shared renderer also hides the crossed retail driver proxy
+identified in the Pontiac cockpit capture, without removing the car shell or
+other drivers. These follow-up fixes are compiled for PCVR; headset validation
+is in progress on the native Quest build.
+The Lancer follow-up removes the driver-position restriction from that complete
+mesh classifier. Stock geometry from all 29 vehicles (2,068 submeshes) passes
+on Windows and Quest: exactly 29 crossed driver proxies removed, all remaining
+submeshes retained. The separate Lancer/Pontiac capture and mirror fixtures
+also pass. PCVR visual confirmation is still outstanding.
+The center-mirror search also includes lower glass on 240SX, Eclipse, Lancer,
+Miata, RX7 and TT. All 29 center mirrors pass the private stock-geometry tests
+on Windows and Quest, with the 23 previously working selections preserved.
+The user confirmed the Lancer driver obstruction is gone on Quest and all
+three mirrors work there, including after changing the seat position.
+
+The gauge-position follow-up distinguishes the verified `Chyron_IG` driving
+notification from real menus. It preserves the seated instruments while the
+notification is active; pause, options and dialogs retain the complete menu.
+Windows and Quest regression tests cover the captured failing state and
+notification/menu combinations. Shared mono cockpit UI no longer replaces the
+eye-image foveation map when its resolution differs from the world target.
+
+The shared car-render hook also handles the retail inside-body exclusion
+found in the native Lancer Evo VIII capture. Only the current cockpit
+player's own body at that specific main-camera call is retained; the original
+point/box result remains unchanged for other cars, callers and cameras.
+The private stock-geometry audit covers 29 vehicle types and 569 decoded
+solids, with 812 lifted-routine/wrapper comparisons passing on Windows and
+Quest. This verifies the body-hide fix across vehicle bounds, not the complete
+visual appearance of every car or tuning combination. See the audit workflow
+in `android/README.md`. This PCVR build still needs a separate headset check.
+
+Validation: Windows and Quest tests pass for settings, bounds, save-format
+roundtrip, menu input consumption, variable wheel range/sensitivity, stable
+hand contact, and horizontal action pulses. Synthetic mirror variants and the
+42-batch Peugeot capture at four seat positions pass. The SDL virtual gamepad
+test passes button, trigger, axis, deadzone and detach checks on Windows.
+Other-car visuals, physical gamepads, menu placement, music-change stutters and
+PCVR reconnection still require headset testing.
 
 ## Build and launch
 
@@ -19,7 +106,7 @@ The Windows build and math/asset tests pass. The full cabin, normal camera cycle
 and wheel animation are user-confirmed on native Quest; PCVR cockpit rendering
 still needs a separate headset test.
 
-Touch controls now use left stick click to cycle cameras and right stick click
+Touch controls now use right stick click to cycle cameras and left stick click
 to hold rear view outside Cockpit View. The cockpit has no button-driven rear
 view; turn your head there. Grip near the rim enables one- or two-hand motion
 steering with translucent ghost hands, visible only in the cockpit. Releasing
@@ -37,7 +124,7 @@ Wheel travel is 360 degrees lock to
 lock, with half a turn left and half a turn right. Both clicks recenter. The shared
 grip/control tests pass on Windows and Quest; PCVR hand interaction is untested.
 Stick-click actions use the game's analog White/Black buttons. Grips no longer
-send those buttons, so gripping cannot change cameras, and the left click
+send those buttons, so gripping cannot change cameras, and the right click
 remains usable to leave the cockpit while steering.
 While driving, Touch A is nitro, B is handbrake, and right stick up/down shifts
 gears once per deflection (return to center to shift again). Use the game's
@@ -64,6 +151,17 @@ Touch controllers through VDXR, using the same bounded pulses and focus handling
 as the Quest build. Enable **Vibration** in the game; `RECOMP_RUMBLE=0` disables
 XR output. See [Touch vibration details](../android/README.md#touch-vibration).
 The Windows haptic timing tests pass; physical PCVR feedback remains untested.
+
+### Headset connection at startup
+
+The host waits up to 15 seconds for a temporarily unavailable headset before
+showing Connect/Retry. Session creation also retries transient runtime failures;
+a failed `xrBeginSession` is retried while the session remains READY. Fatal
+renderer initialization and lost-session errors offer an app-only restart
+instead of leaving game audio running behind a black console. Connect the
+headset to the chosen OpenXR runtime before selecting Retry. The reported
+first-boot failure has not yet been reproduced with this build; external
+streamer/decoder stalls are outside this recovery path.
 
 ### First launch: import your Xbox ISO
 

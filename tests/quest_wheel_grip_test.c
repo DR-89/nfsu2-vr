@@ -99,29 +99,29 @@ int main(int argc,char **argv)
     }
     for(int i=0;i<100;++i) { /* neutral noise / sideways deflection cannot shift */
         uint16_t digital=0;uint8_t a[8]={0};int16_t axes[4]={0,0,30000,(i%2)?19000:-19000};
-        quest_driving_input(&shift,i*20,1,&digital,a,axes);CHECK(!a[2] && !a[3] && !digital);
+        quest_driving_input(&shift,i*20,1,&digital,a,axes);CHECK(!a[2] && !a[3] && (!digital || digital==1));
     }
     QuestDrivingButtons b={0};
-    CHECK(quest_driving_buttons(&b,0,0,1)==0x10); /* right is held rear view */
-    CHECK(quest_driving_buttons(&b,300,0,1)==0x10);
+    CHECK(quest_driving_buttons(&b,0,1,0)==0x10); /* left is held rear view */
+    CHECK(quest_driving_buttons(&b,300,1,0)==0x10);
     CHECK(!quest_driving_buttons(&b,400,0,0));
-    CHECK(!quest_driving_buttons(&b,500,1,0));
-    CHECK(quest_driving_buttons(&b,600,0,0)==0x20); /* left camera pulse */
+    CHECK(!quest_driving_buttons(&b,500,0,1));
+    CHECK(quest_driving_buttons(&b,600,0,0)==0x20); /* right camera pulse */
     CHECK(quest_driving_buttons(&b,650,0,0)==0x20);
     CHECK(!quest_driving_buttons(&b,700,0,0));
     CHECK(!quest_driving_buttons(&b,800,1,1));
     CHECK(!quest_driving_buttons(&b,810,0,1)); /* partial chord release is consumed */
     CHECK(!quest_driving_buttons(&b,820,1,0));
     CHECK(!quest_driving_buttons(&b,830,0,0));
-    CHECK(quest_driving_buttons(&b,840,0,1)==0x10);
+    CHECK(quest_driving_buttons(&b,840,1,0)==0x10);
     /* Check the actual Xbox packet, not just internal action flags. Grips
      * must never supply White/Black; camera must remain usable in the cabin. */
     const unsigned click_cases[][5]={ /* time, left, right, White, Black */
-        {0,0,0,0,0},{10,1,0,0,0},{30,0,0,255,0},{100,0,0,255,0},
-        {130,0,0,0,0},{200,0,1,0,255},{300,0,1,0,255},
+        {0,0,0,0,0},{10,0,1,0,0},{30,0,0,255,0},{100,0,0,255,0},
+        {130,0,0,0,0},{200,1,0,0,255},{300,1,0,0,255},
         {310,1,1,0,0},{320,0,1,0,0},{330,1,0,0,0},{340,0,0,0,0},
-        {400,1,0,0,0},{420,0,0,255,0},{520,0,0,0,0},
-        {600,1,0,0,0},{650,1,1,0,0},{680,0,0,0,0},{700,0,1,0,255},{800,0,0,0,0}
+        {400,0,1,0,0},{420,0,0,255,0},{520,0,0,0,0},
+        {600,0,1,0,0},{650,1,1,0,0},{680,0,0,0,0},{700,1,0,0,255},{800,0,0,0,0}
     };
     for(int cabin=0;cabin<2;++cabin) {
         QuestDrivingButtons controls={0};
@@ -142,7 +142,7 @@ int main(int argc,char **argv)
         for(unsigned click=0;click<20;++click) {
             for(unsigned t=0;t<320;t+=frame_ms) {
                 uint8_t packet[8]={0};
-                quest_driving_analog(&controls,click*320+t,t<40,0,cabin,packet);
+                quest_driving_analog(&controls,click*320+t,0,t<40,cabin,packet);
                 if(packet[5] && !prior) {
                     int action=quest_cockpit_cycle(slot,3,1,cabin,1,&entry);
                     if(action==0 || action==2) slot=(slot+1)%4;

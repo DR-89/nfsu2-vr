@@ -5,7 +5,11 @@
 #include "quest_ghost_hands.h"
 #include "quest_glove_asset.h"
 #include "quest_cockpit_panels.h"
+#include "quest_cockpit_occlusion.h"
+#include "quest_cockpit_vehicle.h"
 static int s_cockpit_frame;
+static int s_cockpit_vehicle;
+static uint32_t s_cockpit_windows[QUEST_COCKPIT_WINDOWS];
 static struct {
     int ready;
     VkBuffer geometry, staging;
@@ -17,6 +21,7 @@ static struct {
     VkDescriptorSetLayout descriptors;
     VkPipelineLayout layout;
     VkPipeline pipeline[2];
+    VkPipeline wheel_pipeline[2];
     VkPipeline hand_pipeline[2];
     VkPipeline mirror_pipeline[2];
     QuestGhostVertex mirror_vertices[3][192];
@@ -38,6 +43,53 @@ static struct {
     uint32_t wheel_first, wheel_count, wheel_tick;
     float wheel_pivot[3], wheel_axis[3], steering;
 } s_cockpit;
+/* Static meshes are read every frame. Put them in device-local memory rather
+ * than forcing discrete GPUs to fetch vertices over PCIe from upload heaps. */
+static struct { VkBuffer buffer;VkDeviceMemory memory; } s_cockpit_uploads[4];
+static unsigned s_cockpit_upload_count,s_cockpit_upload_frame;
+static void attr_to_float4(const Nv2aRawBatch *,uint32_t,uint32_t,float[4]);
+static struct {
+    uint64_t hash;
+    unsigned vertices,indices,count[3];
+    float positions[512][3];uint32_t topology[1536];
+    QuestGhostVertex glass[3][192];
+} s_mirror_cache[128];
+
+static void cockpit_collect_mirrors(const Nv2aRawBatch *b,const uint32_t *indices,unsigned count,float sx,float sy)
+{
+    if(b->vertex_count>512 || count>1536)return;
+    if(s_cockpit.mirror_frame!=s_frame) {
+        s_cockpit.mirror_frame=s_frame;memset(s_cockpit.mirror_count,0,sizeof s_cockpit.mirror_count);
+    }
+    if(s_cockpit.mirror_count[0] && s_cockpit.mirror_count[1] && s_cockpit.mirror_count[2])return;
+    float positions[512][3];uint64_t hash=14695981039346656037ull;
+    for(unsigned v=0;v<b->vertex_count;++v) {
+        float p[4];if(b->attr_direct&1)attr_to_float4(b,0,v,p);else memcpy(p,b->attrs+(size_t)v*64,16);
+        positions[v][0]=-p[1];positions[v][1]=p[2];positions[v][2]=-p[0];
+    }
+    const unsigned char *bytes=(const unsigned char *)positions;
+    for(unsigned i=0;i<b->vertex_count*12;++i)hash=(hash^bytes[i])*1099511628211ull;
+    bytes=(const unsigned char *)indices;
+    for(unsigned i=0;i<count*4;++i)hash=(hash^bytes[i])*1099511628211ull;
+    unsigned slot=(unsigned)(hash%128);
+    if(s_mirror_cache[slot].hash!=hash || s_mirror_cache[slot].vertices!=b->vertex_count ||
+       s_mirror_cache[slot].indices!=count || memcmp(s_mirror_cache[slot].positions,positions,b->vertex_count*12) ||
+       memcmp(s_mirror_cache[slot].topology,indices,count*4)) {
+        s_mirror_cache[slot].hash=hash;s_mirror_cache[slot].vertices=b->vertex_count;s_mirror_cache[slot].indices=count;
+        memcpy(s_mirror_cache[slot].positions,positions,b->vertex_count*12);memcpy(s_mirror_cache[slot].topology,indices,count*4);
+        const float zero[3]={0};
+        for(int part=0;part<3;++part)s_mirror_cache[slot].count[part]=quest_cockpit_mirror_mesh(
+            s_mirror_cache[slot].glass[part],192,(const float (*)[3])positions,b->vertex_count,indices,count,zero,part);
+    }
+    /* Convert shell coordinates to the fixed base cabin. Seat changes are
+     * already shared by the world and interior XR matrices, never the cache. */
+    float center[3]={b->vp_consts[96][3]/sx,b->vp_consts[97][3]/sy,-b->vp_consts[99][3]};
+    for(int part=0;part<3;++part)if(!s_cockpit.mirror_count[part]) {
+        unsigned n=s_mirror_cache[slot].count[part];s_cockpit.mirror_count[part]=n;
+        memcpy(s_cockpit.mirror_vertices[part],s_mirror_cache[slot].glass[part],n*sizeof(QuestGhostVertex));
+        for(unsigned v=0;v<n;++v)for(int a=0;a<3;++a)s_cockpit.mirror_vertices[part][v].position[a]+=center[a];
+    }
+}
 
 static int cockpit_buffer(VkDeviceSize size,VkBufferUsageFlags usage,
                            VkBuffer *buffer,VkDeviceMemory *memory,const void *data)
@@ -55,9 +107,31 @@ static int cockpit_buffer(VkDeviceSize size,VkBufferUsageFlags usage,
     return 1;
 }
 
+static int cockpit_static_buffer(VkDeviceSize size,VkBufferUsageFlags usage,
+                                  VkBuffer *buffer,VkDeviceMemory *memory,const void *data)
+{
+    if(s_cockpit_upload_count>=4)return 0;
+    unsigned slot=s_cockpit_upload_count++;
+    if(!cockpit_buffer(size,VK_BUFFER_USAGE_TRANSFER_SRC_BIT,&s_cockpit_uploads[slot].buffer,
+        &s_cockpit_uploads[slot].memory,data))return 0;
+    VkBufferCreateInfo ci={VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};ci.size=size;ci.usage=usage|VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+    if(vkCreateBuffer(s_dev,&ci,NULL,buffer)!=VK_SUCCESS)return 0;
+    VkMemoryRequirements req;vkGetBufferMemoryRequirements(s_dev,*buffer,&req);
+    *memory=alloc_mem(req,VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    if(!*memory || vkBindBufferMemory(s_dev,*buffer,*memory,0)!=VK_SUCCESS)return 0;
+    VkBufferCopy copy={0,0,size};vkCmdCopyBuffer(s_cb,s_cockpit_uploads[slot].buffer,*buffer,1,&copy);
+    VkBufferMemoryBarrier barrier={VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER};
+    barrier.srcAccessMask=VK_ACCESS_TRANSFER_WRITE_BIT;barrier.dstAccessMask=VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT|VK_ACCESS_INDEX_READ_BIT;
+    barrier.srcQueueFamilyIndex=barrier.dstQueueFamilyIndex=VK_QUEUE_FAMILY_IGNORED;
+    barrier.buffer=*buffer;barrier.size=VK_WHOLE_SIZE;
+    vkCmdPipelineBarrier(s_cb,VK_PIPELINE_STAGE_TRANSFER_BIT,VK_PIPELINE_STAGE_VERTEX_INPUT_BIT,0,0,NULL,1,&barrier,0,NULL);
+    s_cockpit_upload_frame=s_frame;
+    return 1;
+}
+
 static VkPipeline cockpit_pipeline(int multiview,int ghost)
 {
-    char vertex[1400],fragment[1100];
+    char vertex[2400],fragment[1600];
     snprintf(vertex,sizeof vertex,
         "#version 450\n%s\n"
         "layout(location=0) in vec3 position; layout(location=1) in vec3 normal;"
@@ -72,7 +146,31 @@ static VkPipeline cockpit_pipeline(int multiview,int ghost)
         "layout(set=0,binding=0) uniform %s atlas;layout(location=0) out vec4 color;"
         "void main(){vec4 c=texture(atlas,%s);if(c.a<.5)discard;color=vec4(c.rgb*shade,1);}",
         s_multiview?"sampler2DArray":"sampler2D",s_multiview?"vec3(texcoord,0)":"texcoord");
-    if(ghost==1) {
+    if(ghost==0) {
+        snprintf(vertex,sizeof vertex,
+            "#version 450\n%s\n"
+            "layout(location=0) in vec3 position;layout(location=1) in vec3 normal;"
+            "layout(location=2) in vec2 uv;layout(location=0) out vec2 texcoord;"
+            "layout(location=1) out float shade;layout(location=2) out float cabinZ;"
+            "layout(push_constant) uniform Camera {mat4 eye[2];} camera;"
+            "layout(set=0,binding=1) uniform Fit {vec4 scales;vec4 limits;} fit;"
+            "void main(){vec3 q=position;vec3 n=normal;"
+            "float sx=(q.x<0?fit.scales.x:fit.scales.y)*fit.scales.w;"
+            "q.x*=sx;n.x/=sx;"
+            "if(q.z<-.33){q.z=-.33+(q.z+.33)*fit.scales.z;n.z/=fit.scales.z;}"
+            "gl_Position=camera.eye[%s]*vec4(q,1);texcoord=uv;cabinZ=position.z;"
+            "shade=.78+.22*max(dot(normalize(n),normalize(vec3(-.3,.9,-.2))),0.0);}",
+            multiview?"#extension GL_EXT_multiview : require":"",multiview?"gl_ViewIndex":"0");
+        snprintf(fragment,sizeof fragment,
+            "#version 450\nlayout(location=0) in vec2 texcoord;layout(location=1) in float shade;"
+            "layout(location=2) in float cabinZ;"
+            "layout(set=0,binding=0) uniform %s atlas;"
+            "layout(set=0,binding=1) uniform Fit {vec4 scales;vec4 limits;} fit;"
+            "layout(location=0) out vec4 color;"
+            "void main(){if(cabinZ>fit.limits.x)discard;"
+            "vec4 c=texture(atlas,%s);if(c.a<.5)discard;color=vec4(c.rgb*shade,1);}",
+            s_multiview?"sampler2DArray":"sampler2D",s_multiview?"vec3(texcoord,0)":"texcoord");
+    } else if(ghost==1) {
         snprintf(vertex,sizeof vertex,
             "#version 450\n%s\n"
             "layout(location=0) in vec3 position;layout(location=1) in vec3 normal;"
@@ -177,10 +275,12 @@ static void cockpit_initialize(void)
         LOGE("Cockpit asset unavailable/invalid; original cameras remain available\n");
         SDL_free(data); return;
     }
-    VkDescriptorSetLayoutBinding binding={0,VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,1,VK_SHADER_STAGE_FRAGMENT_BIT,NULL};
+    VkDescriptorSetLayoutBinding bindings[2]={
+        {0,VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,1,VK_SHADER_STAGE_FRAGMENT_BIT,NULL},
+        {1,VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,1,VK_SHADER_STAGE_VERTEX_BIT|VK_SHADER_STAGE_FRAGMENT_BIT,NULL}};
     VkDescriptorSetLayoutCreateInfo dci={VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO};
     dci.flags=VK_DESCRIPTOR_SET_LAYOUT_CREATE_PUSH_DESCRIPTOR_BIT_KHR;
-    dci.bindingCount=1; dci.pBindings=&binding;
+    dci.bindingCount=2; dci.pBindings=bindings;
     VkPushConstantRange push={VK_SHADER_STAGE_VERTEX_BIT,0,128};
     VkPipelineLayoutCreateInfo lci={VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
     lci.setLayoutCount=1; lci.pSetLayouts=&s_cockpit.descriptors;
@@ -194,8 +294,11 @@ static void cockpit_initialize(void)
        vkCreateSampler(s_dev,&sampler,NULL,&s_cockpit.sampler)!=VK_SUCCESS) goto fail;
     s_cockpit.pipeline[0]=cockpit_pipeline(0,0);
     if(s_multiview) s_cockpit.pipeline[1]=cockpit_pipeline(1,0);
-    if(!s_cockpit.pipeline[0] || (s_multiview && !s_cockpit.pipeline[1])) goto fail;
-    if(!cockpit_buffer((VkDeviceSize)asset.vertices*32+(VkDeviceSize)asset.indices*4,
+    s_cockpit.wheel_pipeline[0]=cockpit_pipeline(0,6);
+    if(s_multiview)s_cockpit.wheel_pipeline[1]=cockpit_pipeline(1,6);
+    if(!s_cockpit.pipeline[0] || !s_cockpit.wheel_pipeline[0] ||
+       (s_multiview && (!s_cockpit.pipeline[1] || !s_cockpit.wheel_pipeline[1]))) goto fail;
+    if(!cockpit_static_buffer((VkDeviceSize)asset.vertices*32+(VkDeviceSize)asset.indices*4,
            VK_BUFFER_USAGE_VERTEX_BUFFER_BIT|VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
            &s_cockpit.geometry,&s_cockpit.geometry_mem,asset.vertex_data) ||
        !cockpit_buffer((VkDeviceSize)asset.width*asset.height*4,VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
@@ -217,18 +320,38 @@ static void cockpit_initialize(void)
      * use the complete image on one plane; other cameras retain their path. */
     s_cockpit.hud=(VkSurf){.w=640,.h=480,.pw=1280,.ph=960,.layers=1,
         .aa_sx=1,.aa_sy=1,.eye=-1,.va=0xfffffffdu};
-    QuestGhostVertex panels[30];
-    /* Match the cabin's +10 cm up/+8 cm back eye-relative translation. */
-    quest_cockpit_panel(panels,0,-.205f,-.56f,.24f,.24f,440,260,640,480);
-    quest_cockpit_panel(panels+6,-.30f,-.21f,-.38f,.22f,.242f,0,260,200,480);
+    QuestGhostVertex all_panels[QUEST_COCKPIT_VEHICLES][30];
+    for(int vehicle=0;vehicle<QUEST_COCKPIT_VEHICLES;++vehicle) {
+    QuestGhostVertex *panels=all_panels[vehicle];
+    /* Place the gauge on the shared instrument face (about 66 cm ahead),
+     * rather than floating 10 cm in front of it. Keep the accepted height
+     * and size; the instrument overlay remains visible through baked trim. */
+    quest_cockpit_panel(panels,0,-.205f,-.66f,.24f,.24f,440,260,640,480);
+    /* Navigation on the radio/heater center stack. Follow its sloping face,
+     * then apply the same per-car fit as the dashboard (including RHD). */
+    quest_cockpit_panel(panels+6,.3116f,-.30f,-.405f,.20f,.22f,0,260,200,480);
+    for(int v=6;v<12;++v) {
+        panels[v].position[2]-=.40f*(panels[v].position[1]+.30f);
+        panels[v].normal[1]=.37139068f;panels[v].normal[2]=.92847669f;
+    }
     /* Remaining race information retains its former windshield plane. */
     quest_cockpit_panel(panels+12,0,.9895833f,-3,2.8f,.9208333f,0,0,640,260);
     quest_cockpit_panel(panels+18,0,.1395833f,-3,1.05f,.7791667f,200,260,440,480);
     quest_cockpit_menu_panel(panels+24);
+    /* Gauge and map follow the same static dashboard fit. Menus, mirrors,
+     * wheel rotation and controller poses retain their independent spaces. */
+    for(int v=0;v<12;++v) {
+        float position[3];quest_cockpit_fit_point(position,panels[v].position,quest_cockpit_vehicle(vehicle));
+        memcpy(panels[v].position,position,sizeof position);
+        /* Mirror the mounting position for RHD, not the map or its labels. */
+        if(quest_cockpit_vehicle(vehicle)->side<0)
+            panels[v].uv[0]=(v<6?1080.0f/640.0f:200.0f/640.0f)-panels[v].uv[0];
+    }
+    }
     if(make_image(1280,960,VK_FORMAT_B8G8R8A8_UNORM,
         VK_IMAGE_USAGE_SAMPLED_BIT|VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT|VK_IMAGE_USAGE_TRANSFER_SRC_BIT|VK_IMAGE_USAGE_TRANSFER_DST_BIT,
         VK_IMAGE_ASPECT_COLOR_BIT,&s_cockpit.hud.image,&s_cockpit.hud.view,&s_cockpit.hud.mem) &&
-        cockpit_buffer(sizeof panels,VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,&s_cockpit.panels,&s_cockpit.panels_mem,panels)) {
+        cockpit_static_buffer(sizeof all_panels,VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,&s_cockpit.panels,&s_cockpit.panels_mem,all_panels)) {
         for(int e=0;e<1+s_multiview;++e) {
             s_cockpit.hud_pipeline[e]=cockpit_pipeline(e,4);
             s_cockpit.info_pipeline[e]=cockpit_pipeline(e,5);
@@ -244,7 +367,7 @@ static void cockpit_initialize(void)
     }
     QuestGloveAsset glove;unsigned hand_count=0;int hand_type=1;
     if(quest_glove_asset(&glove,glove_data,glove_size) &&
-       cockpit_buffer((VkDeviceSize)glove.vertices*64,VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+       cockpit_static_buffer((VkDeviceSize)glove.vertices*64,VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
            &s_cockpit.hands,&s_cockpit.hands_mem,glove.geometry) &&
        cockpit_buffer((VkDeviceSize)glove.width*glove.height*4,VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
            &s_cockpit.hand_staging,&s_cockpit.hand_staging_mem,glove.pixels) &&
@@ -265,7 +388,7 @@ static void cockpit_initialize(void)
         memcpy(hand_data,hand->vertices,count*sizeof *hand_data);
         quest_ghost_mesh(hand,1);
         memcpy(hand_data+count,hand->vertices,hand->count*sizeof *hand_data);
-        if(hand->count==count && cockpit_buffer(2*count*sizeof *hand_data,VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+        if(hand->count==count && cockpit_static_buffer(2*count*sizeof *hand_data,VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
                &s_cockpit.hands,&s_cockpit.hands_mem,hand_data)) hand_count=count;
     }
     if(hand_count) {
@@ -303,6 +426,16 @@ static VkSurf *cockpit_mirror_surface(void)
 static void cockpit_draw(VkSurf *target,int eye)
 {
     if(!target || !s_cockpit.ready) return;
+    if(s_cockpit_upload_count && (uint32_t)(s_frame-s_cockpit_upload_frame)>VK_FRAMES+1) {
+        /* frame_begin has waited for every slot used by the initial uploads. */
+        for(unsigned i=0;i<s_cockpit_upload_count;++i) {
+            if(s_cockpit_uploads[i].buffer)vkDestroyBuffer(s_dev,s_cockpit_uploads[i].buffer,NULL);
+            if(s_cockpit_uploads[i].memory)vkFreeMemory(s_dev,s_cockpit_uploads[i].memory,NULL);
+        }
+        s_cockpit_upload_count=0;
+        if(s_cockpit.staging) {vkDestroyBuffer(s_dev,s_cockpit.staging,NULL);vkFreeMemory(s_dev,s_cockpit.staging_mem,NULL);s_cockpit.staging=VK_NULL_HANDLE;}
+        if(s_cockpit.hand_staging) {vkDestroyBuffer(s_dev,s_cockpit.hand_staging,NULL);vkFreeMemory(s_dev,s_cockpit.hand_staging_mem,NULL);s_cockpit.hand_staging=VK_NULL_HANDLE;}
+    }
     if(target->pw!=s_cockpit.width || target->ph!=s_cockpit.height || target->layers!=s_cockpit.layers) {
         if(s_cockpit.depth) garbage_add(s_cockpit.depth,s_cockpit.depth_view,s_cockpit.depth_mem);
         s_cockpit.depth=VK_NULL_HANDLE; s_cockpit.width=s_cockpit.height=0;
@@ -312,6 +445,13 @@ static void cockpit_draw(VkSurf *target,int eye)
         s_cockpit.width=target->pw; s_cockpit.height=target->ph; s_cockpit.layers=target->layers;
     }
     VkDeviceSize mirror_offsets[3]={0};
+    const QuestCockpitVehicle *fit=quest_cockpit_vehicle(s_cockpit_vehicle);
+    void *fit_mapped=NULL;
+    VkDeviceSize fit_offset=ring_alloc(32,s_ubo_align,&fit_mapped);
+    if(!fit_mapped)return;
+    const float fit_data[8]={fit->near_width,fit->far_width,fit->front_depth,fit->side,fit->rear_limit,0,0,0};
+    memcpy(fit_mapped,fit_data,sizeof fit_data);
+    VkDeviceSize panel_offset=(VkDeviceSize)s_cockpit_vehicle*30*sizeof(QuestGhostVertex);
     if(s_cockpit.mirror_frame+1==s_frame) for(int part=0;part<3;++part) {
         unsigned count=s_cockpit.mirror_count[part];
         if(!count) continue;
@@ -343,6 +483,11 @@ static void cockpit_draw(VkSurf *target,int eye)
     write.dstBinding=0; write.descriptorCount=1; write.descriptorType=VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     write.pImageInfo=&image;
     p_push_desc(s_cb,VK_PIPELINE_BIND_POINT_GRAPHICS,s_cockpit.layout,0,1,&write);
+    VkDescriptorBufferInfo fit_buffer={s_f->ring,fit_offset,sizeof fit_data};
+    VkWriteDescriptorSet fit_write={VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
+    fit_write.dstBinding=1;fit_write.descriptorCount=1;fit_write.descriptorType=VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    fit_write.pBufferInfo=&fit_buffer;
+    p_push_desc(s_cb,VK_PIPELINE_BIND_POINT_GRAPHICS,s_cockpit.layout,0,1,&fit_write);
     VkDeviceSize offset=0;
     vkCmdBindVertexBuffers(s_cb,0,1,&s_cockpit.geometry,&offset);
     vkCmdBindIndexBuffer(s_cb,s_cockpit.geometry,(VkDeviceSize)s_cockpit.vertices*32,VK_INDEX_TYPE_UINT32);
@@ -370,15 +515,15 @@ static void cockpit_draw(VkSurf *target,int eye)
         }
     }
     if(s_cockpit.hud_split && s_cockpit.hud.gen && s_cockpit.hud.draw_frame+1==s_frame && s_cockpit.info_pipeline[target->layers==2]) {
-        /* The title's transparent gauge is an instrument overlay on the
+        /* The gauge and center-stack map are instrument overlays on the
          * fixed dashboard. Draw before the separate wheel/hands so those
-         * naturally occlude it, without slicing the cabin or adding a black
-         * rectangle. Its eye-space plane still moves with head parallax. */
+         * naturally occlude them, without slicing the cabin or adding black
+         * rectangles. Their planes still move with head parallax. */
         image.imageView=s_cockpit.hud.view;
         p_push_desc(s_cb,VK_PIPELINE_BIND_POINT_GRAPHICS,s_cockpit.layout,0,1,&write);
-        vkCmdBindVertexBuffers(s_cb,0,1,&s_cockpit.panels,&offset);
+        vkCmdBindVertexBuffers(s_cb,0,1,&s_cockpit.panels,&panel_offset);
         vkCmdBindPipeline(s_cb,VK_PIPELINE_BIND_POINT_GRAPHICS,s_cockpit.info_pipeline[target->layers==2]);
-        vkCmdDraw(s_cb,6,1,0,0);
+        vkCmdDraw(s_cb,12,1,0,0);
         vkCmdBindPipeline(s_cb,VK_PIPELINE_BIND_POINT_GRAPHICS,s_cockpit.pipeline[target->layers==2]);
         vkCmdBindVertexBuffers(s_cb,0,1,&s_cockpit.geometry,&offset);
         image.imageView=s_cockpit.texture_view;
@@ -393,7 +538,8 @@ static void cockpit_draw(VkSurf *target,int eye)
         s_cockpit.wheel_tick=now;
     }
     float wheel[16];
-    quest_cockpit_wheel(wheel,s_cockpit.wheel_pivot,s_cockpit.wheel_axis,s_cockpit.steering);
+    vkCmdBindPipeline(s_cb,VK_PIPELINE_BIND_POINT_GRAPHICS,s_cockpit.wheel_pipeline[target->layers==2]);
+    quest_cockpit_wheel_angle(wheel,s_cockpit.wheel_pivot,s_cockpit.wheel_axis,-s_cockpit.steering*QUEST_WHEEL_LOCK_RADIANS);
     for(int e=0;e<2;++e) quest_cockpit_multiply(matrices[e],matrices[e],wheel);
     vkCmdPushConstants(s_cb,s_cockpit.layout,VK_SHADER_STAGE_VERTEX_BIT,0,sizeof matrices,matrices);
     vkCmdDrawIndexed(s_cb,s_cockpit.wheel_count,1,s_cockpit.wheel_first,0,0);
@@ -420,10 +566,8 @@ static void cockpit_draw(VkSurf *target,int eye)
         p_push_desc(s_cb,VK_PIPELINE_BIND_POINT_GRAPHICS,s_cockpit.layout,0,1,&write);
         quest_xr_cockpit_matrix(eye,matrices[0]);quest_xr_cockpit_matrix(1,matrices[1]);
         vkCmdPushConstants(s_cb,s_cockpit.layout,VK_SHADER_STAGE_VERTEX_BIT,0,sizeof matrices,matrices);
-        vkCmdBindVertexBuffers(s_cb,0,1,&s_cockpit.panels,&offset);
+        vkCmdBindVertexBuffers(s_cb,0,1,&s_cockpit.panels,&panel_offset);
         if(s_cockpit.hud_split) {
-            vkCmdBindPipeline(s_cb,VK_PIPELINE_BIND_POINT_GRAPHICS,s_cockpit.hud_pipeline[target->layers==2]);
-            vkCmdDraw(s_cb,6,1,6,0);
             vkCmdBindPipeline(s_cb,VK_PIPELINE_BIND_POINT_GRAPHICS,s_cockpit.info_pipeline[target->layers==2]);
             vkCmdDraw(s_cb,12,1,12,0);
         } else {

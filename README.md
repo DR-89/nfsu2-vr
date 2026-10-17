@@ -45,14 +45,14 @@ the tree; the focus of this development publication is PCVR and Meta Quest 3.
 
 ## Development downloads
 
-The [current development release](https://github.com/DR-89/nfsu2-vr/releases/tag/dev-2026-10-15)
+The [current development release](https://github.com/DR-89/nfsu2-vr/releases/tag/dev-2026-10-17)
 includes:
 
-- [Meta Quest 3 APK](https://github.com/DR-89/nfsu2-vr/releases/download/dev-2026-10-15/NFSU2VR-Quest3-dev-2026-10-15.apk):
+- [Meta Quest 3 APK](https://github.com/DR-89/nfsu2-vr/releases/download/dev-2026-10-17/NFSU2VR-Quest3-dev-2026-10-17.apk):
   sideload the development APK, then use its setup panel to import your own
   supported Xbox USA ZIP, 7z or ISO/XISO.
   Follow the [Quest installation guide](#installing-on-meta-quest-3) below.
-- [Windows PCVR package](https://github.com/DR-89/nfsu2-vr/releases/download/dev-2026-10-15/NFSU2VR-PCVR-dev-2026-10-15.zip):
+- [Windows PCVR package](https://github.com/DR-89/nfsu2-vr/releases/download/dev-2026-10-17/NFSU2VR-PCVR-dev-2026-10-17.zip):
   extract the whole ZIP to a writable folder and run **Start-PCVR.cmd**.
   If game data is missing, **Game data setup** opens automatically. Select your
   Xbox USA ISO/XISO; progress and cancellation are available. All 12 required
@@ -66,22 +66,32 @@ No Python, Java or external ISO extractor is required to run the PCVR importer.
 See the included README for system requirements. These downloads remain
 **development builds, not fully tested**, with possible bugs and performance issues.
 
-## New in the October 15 development build
+## New in the October 17 development build
 
-- Shared anthracite/blue cockpit with doors, front seats and rear bench from
-  one generated Tripo cabin, fitted inside the original car body and hood.
-- Cockpit View in the normal camera cycle, animated wheel, translucent racing
-  gloves and one/two-hand motion steering, including crossed hands.
-- Live interior/side mirrors using three sectors of the game's rear camera;
-  speed display behind the wheel and map lower left.
-- Collision/road rumble, revised driving controls, 360-degree total wheel travel,
-  retained steering after release and deliberate left-stick takeover.
-- Complete pause-menu presentation and stable glove contact while holding Grip.
+- **VR Settings in the pause menu:** adjust steering sensitivity, wheel rotation,
+  seat height/distance and per-eye render resolution. Pause, then press **X**;
+  use a stick/D-pad to adjust and **B** to save. Resolution changes need a restart.
+- Individual base cockpit fitting for all **29 stock vehicles**, including the
+  Miata's shorter cabin and rear-bench removal for Miata/350Z.
+- Fixes for missing player bodies, black driver-proxy obstructions and mirrors
+  disappearing after seat adjustments. Interior and side mirrors use the
+  original glass with three sectors of the game's rear camera.
+- Clear cockpit windows: the player's tint/glass is hidden only from inside;
+  exterior tint, the original body, window frames and mirrors are retained.
+- Speed display seated on the instruments, map on the **center console**, and
+  race notifications no longer returning the gauge to its old screen position.
+- **Right stick click changes cameras**; left click looks back outside the
+  cockpit. Both clicks recenter. Right stick left reads SMS; right enters a
+  race/shop. Up/down shifts with Manual transmission. A is nitro; B handbrake.
+- SDL gamepad input, persistent settings, cockpit geometry/mirror caching and
+  improved PCVR startup retry/error handling.
 
-The cockpit fit, controls, vibration, mirrors, pause-menu fix and held-hand fix
-have been accepted in native Quest testing. PCVR shares the code and builds
-successfully, but these new cockpit features still need a separate PCVR headset
-test. Stable 72 FPS and vehicle-by-vehicle cabin fitting remain unfinished.
+Recent cockpit fitting, mirrors, seat settings, instruments, map and window-tint
+behavior were confirmed on native Quest. Windows tests cover the shared code,
+including simulated gamepad input. Fresh PCVR headset/reconnection and physical
+gamepad acceptance are still outstanding. Stable 72 FPS across gameplay is
+**not established**. The shared cabin remains a prototype, not a faithful
+recreation of each car's interior or a guarantee for every tuning combination.
 See [release notes](RELEASE_NOTES.md) and [cockpit asset details](assets/cockpits/README.md).
 
 ## Support development

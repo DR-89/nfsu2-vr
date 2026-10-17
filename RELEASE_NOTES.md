@@ -1,54 +1,89 @@
-# Cockpit and motion steering — dev-2026-10-15
+# VR settings and vehicle cockpit fixes - dev-2026-10-17
 
 Development prerelease for **Meta Quest 3 standalone** and **Windows x64 PCVR**.
 
-## Changes
+## Changes since October 15
 
-- A shared anthracite/blue cockpit, including doors, front seats and rear bench,
-  fitted inside the original car body. The extra headliner and duplicate pillars
-  are removed; the original body and hood remain visible.
-- Cockpit View in the regular camera cycle, an animated steering wheel and
-  translucent Tripo racing gloves. Grip anywhere on the rim to steer with one
-  or both hands, including hand-over-hand turns.
-- 360-degree total steering travel (180 degrees either way). Releasing the wheel
-  retains steering; deliberate left-stick movement restores stick steering.
-- Held gloves keep their wheel contact through tracking recovery, diagonal hub
-  crossings and steering stops. Release and regrip to choose a new contact point.
-- Functional interior and side mirror surfaces, using three sectors of one
-  live rear camera. Smaller speed display behind the wheel and lower map.
-- Controller vibration from game rumble; enable Vibration in the game settings.
-- Left stick click changes cameras; right stick click looks back outside the
-  cockpit. Both clicks recenter. While driving, A is nitro, B is handbrake and
-  right stick up/down shifts in Manual transmission mode.
-- Pause menus remain one complete panel rather than moving their lower corners
-  onto the map and speed display.
+- **VR Settings:** pause during a race and press **X**. Adjust steering
+  sensitivity (50-300%), total wheel rotation (180-1080 degrees), seat height
+  (+/-35 cm), seat distance (+/-40 cm) and per-eye render resolution. Settings
+  persist; resolution changes apply after restarting. The entry is restricted
+  to the root pause menu, not race notifications or other screens.
+- **Vehicle fitting:** individual base seat/cabin profiles for all 29 stock
+  cars, including the Miata's shorter cabin and removal of the rear bench in
+  the Miata and 350Z. The shared cabin is fitted to each body; it is still a
+  common generated interior rather than 29 individually recreated interiors.
+- **Body and mirrors:** fix the missing cockpit body on cars such as the
+  Lancer Evo VIII; remove crossed original driver-proxy cards causing black
+  obstructions. Original center/side mirrors remain recognized after changing
+  the seat and include the lower mirror glass on several vehicles.
+- **Clear cockpit windows:** remove the player's glass/tint only in Cockpit
+  View, keeping the original body, window frames, mirrors and exterior tint.
+- **Instruments:** place the speed display on the dashboard and the map on the
+  center console. Driving notifications no longer move the gauge back to its
+  original HUD position; pause menus remain complete.
+- **Controls:** right stick click cycles cameras; left click holds rear view
+  outside the cockpit. Both clicks recenter. Right stick left reads SMS, right
+  enters a race/shop, and up/down shifts in Manual transmission. Return the
+  stick to center between actions. A is nitro; B is handbrake.
+- **Gamepads:** mapped SDL USB/Bluetooth controllers use the same driving
+  layout, with supported rumble. Motion-controller wheel grips take priority
+  while held. Physical controller combinations need broader hardware testing.
+- **Cockpit overhead:** cache mirror geometry, upload immutable cabin/glove
+  geometry to device-local memory, avoid redundant HUD foveation allocations
+  and defer pipeline-cache disk writes until outside races.
+- **Release assets:** restore the verified textured racing gloves after a local
+  diagnostic dump overwrote the asset. Packaging now checks the glove format,
+  checksum and equality of the APK and source cockpit assets.
+- **PCVR startup:** retry transient OpenXR initialization/session failures and
+  provide reconnect/retry dialogs instead of continuing with a black console
+  and audio only. This recovery path still needs broader headset testing.
 
 ## Downloads and updating
 
-- **NFSU2VR-Quest3-dev-2026-10-15.apk**: standalone Quest 3 APK, version 0.2-dev
-  (version code 2). Install as an update to retain imported data and saves.
-- **NFSU2VR-PCVR-dev-2026-10-15.zip**: extract the entire folder, retaining
-  `cockpits/`, then launch `Start-PCVR.cmd`. Keep your existing `game/` and saves.
-- **NFSU2VR-Source-<commit>.zip**, **BUILD-INFO.json** and **SHA256SUMS.txt**:
-  matching source, validation details and checksums. This release tag points to
-  the matching source commit; GitHub's automatic source downloads match it too.
+- **NFSU2VR-Quest3-dev-2026-10-17.apk**: standalone Quest APK, **0.3-dev / version
+  code 3**. Install over the previous APK to retain imported data and saves;
+  the signing certificate is unchanged. Do not uninstall first.
+- **NFSU2VR-PCVR-dev-2026-10-17.zip**: extract all files, including `cockpits/`,
+  and launch **Start-PCVR.cmd**. When updating, retain your existing `game/`
+  directory and its saves. Connect Virtual Desktop/VDXR before launching.
+- Matching source ZIP, **BUILD-INFO.json** and **SHA256SUMS.txt** identify the
+  exact source, dependencies, validation and binary checksums. The release tag
+  also points to this source revision.
 
-No original game content is included. Supply your own supported **Xbox USA /
-NTSC-U** disc. Quest imports ISO/XISO, ZIP or 7z; PCVR imports ISO/XISO (unpack
-compressed archives first). The generated cockpit/glove assets are bundled.
+Supply your own supported **original Xbox USA / NTSC-U** disc. Quest imports
+ISO/XISO, ZIP or 7z; PCVR imports ISO/XISO, so unpack compressed archives first.
+No original game content or saves are included. Generated cockpit/glove assets
+and the required application runtime libraries are bundled.
 
-## Validation and remaining work
+## Validation and limits
 
-The recent cockpit fit, camera controls, mirrors, rumble, instruments, pause
-menu and stable hand contact were confirmed on native Quest. Windows and Quest
-regression tests cover the shared code, and both platform builds complete.
-Exact release checks and dependency pins are recorded in BUILD-INFO.json.
+Both builds complete. Seventeen Windows regression executables, 32 Android
+importer unit tests and 13 Python input tests pass. Shared cockpit tests cover
+all 29 vehicle profiles, 2,068 stock submeshes, center/side mirror selection,
+seat offsets, pause/notification states and 6,417 captured draw records. The
+native Quest cockpit suite passed on the headset before packaging; the final
+APK rebuild updates version metadata and restores the previously released
+textured glove asset; gameplay code is unchanged. Private
+retail test fixtures are excluded from all downloads.
 
-This remains an experimental development build. Stable 72 FPS is **not yet
-achieved across gameplay**. Vehicle-specific cockpit fitting is incomplete,
-and the new PCVR cockpit features have not received a separate headset test.
-PCVR development uses Virtual Desktop/VDXR; other runtimes remain unverified.
+Native Quest user testing confirmed the Lancer body/driver correction, all
+three mirrors after seat changes, Miata seating and rear-bench removal, the
+dashboard gauge, console map and cockpit-only tint removal. This is not a
+visual playthrough of every car, tuning combination or seat position.
 
-Based on [antoxa2584x/nfsu2-sw](https://github.com/antoxa2584x/nfsu2-sw) and
-[xboxrecomp](https://github.com/sp00nznet/xboxrecomp). Existing upstream credits
-and license notices are retained.
+**This remains an experimental development build. Stable 72 FPS is not yet
+established across gameplay.** The latest cockpit changes and startup recovery
+still need separate PCVR headset acceptance. Other headsets/OpenXR runtimes
+and physical gamepad combinations are not comprehensively verified.
+
+## Links and credits
+
+- Repository: https://github.com/DR-89/nfsu2-vr
+- Gameplay video: https://youtu.be/MHHi2G6Lixk
+- Support development: https://www.patreon.com/c/OpenSourceDevDirk
+- Based on antoxa2584x: https://github.com/antoxa2584x/nfsu2-sw
+- Recompilation toolkit: https://github.com/sp00nznet/xboxrecomp
+
+Upstream credits and license notices are retained. This unofficial project
+is not affiliated with EA, Meta or Microsoft.

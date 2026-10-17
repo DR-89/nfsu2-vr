@@ -43,6 +43,9 @@ add_custom_target(quest_runtime ALL DEPENDS
 # the device separately before memory mapping can be considered validated.
 option(NFSU2_ANDROID_MEMORY_CHECKS "Build the upstream memory regressions" ON)
 if(NFSU2_ANDROID_MEMORY_CHECKS)
+    add_executable(quest_vr_settings_test "${NFSU2_ROOT}/tests/quest_vr_settings_test.c")
+    target_link_libraries(quest_vr_settings_test PRIVATE m)
+    add_dependencies(quest_runtime quest_vr_settings_test)
     add_executable(quest_haptics_test "${NFSU2_ROOT}/tests/quest_haptics_test.c")
     target_link_libraries(quest_haptics_test PRIVATE m)
     add_dependencies(quest_runtime quest_haptics_test)

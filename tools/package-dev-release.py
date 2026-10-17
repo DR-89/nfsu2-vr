@@ -5,6 +5,7 @@ import hashlib
 import json
 from pathlib import Path
 import shutil
+import struct
 import subprocess
 import zipfile
 
@@ -14,6 +15,21 @@ ROOT = Path(__file__).resolve().parents[1]
 def sha256(path):
     with path.open('rb') as stream:
         return hashlib.file_digest(stream, 'sha256').hexdigest()
+
+
+def validate_gloves(path, metadata):
+    """Reject diagnostic mesh dumps or stale/corrupt assets before packaging."""
+    data = path.read_bytes()
+    if len(data) < 32 or data[:4] != b'NGHV':
+        raise ValueError('Glove asset is not an NGHV file; regenerate/restore it before release')
+    magic, version, vertices, width, height, r0, r1, r2 = struct.unpack_from('<8I', data)
+    if (version != 1 or r0 or r1 or r2 or not 0 < vertices <= 60000 or vertices % 3
+            or not 0 < width <= 2048 or not 0 < height <= 2048
+            or len(data) != 32 + vertices * 64 + width * height * 4):
+        raise ValueError('Invalid glove header or byte length')
+    expected = json.loads(metadata.read_text(encoding='utf-8'))
+    if sha256(path) != expected['sha256']:
+        raise ValueError('Glove asset differs from its preparation metadata')
 
 
 def main():
@@ -33,6 +49,8 @@ def main():
     validation = json.loads(args.validation.read_text(encoding='utf-8'))
     if not isinstance(validation, list) or not validation or not all(isinstance(v, str) and v for v in validation):
         parser.error('Validation must be a nonempty JSON list of completed check descriptions')
+    validate_gloves(ROOT / 'assets/cockpits/runtime/cockpits/driver-gloves.nghv',
+                    ROOT / 'assets/cockpits/runtime/cockpits/driver-gloves.json')
     args.output.mkdir(parents=True, exist_ok=False)
     package = args.output / 'PCVR'
     package.mkdir()
@@ -62,6 +80,9 @@ def main():
                            'assets/cockpits/driver-gloves.nghv', 'assets/cockpits/driver-gloves.json'}
         if assets != expected_assets:
             raise ValueError(f'Unexpected APK assets: {sorted(assets)}')
+        for asset in ('shared.ncpk', 'shared.json', 'driver-gloves.nghv', 'driver-gloves.json'):
+            if apk.read('assets/cockpits/' + asset) != (ROOT / 'assets/cockpits/runtime/cockpits' / asset).read_bytes():
+                raise ValueError(f'APK cockpit asset differs from release source: {asset}; rebuild APK')
         libraries = {n for n in names if n.startswith('lib/') and n.endswith('.so')}
         if libraries != {'lib/arm64-v8a/' + n for n in ('libSDL2.so', 'libnfsu2_quest.so', 'libopenxr_loader.so', 'libc++_shared.so')}:
             raise ValueError('Unexpected APK native libraries')

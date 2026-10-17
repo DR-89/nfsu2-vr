@@ -35,14 +35,15 @@ Xbox executable, disc images, game assets and saves are NOT included.
 
 Controls (Touch controllers):
 - Left menu button: pause/Start. Right stick navigates menus.
-- Left stick click: cycle cameras, including Cockpit View.
-- Right stick click: hold rear view outside the cockpit; disabled inside it.
+- Right stick click: cycle cameras, including entering/leaving Cockpit View.
+- Left stick click: hold rear view outside the cockpit; disabled inside it.
 - Both stick clicks: recenter the view and release wheel grips.
 - A: nitro while driving. B: handbrake while driving.
 - Right stick up/down: shift up/down with Manual transmission; return it to
-  center between shifts. Menu confirm/back retain their normal mapping.
+  center between shifts. Right stick left reads SMS; right enters a race/shop.
+  Menu confirm/back retain their normal mapping.
 - Grip near any rim point: one- or two-hand motion steering in the cockpit,
-  including crossed hands. The wheel has 360 degrees total travel (+/-180).
+  including crossed hands. Default wheel travel is 360 degrees (+/-180).
 - Releasing both grips retains steering. Move the left stick at least 25%
   sideways to resume ordinary stick steering. A held glove stays attached to
   its initial rim point; release/regrip to choose another point.
@@ -52,11 +53,30 @@ The shared anthracite/blue Tripo cabin includes doors, front seats, rear bench,
 floor, dashboard and animated wheel. Its extra headliner/window pillars were
 removed to fit the original car body and hood. Three original mirror surfaces
 use sectors of one live rear camera. The speed display sits behind the wheel,
-with the map lower left; the pause menu is displayed as one complete panel.
+with the map on the center console; pause menus stay on one complete panel.
 Keep the entire bundled cockpits/ folder, including the racing gloves.
-These recent cockpit/control changes were accepted on native Quest. The PCVR
-build shares the implementation but has not had a fresh headset acceptance
-test for this release. Vehicle-by-vehicle cabin fitting is still incomplete.
+The cabin now has base seat/body fitting for all 29 stock cars. Miata and 350Z
+omit the rear bench. Original driver-proxy cards and the player's window glass
+are hidden only in Cockpit View; exterior tint, body and mirrors are retained.
+The dashboard speed display, console map and recent mirror/tint corrections
+were accepted on native Quest. PCVR shares this code but has not had a fresh
+headset acceptance test for this release. Every tuning combination is not tested.
+
+VR Settings:
+- Pause during a race, then press X. The entry is available only at the root
+  pause menu. Use a stick/D-pad to select and adjust; B saves and returns.
+- Steering Sensitivity: 50-300%; Wheel Rotation: 180-1080 degrees total.
+- Seat Height: +/-35 cm; Seat Distance: +/-40 cm. Positive distance moves back.
+- Render Resolution: select a per-eye preset, then save and restart to apply.
+  Higher values can reduce performance. Stable 72 FPS is not guaranteed.
+- Settings are saved under %APPDATA%\OpenSourceDevDirk\NFSU2VR.
+
+Mapped SDL USB/Bluetooth gamepads are supported with the same driving layout.
+Physical gamepad/headset combinations still need broader hardware testing.
+
+Connect Virtual Desktop before starting. Transient OpenXR startup failures
+are retried; if a connection dialog appears, reconnect the headset and choose
+Retry. This recovery path still needs broader PCVR headset testing.
 
 If startup fails, read logs/stderr.log. Logs from the previous launch are
 replaced. Performance and streaming quality depend on your PC and connection.

@@ -44,7 +44,9 @@
 #include "quest_frame_timing.h"
 #include "quest_cockpit.h"
 #include "quest_cockpit_fit.h"
+#include "quest_cockpit_vehicle.h"
 #include "quest_cockpit_ui.h"
+#include "quest_cockpit_windows.h"
 #include <time.h>
 #endif
 
@@ -112,11 +114,18 @@ void sub_002A7EE0(void) { crt_memmove(); }
  * menus, race-intro cameras, reflections and other players keep their paths.
  * US retail Car has render origin +0x50 and local-to-world axes +0x90. */
 extern void sub_00055C80_gen(void);
+#if defined(__ANDROID__) || defined(NFSU2_PCVR)
+/* Guest-thread identity, refreshed by the driving camera. Never infer the
+ * player's body from its dimensions or from a particular vehicle name. */
+static uint32_t cockpit_player_car;
+static int cockpit_ui_read(void *context,uint32_t address,void *out,size_t size);
+#endif
 void sub_00055C80(void)
 {
 #if defined(__ANDROID__) || defined(NFSU2_PCVR)
     uint32_t camera=ecx, mover=edi, target=MEM32(esp+4);
     int main_camera=camera && camera==MEM32(0x003f5b70u);
+    if(main_camera) cockpit_player_car=0;
     int available=0, active=0;
     float saved[16];
     uint32_t m=mover&0x7fffffffu;
@@ -134,17 +143,37 @@ void sub_00055C80(void)
         uint32_t car=MEM32(mover+0x2c), c=car&0x7fffffffu, t=target&0x7fffffffu;
         if(c>=0x10000 && c<0x03fff000 && t>=0x10000 && t<0x03ffffc0) {
             float rotation[12], position[3], matrix[16];
-            /* Matched to full-cabin-fit.json: eye 8 cm closer and 10 cm
-             * lower, with the cabin fixed relative to the original shell. */
+            /* Car+0x0c points at a fixed 32-byte car-type name. Cache only
+             * immutable fit metadata; never infer the active car from size. */
+            static uint32_t fitted_car,fitted_type;
+            static int fitted_index;
+            uint32_t type=MEM32(car+0x0c),type_address=type&0x7fffffffu;
+            if(car!=fitted_car || type!=fitted_type) {
+                char name[33]={0};
+                if(type_address>=0x10000 && type_address<0x03ffffe0)
+                    memcpy(name,(const void *)XBOX_PTR(type),32);
+                fitted_index=quest_cockpit_vehicle_index(name);
+                fitted_car=car;fitted_type=type;
+                const QuestCockpitVehicle *fit=quest_cockpit_vehicle(fitted_index);
+                fprintf(stderr,"[Cockpit] vehicle fit %s: seat %.3f %.3f %.3f, cabin %.3f %.3f %.3f\n",
+                    fit->name,fit->seat[0],fit->seat[1],fit->seat[2],fit->near_width,fit->far_width,fit->front_depth);
+            }
+            const QuestCockpitVehicle *fit=quest_cockpit_vehicle(fitted_index);
+            uint32_t windows[QUEST_COCKPIT_WINDOWS];
+            quest_cockpit_window_textures(cockpit_ui_read,NULL,car,windows);
+            quest_xr_cockpit_vehicle_publish(fitted_index,windows);
             memcpy(rotation,(const void *)XBOX_PTR(car+0x90),sizeof rotation);
             memcpy(position,(const void *)XBOX_PTR(car+0x50),sizeof position);
-            available=quest_cockpit_view(matrix,rotation,position,quest_cockpit_seat);
+            /* User seat offsets belong to the common XR eye transform.
+             * Keep the game's base camera stable for body/mirror identity. */
+            available=quest_cockpit_view(matrix,rotation,position,fit->seat);
             if(available && quest_xr_cockpit_requested()) {
                 memcpy(saved,(const void *)XBOX_PTR(target),sizeof saved);
                 memcpy((void *)XBOX_PTR(target),matrix,sizeof matrix);
                 /* Keep the original body and hood. The fitted cabin asset
                  * omits its window pillars to avoid overlapping frames. */
                 MEM32(camera+0x280)=0;
+                cockpit_player_car=car;
                 active=1;
             }
         }
@@ -154,6 +183,37 @@ void sub_00055C80(void)
 #if defined(__ANDROID__) || defined(NFSU2_PCVR)
     if(active) memcpy((void *)XBOX_PTR(target),saved,sizeof saved);
     if(main_camera) quest_xr_cockpit_publish(available,active);
+#endif
+}
+
+/* CarRenderInfo::Render also hides a high-detail car when the main camera
+ * (raised 0.5 m) lies inside its bounds. Clearing Camera+0x280 alone does not
+ * bypass that second exclusion: it removes the whole Lancer Evo VIII at our
+ * cockpit seat, while shorter shells happen to survive. Keep the retail
+ * point/box test for every other caller, car and view. Its only body-hide
+ * call is 0x20C27D; the caller has already checked main eView id 1.
+ * Running the generated test first preserves its register/x87 side effects. */
+extern void sub_0004CA40_gen(void);
+void sub_0004CA40(void)
+{
+#if defined(__ANDROID__) || defined(NFSU2_PCVR)
+    int keep_body=0;
+    if(MEM32(esp)==0x0020c282u && cockpit_player_car &&
+       MEM32(0x00428e34u)==6 && quest_xr_cockpit_active()) {
+        uint32_t info=MEM32(cockpit_player_car+0x554);
+        keep_body=info && MEM32(esp+4)==info+0x10 && MEM32(esp+8)==info+0x20;
+    }
+#endif
+    sub_0004CA40_gen();
+#if defined(__ANDROID__) || defined(NFSU2_PCVR)
+    if(keep_body && eax) {
+        static uint32_t reported_car;
+        if(reported_car!=cockpit_player_car) {
+            reported_car=cockpit_player_car;
+            fprintf(stderr,"[Cockpit] own body retained inside camera bounds: car=%08x\n",cockpit_player_car);
+        }
+        eax=0;
+    }
 #endif
 }
 
@@ -233,8 +293,8 @@ extern void sub_000A1800_gen(void);
 static int cockpit_ui_read(void *context,uint32_t address,void *out,size_t size)
 {
     (void)context;
-    /* The title's active frontend is allocated in the physical-memory
-     * window. It is distinct from low virtual memory in this runtime. */
+    /* Guest UI and car render data can use the physical-memory window.
+     * It is distinct from low virtual memory in this runtime. */
     uint64_t end=(uint64_t)address+size;
     if(!((address>=0x10000u && end<=0x04000000u) ||
          (address>=0x80000000u && end<=0x84000000u))) return 0;
@@ -250,7 +310,10 @@ void sub_000A1800(void)
      * so it must not select the cockpit UI layout. Publish the actual active
      * frontend separately; the XR thread never reads mutable guest memory. */
     quest_xr_driving_publish(MEM32(0x00428e34u)==6 && !MEM8(0x0040245cu));
-    quest_xr_cockpit_menu_publish(quest_cockpit_ui_menu(cockpit_ui_read,NULL));
+    int menu=quest_cockpit_ui_menu(cockpit_ui_read,NULL);
+    quest_xr_cockpit_menu_publish(menu);
+    quest_xr_pause_publish(MEM32(0x00428e34u)==6 &&
+                           quest_cockpit_ui_paused(cockpit_ui_read,NULL));
     if(quest_xr_cockpit_active() && MEM32(0x00428e34u)==6 &&
        MEM32(0x003f5c14u)==3 && MEM32(0x003f5c50u)==0x003efb20u) {
         uint32_t surface=MEM32(0x003f5c68u);

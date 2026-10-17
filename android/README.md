@@ -9,6 +9,122 @@ dense scenes and crashes, without new rendering regressions at the accepted
 image quality. This supersedes the earlier 120 Hz target and has not been met
 across the game yet.
 
+## VR settings and controller update (2026-10-17, testing)
+
+Pause during a race and press **X** on Touch or a mapped gamepad to open the
+English **VR Settings** panel. A visible `[X] VR SETTINGS` entry appears below
+the pause menu. Use either stick or the D-pad to select a row and adjust it
+left/right. **A** selects Reset Defaults or Save and Back; **B** saves and
+returns to the game's pause menu without also activating it.
+The entry is authorized only by the active root `UI_Pause.fng` package;
+race notifications, loading screens, options and confirmation dialogs cannot
+open it. Holding X before pausing requires release and a new press.
+
+- **Steering sensitivity:** 50–300%. Higher values reach full game steering
+  with less physical wheel movement.
+- **Wheel rotation:** 180–1080 degrees total, lock to lock; default 360.
+  This controls physical travel independently of steering sensitivity.
+- **Seat height:** ±35 cm, in 1 cm steps. Positive moves the eye upward.
+- **Seat distance:** ±40 cm, in 1 cm steps. Positive moves the eye backward.
+  The interior, instruments and grasp points stay attached to the car.
+- **Render resolution:** Default, 1280×1344, 1680×1760, 2550×2640,
+  2940×3080 or 3360×3520 per eye. The latter four match the community
+  resolution selector. **Save and restart the game** to apply a resolution.
+  Unsupported sizes fall back to the runtime/default size and are logged.
+  Higher resolutions require considerably more GPU time and memory.
+
+Settings persist in `vr-settings.ini` in the app's private files directory on
+Quest, or `%APPDATA%\OpenSourceDevDirk\NFSU2VR` on Windows. Game data and saved
+profiles are separate. Changing the wheel ratio resets the current grab;
+release Grip and grasp the rim again.
+
+Mapped SDL USB/Bluetooth gamepads feed the same driving controls as Touch.
+The active input device is selected by use; a held VR wheel has priority.
+Left stick steers, triggers brake/accelerate, A is nitro, B is handbrake,
+right stick click cycles cameras, and left stick click holds rear view only
+outside the cockpit. Start pauses. Right stick up/down shifts with manual
+transmission; **left reads SMS and right enters a race/shop**, one action per
+sideways deflection. Return to center between actions. Menus retain their
+normal navigation and A/B behavior. Gamepad rumble follows the game effects
+when the controller supports it; enable the game's Vibration option.
+
+This revision also caches original mirror geometry, uploads immutable cabin
+and glove geometry to device-local GPU memory, and defers pipeline-cache disk
+writes until outside races. Player-shell backface culling is disabled only for
+the detected seated player's body. Mirror detection accepts additional heights
+and slants beyond the Peugeot reference; the three mirrors still share sectors
+of one rear camera. These are targeted changes, not a claim of stable 72 FPS.
+
+Seat adjustments now move the shared XR eye transform while the game's base
+camera and original mirror geometry remain fixed to the car. This avoids
+losing mirror recognition when changing height or distance. A Pontiac capture
+also isolated crossed retail driver-proxy cards directly around the seated
+eye. Only that complete two-card geometry is hidden in the player's cockpit
+world pass; exterior views, other cars and the original shell are retained.
+The follow-up Lancer capture showed the same cards just outside the original
+seat-position window. Recognition now uses their complete topology and shape,
+independent of driver-side or seat height. The decoded stock geometry of all
+29 cars passes: exactly 29 driver proxies are removed among 2,068 submeshes,
+with all other 2,039 retained, on Windows and Quest. This includes A3/Skyline
+right-side drivers and the higher Navigator seat. The Lancer and Pontiac live
+captures each match exactly one proxy; the existing mirror fixtures still pass.
+The user confirmed the Lancer obstruction is gone and its body and outside
+mirrors remain visible. A separate center-mirror issue was then isolated:
+its glass extends 3 mm below the former height cutoff. The bounded planar
+glass search now includes the lower 240SX, Eclipse, Lancer, Miata, RX7 and TT
+mirrors. All 29 center mirrors are found across the 2,068 stock submeshes in
+Windows and Quest tests; the previously working 23 selections are unchanged.
+This checks geometry selection, not a visual playthrough of all vehicles.
+The user confirmed all three Lancer mirrors work on Quest, including after
+changing Seat Height or Seat Distance.
+
+Transient `Chyron_IG` notifications accompanying a race HUD keep the cockpit
+instrument layout. They no longer trigger the complete menu plane (which
+temporarily returned the gauge to its original screen position). Actual pause
+menus, options, dialogs and unknown packages remain unsplit. The mono cockpit
+HUD also skips the unused foveation attachment, preventing repeated rate-map
+allocation when switching between HUD and eye-image resolutions.
+
+The Lancer Evo VIII capture identified a second retail body exclusion inside
+`CarRenderInfo::Render`: the highest-detail car is omitted when the main
+camera, raised by 0.5 m, is inside its bounding box. This is independent of
+the camera's hidden-car pointer. The cockpit now bypasses only that call's
+positive result for the current player's own render-info bounds. The original
+test still runs; other cars, views, callers and non-cockpit cameras retain
+their results. Car dimensions and collision data are not modified.
+
+`tools/audit-cockpit-cars.py game build/car-audit` prepares private fixtures
+from local stock geometry and extracts the actual lifted routine and wrapper
+for `tests/quest_car_body_test.c`. With this USA disc it covers 29 vehicle types
+and 569 decoded stock solids. All 812 comparisons pass on Windows x64 and
+Quest ARM64, including unrelated calls and register/x87 preservation. Eight
+stock-bound aggregates reproduce the fixed-seat exclusion, including Lancer,
+Golf and several SUVs; the Peugeot does not. This is an automated regression
+of the body-hide decision, not a visual playthrough of all cars or all tuning
+parts. Generated fixtures remain private under `build/`.
+For the separate geometry regression, run
+`tools/audit-cockpit-driver-cards.py game build/car-audit/stock-solids.json build/driver-audit`.
+Pass `build/driver-audit/stock-meshes.bin` as the fifth fixture argument to
+`quest_cockpit_test` (after the cabin, mirror, UI and live geometry fixtures).
+The extractor checks vertex/index ranges and independent per-submesh bounds;
+its expected driver labels do not use the runtime classifier being tested.
+The same extraction writes `stock-center-mirrors.bin`; pass this as the sixth
+fixture argument to test all stock center-mirror selections and negative
+body/trim cases. Its labels are stored separately from the runtime detector.
+
+Validation: Windows and Quest tests pass for settings, bounds, save-format
+roundtrip, menu input consumption, variable wheel range/sensitivity, stable
+hand contact, and horizontal action pulses. Synthetic mirror variants and the
+42-batch Peugeot capture at four seat positions pass. The SDL virtual gamepad
+test passes button, trigger, axis, deadzone and detach checks on Windows.
+Windows and Quest also pass 17,253 stereo seat/head-pose configurations and
+the private 49-batch Pontiac fixture, which matches exactly one driver proxy.
+The live notification-list fixture fails with the previous menu classifier
+and passes with the fix, alongside captured pause/resume states and synthetic
+notification-plus-menu cases on both Windows and Quest.
+Other-car visuals, physical gamepads, menu placement, music-change stutters and
+PCVR reconnection still require headset testing.
+
 ## Shared cockpit prototype (2026-10-15)
 
 In a race, use the normal camera-change control to cycle into Cockpit View.
@@ -307,8 +423,8 @@ boot actually begins. Regular Android screenshots do not capture this VR layer.
   X/Y retain their original actions (also secondary gear buttons in gameplay).
 - Left menu button maps to Start; right stick also supplies the menu D-pad.
 - Left stick maps to the Xbox left stick; triggers map to the Xbox triggers.
-- Left stick click cycles cameras, including leaving Cockpit View (on release).
-- Right stick click holds rear view in the original driving cameras. It has
+- Right stick click cycles cameras, including leaving Cockpit View (on release).
+- Left stick click holds rear view in the original driving cameras. It has
   no rear-view action in Cockpit View; turn your head there.
 - Grips only grasp the steering wheel in Cockpit View; they do not send
   camera or rear-view buttons in any view.
@@ -370,8 +486,9 @@ plane, including both lower corners. Pause submenus use the same complete plane;
 the map/gauge split resumes only with active gameplay. The mode is recorded once
 with the UI image and shared by both eyes. The guest reads the active frontend
 package list, not the input gate (which stays enabled in the pause menu) or the
-loaded package cache (which can retain closed menus). Any active non-HUD package
-uses the complete plane, including options and confirmation dialogs.
+loaded package cache (which can retain closed menus). Active non-HUD packages
+use the complete plane, including options and confirmation dialogs, except
+the verified `Chyron_IG.fng` driving notification alongside an active HUD.
 The complete menu is drawn after the
 cabin and hands without depth occlusion. Other camera views retain their existing
 HUD path. Native Windows and Quest tests check all four menu corners and the

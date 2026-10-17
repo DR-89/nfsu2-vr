@@ -20,8 +20,12 @@ void quest_xr_matrix(int eye, int cockpit, float matrix[16]);
 void quest_xr_cockpit_ready(int ready);
 int quest_xr_cockpit_requested(void);
 void quest_xr_cockpit_publish(int available, int active);
+#include "quest_cockpit_windows.h"
+void quest_xr_cockpit_vehicle_publish(int index,const uint32_t windows[QUEST_COCKPIT_WINDOWS]);
+int quest_xr_cockpit_vehicle_snapshot(uint32_t windows[QUEST_COCKPIT_WINDOWS]);
 void quest_xr_driving_publish(int driving);
 void quest_xr_cockpit_menu_publish(int menu);
+void quest_xr_pause_publish(int paused);
 int quest_xr_cockpit_menu_active(void);
 int quest_xr_cockpit_active(void);
 int quest_xr_cockpit_enabled(void);

@@ -1,7 +1,7 @@
 # Development source publication
 
 This is the public development source for **DR-89/nfsu2-vr**, first published
-on October 14, 2026 and updated October 15. The project targets **Windows PCVR** and **Meta Quest 3
+on October 14, 2026 and updated October 17. The project targets **Windows PCVR** and **Meta Quest 3
 standalone** using Vulkan and OpenXR.
 
 **DEV BUILD — NOT 100% TESTED.** Bugs, crashes, freezes, rendering errors,
@@ -92,3 +92,26 @@ executables, four native Quest test executables, 32 Android importer tests and
 13 Python input-validation tests passed. The APK retains the previous signing
 certificate and advances to version code 2. Detailed validation and artifact
 checksums accompany the release in BUILD-INFO.json and SHA256SUMS.txt.
+
+## October 17 settings and vehicle-cockpit release
+
+This snapshot adds persistent pause-menu VR settings, SDL gamepad input,
+per-vehicle cabin fitting, body/driver-proxy and mirror corrections, seated
+instruments, the console map and cockpit-only window-tint removal. The public
+source retains only handwritten code, generated cabin/glove assets and
+synthetic fixtures. Retail geometry/memory/draw captures used for the 29-car
+regressions are private and are not part of the repository or downloads.
+
+Both platform builds complete. Seventeen Windows regression executables,
+32 Android importer unit tests and 13 Python input tests pass for this release.
+The native Quest cockpit suite passed on the headset before packaging, with
+29-car body/driver/mirror fixtures and 6,417 captured draw records. User testing
+confirmed recent seat, mirror, gauge, map and clear-window behavior. The final
+APK rebuild advances package metadata to 0.3-dev / version code 3 and restores
+the previously released textured glove asset after a local diagnostic overwrite;
+its signing certificate matches the previous release. The headset was no
+longer connected for another final-package launch. PCVR headset acceptance
+and stable 72 FPS across gameplay remain outstanding.
+
+Packaging now rejects invalid glove files or checksum/embedded-asset mismatches.
+The restored glove passes format, malformed-input and steering/contact tests.

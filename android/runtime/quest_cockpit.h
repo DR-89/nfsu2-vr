@@ -4,6 +4,15 @@
 #include <stdint.h>
 #include <string.h>
 
+/* Move the eye in fixed cabin coordinates before head tracking/projection.
+ * Keep the guest camera and mirror identity independent of UI settings.
+ * The input matrix is column-major; offsets use its input-space units. */
+static inline void quest_cockpit_shift_eye(float matrix[16],float height,float distance)
+{
+    for(int row=0;row<4;++row)
+        matrix[12+row]-=matrix[4+row]*height+matrix[8+row]*distance;
+}
+
 /* Retail car space: +X forward, +Y left, +Z up. Rotation rows are local
  * axes in world space; position is Car+0x50 (the render origin). The camera
  * consumes a row-vector world -> camera matrix, +Y down, +Z forward. */
@@ -69,13 +78,10 @@ static inline int quest_cockpit_cycle(unsigned slot,unsigned last,int direction,
 
 /* Column-major rigid wheel rotation about its fitted hub/shaft. The shaft
  * points toward the driver; positive steering is clockwise (right turn). */
-static inline void quest_cockpit_wheel(float out[16],const float pivot[3],
-                                        const float axis[3],float steering)
+static inline void quest_cockpit_wheel_angle(float out[16],const float pivot[3],
+                                              const float axis[3],float angle)
 {
-    if(steering>1) steering=1;
-    if(steering< -1) steering=-1;
-    /* Half a revolution from center to either lock (360 degrees total). */
-    float angle=-steering*QUEST_WHEEL_LOCK_RADIANS, c=cosf(angle),s=sinf(angle),t=1-c;
+    float c=cosf(angle),s=sinf(angle),t=1-c;
     float x=axis[0],y=axis[1],z=axis[2];
     const float r[16]={t*x*x+c,t*x*y+s*z,t*x*z-s*y,0,
                        t*x*y-s*z,t*y*y+c,t*y*z+s*x,0,
@@ -85,6 +91,11 @@ static inline void quest_cockpit_wheel(float out[16],const float pivot[3],
         out[12+row]=pivot[row];
         for(int col=0;col<3;++col) out[12+row]-=r[col*4+row]*pivot[col];
     }
+}
+static inline void quest_cockpit_wheel(float out[16],const float pivot[3],
+                                        const float axis[3],float steering)
+{
+    quest_cockpit_wheel_angle(out,pivot,axis,-fmaxf(-1,fminf(1,steering))*QUEST_WHEEL_LOCK_RADIANS);
 }
 static inline float quest_cockpit_steering_smooth(float current,float target,float seconds)
 {
@@ -126,7 +137,8 @@ static inline int quest_camera_button(QuestCameraButton *s, uint32_t now,int rig
 }
 
 typedef struct { QuestCameraButton camera; int chord; } QuestDrivingButtons;
-/* Return Xbox ANALOG button bits: White changes camera, Black looks back.
+/* Right click changes camera (White), left holds rear view (Black).
+ * Return Xbox ANALOG button bits.
  * Xbox thumb clicks do not trigger those retail actions. Consume a recenter
  * chord until BOTH physical clicks are released. */
 static inline uint8_t quest_driving_buttons(QuestDrivingButtons *s,uint32_t now,int left,int right)
@@ -137,7 +149,7 @@ static inline uint8_t quest_driving_buttons(QuestDrivingButtons *s,uint32_t now,
         if(!left && !right) s->chord=0;
         return 0;
     }
-    return (quest_camera_button(&s->camera,now,left,0)?0x20:0)|(right?0x10:0);
+    return (quest_camera_button(&s->camera,now,right,0)?0x20:0)|(left?0x10:0);
 }
 static inline void quest_driving_analog(QuestDrivingButtons *s,uint32_t now,
                                        int left,int right,int cockpit,uint8_t analog[8])

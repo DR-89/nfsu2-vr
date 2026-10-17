@@ -174,8 +174,32 @@ void pcvr_benchmark_frame(uint64_t now,int tracked,const uint64_t phases[5],
 void xbox_guest_pin(int interrupt) { (void)interrupt; }
 void xbox_nx_retag_thread(void *entry) { (void)entry; }
 void xbox_nx_raise_host_thread(void) { }
+/* A failed headless renderer used to leave a black console with game audio.
+ * Report it and offer an app-only restart; never require a PC reboot. */
+void pcvr_vr_failure(const char *reason)
+{
+    fprintf(stderr,"[PCVR] VR session unavailable: %s\n",reason);fflush(stderr);
+    int retry=MessageBoxA(NULL,reason,"NFSU2 PCVR - headset connection",
+                         MB_RETRYCANCEL|MB_ICONERROR|MB_SETFOREGROUND);
+    if(retry==IDRETRY) {
+        wchar_t executable[32768],command[32768];
+        DWORD n=GetModuleFileNameW(NULL,executable,32768);
+        const wchar_t *original=GetCommandLineW();
+        if(n && n<32768 && wcslen(original)<32768) {
+            wcscpy(command,original);
+            STARTUPINFOW start={0};PROCESS_INFORMATION process={0};start.cb=sizeof start;
+            _putenv_s("NFSU2_PCVR_RESTART_DELAY","1");
+            if(CreateProcessW(executable,command,NULL,NULL,FALSE,0,NULL,NULL,&start,&process)) {
+                CloseHandle(process.hThread);CloseHandle(process.hProcess);
+            } else MessageBoxA(NULL,"Could not restart the game. Please launch Start-PCVR.cmd again.","NFSU2 PCVR",MB_OK|MB_ICONERROR);
+        }
+    }
+    /* Guest workers cannot safely resume after a lost OpenXR device. */
+    ExitProcess(1);
+}
 int pcvr_run_game(int (*entry)(void))
 {
+    if(getenv("NFSU2_PCVR_RESTART_DELAY")) { _putenv_s("NFSU2_PCVR_RESTART_DELAY","");Sleep(1500); }
     int ready=pcvr_prepare_game_data();
     if(ready<=0) return ready<0?1:0;
     atexit(pcvr_release_game_data);
@@ -191,9 +215,13 @@ int pcvr_run_game(int (*entry)(void))
         fprintf(stderr,"[PCVR] SDL initialization failed: %s\n",SDL_GetError());
         pcvr_service_end(); return 1;
     }
-    if(!quest_xr_initialize()) {
+    while(!quest_xr_initialize()) {
         fprintf(stderr,"[PCVR] OpenXR initialization failed. Connect the headset in Virtual Desktop.\n");
-        quest_xr_shutdown(); SDL_Quit(); pcvr_service_end(); return 1;
+        quest_xr_shutdown();
+        if(MessageBoxA(NULL,"The OpenXR headset is not ready. Connect Virtual Desktop (VDXR), Quest Link or SteamVR, then select Retry. No PC restart is needed.",
+            "NFSU2 PCVR - connect headset",MB_RETRYCANCEL|MB_ICONINFORMATION|MB_SETFOREGROUND)!=IDRETRY) {
+            SDL_Quit();pcvr_service_end();return 1;
+        }
     }
     /* Match quest_entry.c: this executor test uses the original flat Xbox
      * viewport and can discard whole batches before the tracked VR shader.

@@ -71,6 +71,11 @@ add_executable(pcvr_culling_test "${NFSU2_ROOT}/tests/quest_culling_test.c")
 add_executable(pcvr_cockpit_test "${NFSU2_ROOT}/tests/quest_cockpit_test.c")
 add_executable(pcvr_wheel_grip_test "${NFSU2_ROOT}/tests/quest_wheel_grip_test.c")
 add_executable(pcvr_haptics_test "${NFSU2_ROOT}/tests/quest_haptics_test.c")
+add_executable(pcvr_vr_settings_test "${NFSU2_ROOT}/tests/quest_vr_settings_test.c")
+add_executable(pcvr_gamepad_test "${NFSU2_ROOT}/tests/quest_gamepad_test.c")
+target_link_libraries(pcvr_gamepad_test PRIVATE SDL2::SDL2)
+add_custom_command(TARGET pcvr_gamepad_test POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:SDL2>" "$<TARGET_FILE_DIR:pcvr_gamepad_test>")
 add_executable(pcvr_projection_test "${NFSU2_ROOT}/tests/quest_projection_test.c")
 target_include_directories(pcvr_projection_test PRIVATE "${NFSU2_ROOT}/android/runtime")
 add_executable(pcvr_shader_test "${NFSU2_ROOT}/tests/quest_shader_test.c"
@@ -103,4 +108,6 @@ add_custom_target(pcvr_bundle
     DEPENDS nfsu2_recomp pcvr_cockpit_test pcvr_game_data_test pcvr_multiview_test pcvr_vertex_layout_test pcvr_culling_test pcvr_shader_test pcvr_fence_test pcvr_surface_lookup_test pcvr_bulk_shadow_test pcvr_indices_test pcvr_index_packets_test pcvr_texture_decode_test pcvr_dispatch_wait_test pcvr_pb_boundary_test pcvr_threads)
 add_dependencies(pcvr_bundle pcvr_haptics_test)
 add_dependencies(pcvr_bundle pcvr_wheel_grip_test)
+add_dependencies(pcvr_bundle pcvr_vr_settings_test)
+add_dependencies(pcvr_bundle pcvr_gamepad_test)
 add_dependencies(pcvr_bundle pcvr_projection_test)
