@@ -27,6 +27,11 @@ adaptations build on that project's Xbox recompilation and runtime work.
 > retail game assets, music, movies or saves. Building from source additionally
 > requires generating the private game code locally.
 
+## Gameplay video
+
+Watch the VR cockpit and driving demonstration:
+https://youtu.be/MHHi2G6Lixk
+
 ## Platforms
 
 | Target | Runtime | Development status |
