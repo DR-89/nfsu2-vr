@@ -2,6 +2,24 @@
 
 Development prerelease for **Meta Quest 3 standalone** and **Windows x64 PCVR**.
 
+## October 18 update - steering hotfix (0.3.1-dev)
+
+- Small tracked wheel turns now compensate for the original game's **24% stick
+  deadzone**. At the default 360-degree total rotation, this removes roughly
+  43 degrees of dead travel in each direction.
+- The change applies to hand-driven steering only. Normal stick/gamepad
+  deadzones are preserved; a new wheel grab uses the stick's effective steering
+  so transferring control does not add a steering jump.
+- Wheel animation and held glove contacts continue to follow the physical
+  wheel angle. Existing rotation, sensitivity and saved settings are retained.
+- Windows and Quest ARM64 wheel/settings tests pass, including **132,066**
+  range/sensitivity samples, all **65,536** stick values and small one-/two-hand
+  turns. The Windows SDL gamepad regression also passes. Native Quest driving
+  confirmed fine steering response and successful stick takeover.
+- Both release binaries are updated. The Quest APK is **0.3.1-dev / version
+  code 4**, signed with the same certificate. PCVR headset acceptance of this
+  hotfix remains outstanding. The download filenames/URLs remain unchanged.
+
 ## Changes since October 15
 
 - **VR Settings:** pause during a race and press **X**. Adjust steering
@@ -41,8 +59,8 @@ Development prerelease for **Meta Quest 3 standalone** and **Windows x64 PCVR**.
 
 ## Downloads and updating
 
-- **NFSU2VR-Quest3-dev-2026-10-17.apk**: standalone Quest APK, **0.3-dev / version
-  code 3**. Install over the previous APK to retain imported data and saves;
+- **NFSU2VR-Quest3-dev-2026-10-17.apk**: standalone Quest APK, **0.3.1-dev / version
+  code 4**. Install over the previous APK to retain imported data and saves;
   the signing certificate is unchanged. Do not uninstall first.
 - **NFSU2VR-PCVR-dev-2026-10-17.zip**: extract all files, including `cockpits/`,
   and launch **Start-PCVR.cmd**. When updating, retain your existing `game/`
@@ -58,13 +76,15 @@ and the required application runtime libraries are bundled.
 
 ## Validation and limits
 
-Both builds complete. Seventeen Windows regression executables, 32 Android
-importer unit tests and 13 Python input tests pass. Shared cockpit tests cover
+For the October 17 base release, both builds completed and seventeen Windows
+regression executables, 32 Android importer unit tests and 13 Python input tests
+passed. The targeted October 18 checks are listed above. Shared cockpit tests cover
 all 29 vehicle profiles, 2,068 stock submeshes, center/side mirror selection,
 seat offsets, pause/notification states and 6,417 captured draw records. The
-native Quest cockpit suite passed on the headset before packaging; the final
-APK rebuild updates version metadata and restores the previously released
-textured glove asset; gameplay code is unchanged. Private
+native Quest cockpit suite passed on the headset before October 17 packaging.
+That release restored the previously released textured glove asset. The October
+18 update changes only steering input and release metadata; rendering and
+cockpit/glove assets are unchanged. Private
 retail test fixtures are excluded from all downloads.
 
 Native Quest user testing confirmed the Lancer body/driver correction, all

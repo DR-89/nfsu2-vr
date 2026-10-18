@@ -44,6 +44,9 @@ Controls (Touch controllers):
   Menu confirm/back retain their normal mapping.
 - Grip near any rim point: one- or two-hand motion steering in the cockpit,
   including crossed hands. Default wheel travel is 360 degrees (+/-180).
+- October 18 steering fix: small hand-driven wheel turns now compensate for
+  the original game's 24% stick deadzone. Stick/gamepad deadzones are unchanged;
+  switching between the stick and wheel preserves the effective steering.
 - Releasing both grips retains steering. Move the left stick at least 25%
   sideways to resume ordinary stick steering. A held glove stays attached to
   its initial rim point; release/regrip to choose another point.

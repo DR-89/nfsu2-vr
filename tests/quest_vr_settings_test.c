@@ -6,6 +6,7 @@
 #include "../android/runtime/quest_cockpit_panels.h"
 #include "../android/runtime/quest_culling.h"
 #include "../android/runtime/quest_projection.h"
+#include "quest_steering_reference.h"
 #define CHECK(x) do {if(!(x)){fprintf(stderr,"FAIL line %d: %s\n",__LINE__,#x);return 1;}}while(0)
 static float point_component(const float m[16],const float p[3],int row)
 { return m[row]*p[0]+m[4+row]*p[1]+m[8+row]*p[2]+m[12+row]; }
@@ -89,8 +90,8 @@ int main(int argc,char **argv)
         QuestWheelGrip wheel;quest_wheel_configure(&wheel,pivot,axis,.185f);
         wheel.limit=degrees*QUEST_WHEEL_PI/360;wheel.sensitivity=gain*.5f;
         wheel.latched=1;wheel.grabbed[0]=1;wheel.angle=wheel.limit*.25f;
-        int16_t expected=(int16_t)lrintf(fminf(1,.25f*wheel.sensitivity)*32767);
-        CHECK(abs(quest_wheel_input(&wheel,1,0)-expected)<=1);
+        float expected=fminf(1,.25f*wheel.sensitivity);
+        CHECK(fabsf(retail_steering(quest_wheel_input(&wheel,1,0))-expected)<.00003f);
         wheel.anchor[0]=.9f;
         float hand[16],inverse[16],local[16];
         quest_wheel_hand_matrix(&wheel,0,wheel.angle/QUEST_WHEEL_PI,hand);

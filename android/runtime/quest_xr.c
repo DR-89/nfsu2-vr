@@ -124,7 +124,7 @@ float quest_xr_cockpit_steering(void)
     /* Animation follows physical wheel angle, not sensitivity-amplified car
      * input. Otherwise faster steering also makes held hands slide. */
     if(wheel_grip.latched) return wheel_grip.angle/QUEST_WHEEL_LOCK_RADIANS;
-    return fmaxf(-1,fminf(1,v/(v<0?32768.0f:32767.0f)/vr_settings.sensitivity))*vr_settings.rotation/360.0f;
+    return fmaxf(-1,fminf(1,quest_wheel_stick_steering((int16_t)v)/vr_settings.sensitivity))*vr_settings.rotation/360.0f;
 }
 
 void quest_xr_cockpit_ready(int ready)
@@ -771,7 +771,9 @@ static void poll_wheel_grips(void)
                quest_xr_cockpit_requested() && quest_xr_cockpit_active();
     /* Use this frame's physical stick for a new grab after stick takeover,
      * not the older guest packet (which may still contain the held angle). */
-    float fallback=frame_sticks[0]/(frame_sticks[0]<0?32768.0f:32767.0f);
+    /* Seed a new grab from the stick's effective steering, so switching
+     * input sources does not apply the wheel's deadzone compensation twice. */
+    float fallback=quest_wheel_stick_steering(frame_sticks[0]);
     quest_wheel_update(&wheel_grip,SDL_GetTicks(),active,hand_valid,position,frame_squeeze,fallback);
     frame_sticks[0]=quest_wheel_input(&wheel_grip,active,frame_sticks[0]);
     /* Grips are separate pose/squeeze inputs. Preserve the camera command

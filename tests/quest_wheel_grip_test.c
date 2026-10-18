@@ -3,6 +3,7 @@
 #include "../android/runtime/quest_glove_asset.h"
 #include "../android/runtime/quest_cockpit.h"
 #include "../android/runtime/quest_driving_input.h"
+#include "quest_steering_reference.h"
 #include <stdio.h>
 #include <stdlib.h>
 #define CHECK(x) do { if(!(x)){fprintf(stderr,"failed line %d: %s\n",__LINE__,#x);return 1;} } while(0)
@@ -66,9 +67,67 @@ static int held_contact_test(void)
     }
     return 0;
 }
+static int steering_response_test(void)
+{
+    const float pivot[3]={0},axis[3]={0,.6f,.8f};
+    /* Reproduce the old failure: even a 40-degree hand turn was swallowed
+     * by the game's pad deadzone at the default 360-degree wheel range. */
+    CHECK(retail_steering((int16_t)lrintf(40.0f/180*32767))==0);
+    for(int degrees=180;degrees<=1080;degrees+=90)for(int gain=1;gain<=6;++gain) {
+        QuestWheelGrip w;quest_wheel_configure(&w,pivot,axis,.185f);
+        w.limit=degrees*QUEST_WHEEL_PI/360;w.sensitivity=gain*.5f;
+        w.latched=1;w.grabbed[0]=1;
+        float previous=-1;
+        for(int step=-1000;step<=1000;++step) {
+            float fraction=step/1000.0f;
+            w.angle=w.limit*fraction;
+            int16_t packet=quest_wheel_input(&w,1,0);
+            float response=retail_steering(packet);
+            float expected=fmaxf(-1,fminf(1,fraction*w.sensitivity));
+            CHECK(fabsf(response-expected)<.00003f && response>=previous-.000001f);
+            CHECK(w.angle==w.limit*fraction); /* compensation cannot move hands */
+            if(step==0)CHECK(packet==0);
+            previous=response;
+        }
+    }
+    /* Pose -> angular motion -> packet -> original game filter, for either
+     * hand and both hands. A one-degree turn must already steer both ways. */
+    for(int mask=1;mask<=3;++mask)for(int direction=-1;direction<=1;direction+=2) {
+        QuestWheelGrip w;quest_wheel_configure(&w,pivot,axis,.185f);
+        int valid[2]={1,1};float p[2][3],squeeze[2]={(mask&1)!=0,(mask&2)!=0};
+        location(&w,.7f,p[0]);location(&w,2.4f,p[1]);
+        CHECK(quest_wheel_update(&w,100,1,valid,p,squeeze,0));
+        for(int degree=1;degree<=5;++degree) {
+            float travel=direction*degree*QUEST_WHEEL_PI/180;
+            location(&w,.7f-travel,p[0]);location(&w,2.4f-travel,p[1]);
+            CHECK(quest_wheel_update(&w,100+degree*14,1,valid,p,squeeze,0));
+            float response=retail_steering(quest_wheel_input(&w,1,0));
+            CHECK(response*direction>0 && fabsf(response-direction*degree/180.0f)<.00003f);
+        }
+    }
+    /* Preserve every physical stick value and its response when switching
+     * to a held wheel, then releasing it. Center/drift must stay centered. */
+    for(int raw=-32768;raw<=32767;++raw) {
+        QuestWheelGrip w;quest_wheel_configure(&w,pivot,axis,.185f);
+        int valid[2]={1,1};float p[2][3],squeeze[2]={1,0};
+        location(&w,0,p[0]);location(&w,2,p[1]);
+        CHECK(quest_wheel_input(&w,1,(int16_t)raw)==raw);
+        float effective=quest_wheel_stick_steering((int16_t)raw);
+        CHECK(fabsf(effective-retail_steering((int16_t)raw))<.000001f);
+        CHECK(quest_wheel_update(&w,100,1,valid,p,squeeze,effective));
+        int16_t packet=quest_wheel_input(&w,1,0);
+        CHECK(fabsf(retail_steering(packet)-retail_steering((int16_t)raw))<.00003f);
+        squeeze[0]=0;CHECK(!quest_wheel_update(&w,114,1,valid,p,squeeze,0));
+        CHECK(quest_wheel_input(&w,1,0)==packet);
+        CHECK(quest_wheel_input(&w,0,(int16_t)raw)==raw);
+    }
+    puts("Steering: 24% retail deadzone reproduced; 132066 range/gain samples, small hand turns and all 65536 stick transitions passed");
+    return 0;
+}
 int main(int argc,char **argv)
 {
     CHECK(!held_contact_test());
+    CHECK(!steering_response_test());
     uint32_t test_tick=0;
     /* Real Xbox packets: gameplay face-button swap, discrete gear shifts,
      * no throttle/brake axis leakage, and unchanged menu navigation. */
@@ -341,7 +400,7 @@ int main(int argc,char **argv)
             CHECK(fabsf(w.angle+direction*QUEST_WHEEL_PI*.5f)<.00001f);
             g[0]=0;CHECK(!quest_wheel_update(&w,test_tick+=14,1,valid,p,g,0));
             int16_t reheld=quest_wheel_input(&w,1,0);
-            CHECK(abs(reheld+direction*16384)<=1);
+            CHECK(fabsf(retail_steering(reheld)+direction*.5f)<.00003f);
             CHECK(quest_wheel_input(&w,1,direction*20000)==direction*20000 && !w.latched);
         }
     }

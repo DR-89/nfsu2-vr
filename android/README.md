@@ -187,11 +187,15 @@ that retained angle without a jump. To return to left-stick steering, release
 both grips and deflect the stick at least 25% sideways. Ordinary stick steering,
 including centering on release, then remains active until the next wheel grab.
 Small stick drift preserves the held angle; either grasped hand takes priority.
-Regrabbing uses the current physical stick value, not an older guest input packet.
+Regrabbing uses the current stick's effective steering after the game's deadzone,
+not an older guest input packet. Tracked wheel input compensates for the original
+game's 24% stick deadzone, so small wheel turns reach the car proportionally.
+Physical stick/gamepad input keeps its normal deadzone; compensation does not
+change the displayed wheel angle or the gloves' contact points.
 Repeated hand/stick transfers, one-hand priority, drift, centering and regrabs
 are covered by the native grip test. Triggers still control acceleration/braking.
-The wheel permits 180 degrees of travel in each direction (360 degrees total),
-with the same scale for hand input, animation and stick steering. Adding or releasing
+By default the wheel permits 180 degrees of travel in each direction (360 degrees
+total); VR Settings can change rotation and sensitivity. Adding or releasing
 one hand keeps the current angle. Diagonal movement through the hub or an abrupt
 pose jump rebases angular tracking without releasing the grip or rotating the
 wheel by the discontinuity. Missing poses freeze that hand's contribution while

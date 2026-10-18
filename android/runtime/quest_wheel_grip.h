@@ -11,6 +11,23 @@ typedef struct {
     uint32_t squeeze_tick[2];
 } QuestWheelGrip;
 
+/* NTSC-U's pad filter at 0x001C2350 maps (axis + .5) / 32767.5 through
+ * a 24% deadzone and rescales the remaining 76%. Use its inverse ONLY for
+ * tracked wheel input; at 360 degrees, an uncorrected wheel otherwise has
+ * roughly 43 degrees of dead travel on either side of center. */
+static inline float quest_wheel_stick_steering(int16_t stick)
+{
+    float value=(stick+.5f)/32767.5f;
+    return copysignf(fmaxf(0,(fabsf(value)-.24f)/.76f),value);
+}
+static inline int16_t quest_wheel_encode_steering(float steering)
+{
+    if(!isfinite(steering) || steering==0) return 0;
+    float magnitude=fminf(1,fabsf(steering));
+    float axis=copysignf(.24f+.76f*magnitude,steering)*32767.5f-.5f;
+    return (int16_t)lrintf(axis);
+}
+
 static inline float quest_wheel_dot(const float a[3],const float b[3])
 { return a[0]*b[0]+a[1]*b[1]+a[2]*b[2]; }
 static inline void quest_wheel_configure(QuestWheelGrip *w,const float pivot[3],const float axis[3],float radius)
@@ -99,11 +116,11 @@ static inline int16_t quest_wheel_input(QuestWheelGrip *w,int active,int16_t sti
     if(active && w->latched && !w->grabbed[0] && !w->grabbed[1] &&
        (stick<=-8192 || stick>=8192)) {
         w->latched=0;
-        w->angle=fmaxf(-1,fminf(1,stick/(stick<0?32768.0f:32767.0f)/w->sensitivity))*w->limit;
+        w->angle=fmaxf(-1,fminf(1,quest_wheel_stick_steering(stick)/w->sensitivity))*w->limit;
     }
     if(!active || !w->latched) return stick;
     float steering=fmaxf(-1,fminf(1,w->angle/w->limit*w->sensitivity));
-    return (int16_t)lrintf(steering*(steering<0?32768.0f:32767.0f));
+    return quest_wheel_encode_steering(steering);
 }
 /* A grasped palm follows the actual rendered wheel, including its smoothing.
  * Local +Y points toward the fingertips, +Z is the back of the hand. */

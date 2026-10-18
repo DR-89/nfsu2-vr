@@ -114,14 +114,18 @@ both grips retains the last steering angle until grabbing again or deliberately
 deflecting the left stick at least 25%. Stick steering then remains active,
 including centering on release, until the next grab. Either grasped hand takes
 priority over the stick; small stick drift does not release a held angle.
+Tracked wheel input compensates for the game's 24% stick deadzone, allowing
+small wheel turns to steer proportionally. Stick/gamepad deadzones remain intact.
+A new grab starts at the stick's effective steering to avoid a response jump;
+the displayed wheel and held gloves still follow the physical wheel angle.
 Diagonal hub crossings and pose interruptions retain the grip and rebase
 angular tracking without a steering jump. Real Grip release still takes effect
 without a pose; unavailable button input is tolerated for up to 500 ms.
 Held gloves keep the same wheel-local acquisition point through these events;
 only release/regrip changes the contact location. The hand-only jumping fix
 passes Windows/Quest pose tests and was accepted on native Quest.
-Wheel travel is 360 degrees lock to
-lock, with half a turn left and half a turn right. Both clicks recenter. The shared
+Default wheel travel is 360 degrees lock to lock, with half a turn left and half
+a turn right; rotation and sensitivity are adjustable in VR Settings. Both clicks recenter. The shared
 grip/control tests pass on Windows and Quest; PCVR hand interaction is untested.
 Stick-click actions use the game's analog White/Black buttons. Grips no longer
 send those buttons, so gripping cannot change cameras, and the right click

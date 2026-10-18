@@ -66,6 +66,20 @@ No Python, Java or external ISO extractor is required to run the PCVR importer.
 See the included README for system requirements. These downloads remain
 **development builds, not fully tested**, with possible bugs and performance issues.
 
+## October 18 steering hotfix
+
+The current release downloads now include **0.3.1-dev** (Quest version code 4).
+Small hand-driven wheel movements compensate for the original game's 24% stick
+deadzone: there is no longer roughly 43 degrees of dead travel per direction
+at the default 360-degree rotation. Stick/gamepad deadzones remain unchanged.
+Wheel animation, stable grip contacts and switching back to the left stick are
+preserved. Steering sensitivity and rotation remain adjustable in VR Settings.
+
+The fix passed Windows and Quest ARM64 regression tests and was confirmed in
+native Quest driving. The PCVR build includes the same fix; a new PCVR headset
+test is still outstanding. Download URLs remain the same; reinstall the APK
+over the previous version to keep game data, settings and saves.
+
 ## New in the October 17 development build
 
 - **VR Settings in the pause menu:** adjust steering sensitivity, wheel rotation,
