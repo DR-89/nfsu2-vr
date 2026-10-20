@@ -17,6 +17,7 @@
 #include <unistd.h>
 #endif
 #include "quest_xr.h"
+#include "quest_color_transfer.h"
 #include "quest_culling.h"
 #include "quest_frame_timing.h"
 #include "quest_cockpit.h"
@@ -43,6 +44,7 @@ static JavaVM *vm;
 static jobject activity;
 #endif
 static VkDevice device;
+static VkPhysicalDevice color_physical;
 static XrView views[2];
 static XrPosef origin;
 static float matrices[2][16];
@@ -58,6 +60,8 @@ typedef struct {
     XrSwapchainImageVulkan2KHR *images;
     uint32_t width, height, index, count;
     int acquired;
+    VkFormat format;
+    QuestColorTransfer color_transfer;
 } QuestSwapchain;
 static QuestSwapchain eyes[2], cinema;
 static PFN_xrCreateVulkanInstanceKHR create_vk_instance;
@@ -448,7 +452,7 @@ static int create_swapchain(QuestSwapchain *out, int64_t format, uint32_t width,
     sc.format = format; sc.width = width; sc.height = height;
     sc.sampleCount = 1; sc.faceCount = 1; sc.arraySize = 1; sc.mipCount = 1;
     if (!XR_OK(xrCreateSwapchain(session, &sc, &out->handle))) return 0;
-    out->width = width; out->height = height;
+    out->width = width; out->height = height; out->format = (VkFormat)format;
     if (!XR_OK(xrEnumerateSwapchainImages(out->handle, 0, &out->count, NULL))) return 0;
     out->images = calloc(out->count, sizeof *out->images);
     if (!out->images) return 0;
@@ -460,7 +464,7 @@ static int create_swapchain(QuestSwapchain *out, int64_t format, uint32_t width,
 
 int quest_xr_start(VkInstance vk, VkPhysicalDevice pd, VkDevice dev, uint32_t family)
 {
-    device = dev;
+    device = dev; color_physical = pd;
     XrGraphicsBindingVulkan2KHR binding = {XR_TYPE_GRAPHICS_BINDING_VULKAN2_KHR};
     binding.instance = vk; binding.physicalDevice = pd; binding.device = dev;
     binding.queueFamilyIndex = family;
@@ -502,11 +506,11 @@ int quest_xr_start(VkInstance vk, VkPhysicalDevice pd, VkDevice dev, uint32_t fa
     int64_t *formats = calloc(count, sizeof *formats);
     if (!formats) return 0;
     if (!XR_OK(xrEnumerateSwapchainFormats(session, count, &count, formats))) { free(formats); return 0; }
-    int64_t format = 0;
-    for (uint32_t i = 0; i < count; ++i)
-        if (formats[i] == VK_FORMAT_R8G8B8A8_UNORM || formats[i] == VK_FORMAT_B8G8R8A8_UNORM) { format = formats[i]; break; }
+    VkFormat format = quest_color_format(formats,count);
     free(formats);
-    if (!format) { fprintf(stderr, "[XR] No supported UNORM swapchain format\n"); return 0; }
+    if (!format) { fprintf(stderr, "[XR] No supported sRGB swapchain format; cannot present game colors correctly\n"); return 0; }
+    fprintf(stderr,"[XR] Display-encoded game colors: %s swapchains, gamma-preserving copy\n",
+        format==VK_FORMAT_B8G8R8A8_SRGB?"BGRA8 sRGB":"RGBA8 sRGB");
     for (int eye = 0; eye < 2; ++eye) {
         uint32_t width=config[eye].recommendedImageRectWidth, height=config[eye].recommendedImageRectHeight;
 #ifdef NFSU2_PCVR
@@ -952,6 +956,12 @@ void quest_xr_copy(VkCommandBuffer cb,VkImage left,VkImage right,uint32_t width,
     if(!begun || !visible || !tracked || !left) return;
     for(int eye=0;eye<(stereo?2:1);++eye) {
         QuestSwapchain *target=stereo?&eyes[eye]:&cinema;
+        VkResult color_result=quest_color_prepare(color_physical,device,&target->color_transfer,
+            target->format,width,height,target->width,target->height);
+        if(color_result!=VK_SUCCESS) {
+            fprintf(stderr,"[XR] Color transfer allocation failed: %d\n",color_result);
+            visible=0;return; /* Never submit an uninitialized eye image. */
+        }
         XrSwapchainImageAcquireInfo acq={XR_TYPE_SWAPCHAIN_IMAGE_ACQUIRE_INFO};
         if(!XR_OK(xrAcquireSwapchainImage(target->handle,&acq,&target->index))) return;
         target->acquired=1;
@@ -966,13 +976,8 @@ void quest_xr_copy(VkCommandBuffer cb,VkImage left,VkImage right,uint32_t width,
         barrier.newLayout=VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
         barrier.dstAccessMask=VK_ACCESS_TRANSFER_WRITE_BIT;
         vkCmdPipelineBarrier(cb,VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,VK_PIPELINE_STAGE_TRANSFER_BIT,0,0,NULL,0,NULL,1,&barrier);
-        VkImageBlit blit={0};
-        blit.srcSubresource=(VkImageSubresourceLayers){VK_IMAGE_ASPECT_COLOR_BIT,0,0,1};
-        blit.dstSubresource=blit.srcSubresource;
-        if(source_layers==2) blit.srcSubresource.baseArrayLayer=(uint32_t)eye;
-        blit.srcOffsets[1]=(VkOffset3D){width,height,1};
-        blit.dstOffsets[1]=(VkOffset3D){target->width,target->height,1};
-        vkCmdBlitImage(cb,eye && right?right:left,VK_IMAGE_LAYOUT_GENERAL,image,VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,1,&blit,VK_FILTER_LINEAR);
+        quest_color_copy(cb,&target->color_transfer,eye && right?right:left,
+            source_layers==2?(uint32_t)eye:0,width,height,image,target->format,target->width,target->height);
         barrier.oldLayout=VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
         barrier.newLayout=VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
         barrier.srcAccessMask=VK_ACCESS_TRANSFER_WRITE_BIT;
@@ -1059,7 +1064,8 @@ void quest_xr_shutdown(void)
     if(vr_panel_memory)vkFreeMemory(device,vr_panel_memory,NULL);
     if(vr_panel_swap.handle)xrDestroySwapchain(vr_panel_swap.handle);
     free(vr_panel_swap.images);free(vr_panel_uploaded);
-    for(int i=0;i<2;++i) { if(eyes[i].handle) xrDestroySwapchain(eyes[i].handle); free(eyes[i].images); }
+    quest_color_destroy(device,&cinema.color_transfer);
+    for(int i=0;i<2;++i) { quest_color_destroy(device,&eyes[i].color_transfer); if(eyes[i].handle) xrDestroySwapchain(eyes[i].handle); free(eyes[i].images); }
     if(cinema.handle) xrDestroySwapchain(cinema.handle);
     free(cinema.images);
     if(view_space) xrDestroySpace(view_space);
@@ -1080,7 +1086,7 @@ void quest_xr_shutdown(void)
     memset(eyes,0,sizeof eyes);memset(&cinema,0,sizeof cinema);
     memset(&vr_panel_swap,0,sizeof vr_panel_swap);vr_panel_uploaded=NULL;
     vr_panel_buffer=VK_NULL_HANDLE;vr_panel_memory=VK_NULL_HANDLE;vr_panel_pixels=NULL;
-    device=VK_NULL_HANDLE;state=XR_SESSION_STATE_UNKNOWN;
+    device=VK_NULL_HANDLE;color_physical=VK_NULL_HANDLE;state=XR_SESSION_STATE_UNKNOWN;
     set_performance=NULL;enumerate_rates=NULL;request_rate=NULL;get_rate=NULL;
     session_retry_pending=0;
 #ifdef __ANDROID__

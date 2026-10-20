@@ -66,9 +66,29 @@ No Python, Java or external ISO extractor is required to run the PCVR importer.
 See the included README for system requirements. These downloads remain
 **development builds, not fully tested**, with possible bugs and performance issues.
 
+## October 20 color and mirror fixes
+
+The existing release downloads now include **0.3.2-dev** (Quest version code 5).
+OpenXR presentation preserves the game's display-encoded colors, fixing the
+washed-out, gray appearance in menus and stereo gameplay. VR Settings colors
+also use the correct channel order.
+
+All three cockpit mirrors now recover after **Restart Race**. The rear camera
+is checked against the current race's camera manager and recreated when needed,
+without following old camera pointers or removing cameras owned by the game.
+
+Native Quest testing confirmed the colors, visible detail in dark areas and
+all three moving mirror images after restarting a race. GPU color regression
+tests passed on Quest, Intel and NVIDIA hardware; camera lifetime tests passed
+on Quest ARM64 and Windows. Both platform builds include the fixes. A fresh
+PCVR headset test remains outstanding.
+
+Download URLs remain unchanged. Install the APK over the previous version to
+retain imported data, saves and settings; the signing certificate is unchanged.
+
 ## October 18 steering hotfix
 
-The current release downloads now include **0.3.1-dev** (Quest version code 4).
+The October 18 update introduced **0.3.1-dev** (Quest version code 4).
 Small hand-driven wheel movements compensate for the original game's 24% stick
 deadzone: there is no longer roughly 43 degrees of dead travel per direction
 at the default 360-degree rotation. Stick/gamepad deadzones remain unchanged.

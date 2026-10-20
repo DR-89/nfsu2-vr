@@ -156,10 +156,8 @@ static void vr_panel_copy(VkCommandBuffer cb)
     uint32_t *pixels=vr_panel_pixels+(vr_panel_stride/4)*index;
     if(vr_panel_uploaded[index]!=vr_panel_revision) {
         quest_vr_panel(pixels,&vr_settings,&vr_menu,vr_save_status,vr_settings.resolution!=vr_start_resolution);
-        if(vr_panel_format==VK_FORMAT_R8G8B8A8_UNORM)
-            for(unsigned i=0;i<1024u*768u;++i) {
-                uint32_t c=pixels[i];pixels[i]=(c&0xff00ff00u)|((c&255)<<16)|((c>>16)&255);
-            }
+        for(unsigned i=0;i<1024u*768u;++i)
+            pixels[i]=quest_color_panel_pixel(pixels[i],(VkFormat)vr_panel_format);
         vr_panel_uploaded[index]=vr_panel_revision;
     }
     VkImageMemoryBarrier barrier={VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};

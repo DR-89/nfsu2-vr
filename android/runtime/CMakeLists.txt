@@ -43,6 +43,12 @@ add_custom_target(quest_runtime ALL DEPENDS
 # the device separately before memory mapping can be considered validated.
 option(NFSU2_ANDROID_MEMORY_CHECKS "Build the upstream memory regressions" ON)
 if(NFSU2_ANDROID_MEMORY_CHECKS)
+    add_executable(quest_rear_camera_test "${NFSU2_ROOT}/tests/quest_rear_camera_test.c")
+    add_dependencies(quest_runtime quest_rear_camera_test)
+    add_executable(quest_color_transfer_test "${NFSU2_ROOT}/tests/quest_color_transfer_test.c")
+    target_include_directories(quest_color_transfer_test PRIVATE "${CMAKE_CURRENT_LIST_DIR}")
+    target_link_libraries(quest_color_transfer_test PRIVATE vulkan m)
+    add_dependencies(quest_runtime quest_color_transfer_test)
     add_executable(quest_vr_settings_test "${NFSU2_ROOT}/tests/quest_vr_settings_test.c")
     target_link_libraries(quest_vr_settings_test PRIVATE m)
     add_dependencies(quest_runtime quest_vr_settings_test)

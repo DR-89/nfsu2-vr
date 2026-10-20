@@ -47,6 +47,7 @@
 #include "quest_cockpit_vehicle.h"
 #include "quest_cockpit_ui.h"
 #include "quest_cockpit_windows.h"
+#include "quest_rear_camera.h"
 #include <time.h>
 #endif
 
@@ -221,8 +222,9 @@ void sub_0004CA40(void)
 /* Use the game's owner-managed rear-camera mover, including its normal car
  * tracking, projection and player-body exclusion. The profile may have the
  * mirror disabled, so enabling the render target alone is insufficient. */
-static void cockpit_rear_camera(uint32_t manager,int enable)
+static void cockpit_rear_camera(void *context,uint32_t manager,int enable)
 {
+    (void)context;
     uint32_t regs[9]={eax,ecx,edx,ebx,esi,edi,esp,g_ebp,g_seh_ebp};
     double fp[8]; memcpy(fp,g_fp_stack,sizeof fp);
     int top=g_fp_top,cmp=g_fp_cmp; uint16_t cc=g_fp_cc,cw=g_fp_control_word;
@@ -259,16 +261,6 @@ void sub_001E32E0(void)
                 int direction=(int32_t)MEM32(esp+4);
                 int action=quest_cockpit_cycle(slot,last,direction,
                     quest_xr_cockpit_requested(),quest_xr_cockpit_enabled(),&entry_direction);
-                static uint32_t mirror_owner,mirror_mover;
-                if(action==1 && MEM32(manager+0x1c)==3 && !MEM32(manager+0x244)) {
-                    cockpit_rear_camera(manager,1);
-                    mirror_owner=manager;mirror_mover=MEM32(manager+0x244);
-                    fprintf(stderr,"[Cockpit] attached retail rear-camera mover=%08x\n",mirror_mover);
-                } else if((action==2 || action==3) && mirror_owner==manager &&
-                          mirror_mover && MEM32(manager+0x244)==mirror_mover) {
-                    cockpit_rear_camera(manager,0);
-                    mirror_owner=mirror_mover=0;
-                }
                 fprintf(stderr,"[Cockpit] driving camera event slot=%u/%u direction=%d action=%d\n",
                     slot,last,direction,action);
                 if(action) quest_xr_cockpit_select(action==1);
@@ -304,6 +296,19 @@ static int cockpit_ui_read(void *context,uint32_t address,void *out,size_t size)
 #endif
 void sub_000A1800(void)
 {
+#if defined(__ANDROID__) || defined(NFSU2_PCVR)
+    /* A new race can replace both the owner and its camera without another
+     * camera-button event. Reconcile the live registry before selecting views.
+     * The helper never follows a pointer retained from a previous race. */
+    static QuestRearCamera owned_rear_camera;
+    if(quest_xr_enabled()) {
+        int change=quest_rear_update(&owned_rear_camera,cockpit_ui_read,NULL,
+            cockpit_rear_camera,quest_xr_cockpit_requested());
+        if(change)
+            fprintf(stderr,"[Cockpit] rear-camera lifetime %s: manager=%08x mover=%08x\n",
+                change>0?"attached":"released",owned_rear_camera.manager,owned_rear_camera.rear_mover);
+    }
+#endif
     sub_000A1800_gen();
 #if defined(__ANDROID__) || defined(NFSU2_PCVR)
     /* Preserve the driving-input gate. It remains true inside UI_pause.fng,
