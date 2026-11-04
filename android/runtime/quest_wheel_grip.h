@@ -7,6 +7,8 @@
 typedef struct {
     float pivot[3], axis[3], right[3], up[3], radius;
     float angle, previous[2], anchor[2], limit, sensitivity;
+    float return_speed; /* physical degrees per second */
+    uint32_t update_tick;
     int grabbed[2], blocked[2], latched, rebase[2];
     uint32_t squeeze_tick[2];
 } QuestWheelGrip;
@@ -34,6 +36,7 @@ static inline void quest_wheel_configure(QuestWheelGrip *w,const float pivot[3],
 {
     memset(w,0,sizeof *w);
     w->limit=QUEST_WHEEL_LOCK_RADIANS;w->sensitivity=1;
+    w->return_speed=QUEST_WHEEL_RETURN_DEFAULT;
     memcpy(w->pivot,pivot,12); memcpy(w->axis,axis,12); w->radius=radius;
     float length=sqrtf(axis[2]*axis[2]+axis[0]*axis[0]);
     w->right[0]=axis[2]/length; w->right[2]=-axis[0]/length;
@@ -48,8 +51,8 @@ static inline void quest_wheel_reset(QuestWheelGrip *w)
 }
 /* Both hands contribute angular motion in the fitted rim plane. A new hand
  * takes the current angle as its baseline, so grabbing/releasing never jumps.
- * After the first grab, releasing both hands retains the angle until a new
- * grab, deliberate stick takeover, or cockpit/focus/recenter reset.
+ * Once both hands release, the rim returns at the selected speed. Catching
+ * it with either hand stops the return at the last presented angle.
  * Pose loss, hub crossings and discontinuities suspend angular motion, not
  * the grip. On recovery rebase the angle without replaying unobserved motion.
  * Require a fresh squeeze after focus/recenter loss or prolonged button loss.
@@ -58,6 +61,8 @@ static inline int quest_wheel_update(QuestWheelGrip *w,uint32_t now,int active,c
                                     const float position[2][3],const float squeeze[2],float fallback)
 {
     if(!active) { quest_wheel_reset(w); return 0; }
+    int was_free=w->latched && !w->grabbed[0] && !w->grabbed[1];
+    uint32_t elapsed=now-w->update_tick;w->update_tick=now;
     if(!w->latched) w->angle=fmaxf(-1,fminf(1,fallback/w->sensitivity))*w->limit;
     float delta=0; int contributors=0,acquired=0;
     for(int h=0;h<2;++h) {
@@ -100,6 +105,10 @@ static inline int quest_wheel_update(QuestWheelGrip *w,uint32_t now,int active,c
         }
     }
     if(contributors) w->angle=fmaxf(-w->limit,fminf(w->limit,w->angle+delta/contributors));
+    if(was_free && !w->grabbed[0] && !w->grabbed[1]) {
+        float step=w->return_speed*(QUEST_WHEEL_PI/180000.f)*fminf((float)elapsed,100.f);
+        w->angle=copysignf(fmaxf(0,fabsf(w->angle)-step),w->angle);
+    }
     /* Capture a wheel-local contact only on acquisition. Rebased tracking,
      * hub crossings, unequal two-hand motion and pushing beyond the steering
      * stop must not slide/teleport a held glove to another part of the rim.
@@ -108,7 +117,7 @@ static inline int quest_wheel_update(QuestWheelGrip *w,uint32_t now,int active,c
     for(int h=0;h<2;++h) if(acquired&(1<<h)) w->anchor[h]=w->previous[h]+w->angle;
     return w->grabbed[0]||w->grabbed[1];
 }
-/* Neutral/noisy stick input preserves the released wheel angle. A deliberate
+/* Neutral/noisy stick input leaves the wheel in charge. A deliberate
  * deflection with both hands off the rim restores ordinary stick steering,
  * including spring-to-center, until the next grab. While grasped, hands win. */
 static inline int16_t quest_wheel_input(QuestWheelGrip *w,int active,int16_t stick)

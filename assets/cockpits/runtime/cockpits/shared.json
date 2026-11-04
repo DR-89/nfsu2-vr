@@ -53,8 +53,8 @@
   "node_adjustments": {},
   "removed_glass_remnant_faces": {},
   "palette": "anthracite leather/plastic, cobalt blue fabric, silver trim, colored gauges",
-  "triangles": 50410,
-  "vertices": 68947,
+  "triangles": 50633,
+  "vertices": 69336,
   "atlas": [
     4096,
     4096
@@ -80,7 +80,7 @@
       0.2886369365560391,
       0.9574370237548241
     ],
-    "first_index": 147552,
+    "first_index": 148221,
     "index_count": 3678,
     "max_degrees": 180,
     "input": "player 1 left-stick X delivered to the game"
@@ -94,6 +94,44 @@
     "full rear bench with headrests",
     "rear parcel shelf",
     "carpet floor",
-    "center console"
+    "center console",
+    "animated accelerator, brake and clutch"
+  ],
+  "shifter": {
+    "node": "tripo_part_58",
+    "first_vertex": 16448,
+    "vertex_count": 592
+  },
+  "pedals": [
+    {
+      "name": "accelerator",
+      "first_vertex": 65883,
+      "vertex_count": 1233,
+      "hinge": [
+        -0.005,
+        -0.586,
+        -0.743
+      ]
+    },
+    {
+      "name": "brake",
+      "first_vertex": 67116,
+      "vertex_count": 365,
+      "hinge": [
+        -0.137,
+        -0.652,
+        -0.753
+      ]
+    },
+    {
+      "name": "clutch",
+      "first_vertex": 67481,
+      "vertex_count": 365,
+      "hinge": [
+        -0.253,
+        -0.652,
+        -0.753
+      ]
+    }
   ]
 }

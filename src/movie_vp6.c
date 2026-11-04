@@ -16,10 +16,11 @@
  */
 
 #include <stdio.h>
+#include <limits.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
+#include <libavutil/time.h>
 
 #include <libavcodec/avcodec.h>
 #include <libavutil/frame.h>
@@ -48,11 +49,9 @@ static unsigned long s_tick;
 static unsigned long s_frames, s_errors;
 static double s_ms_sum, s_ms_worst;
 
-static double now_ms(void)
+double nfsu2_vp6_now_ms(void)
 {
-    struct timespec ts;
-    clock_gettime(CLOCK_MONOTONIC, &ts);
-    return ts.tv_sec * 1e3 + ts.tv_nsec / 1e6;
+    return av_gettime_relative() / 1000.0;
 }
 
 int nfsu2_vp6_mode(void)
@@ -123,7 +122,11 @@ static int flash_to_black(void)
     if (on < 0) {
         const char *e = getenv("NFSU2_MOVIE_FLASH");
         /* Not in the compare mode: the lifted decoder keeps them. */
+#if defined(__ANDROID__) || defined(NFSU2_PCVR)
+        on = e && *e == '0' && nfsu2_vp6_mode() != 2;
+#else
         on = !(e && *e == '1') && nfsu2_vp6_mode() != 2;
+#endif
     }
     return on;
 }
@@ -133,17 +136,20 @@ int nfsu2_vp6_decode(uint32_t handle, const uint8_t *data, int size,
                      int y_stride, int uv_stride, int width, int height)
 {
     AVCodecContext *ctx;
-    double t0 = now_ms(), ms;
+    double t0 = nfsu2_vp6_now_ms(), ms;
     int r, row, w, h;
 
     if (!s_pkt) {
         av_log_set_level(AV_LOG_ERROR);
         s_pkt = av_packet_alloc();
         s_frame = av_frame_alloc();
-        if (!s_pkt || !s_frame)
+        if (!s_pkt || !s_frame) {
+            av_packet_free(&s_pkt);
+            av_frame_free(&s_frame);
             return -1;
+        }
     }
-    if (size <= 0 || !(ctx = slot_ctx(handle)))
+    if (size <= 0 || size > INT_MAX - AV_INPUT_BUFFER_PADDING_SIZE - 65536 || !(ctx = slot_ctx(handle)))
         return -1;
     /* FFmpeg reads up to AV_INPUT_BUFFER_PADDING_SIZE past the end. */
     if (size + AV_INPUT_BUFFER_PADDING_SIZE > s_buf_size) {
@@ -194,7 +200,7 @@ int nfsu2_vp6_decode(uint32_t handle, const uint8_t *data, int size,
     }
     av_frame_unref(s_frame);
 
-    ms = now_ms() - t0;
+    ms = nfsu2_vp6_now_ms() - t0;
     s_ms_sum += ms;
     if (ms > s_ms_worst)
         s_ms_worst = ms;

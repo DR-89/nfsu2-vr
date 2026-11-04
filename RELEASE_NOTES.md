@@ -1,4 +1,29 @@
-# VR settings and vehicle cockpit fixes - dev-2026-10-17
+# Release notes
+
+## Cockpit controls and cutscene playback · 0.4.0-dev
+
+Development prerelease for standalone Meta Quest 3 and Windows x64 PCVR.
+
+- **Manual shifting.** Grab the gear lever with either hand. On a five-speed, reverse sits below fifth. On a six-speed, reverse has its own lane to the right of sixth. For a standing start, you can grab the lever during the countdown and push it fully forward in the left lane. The car stays in neutral at the signal if you leave the lever in neutral.
+- **Steering.** Release both grips to let the wheel return to center. Catch it with either hand to stop it at its current angle. Pause and press **X** to open **VR Settings → Wheel Return Speed**. The default is 240°/s and the slider ranges from Off to 540°/s.
+- **Mirrors and pedals.** Grip the inside mirror to aim it, or grip either outside mirror to adjust both together. The reflections respond to head movement. Each car remembers its mirror angles, and the next race restores the last camera. Use **Reset Car Mirrors** in VR Settings to restore the default aim. Accelerator and brake travel follow trigger pressure, and the clutch pedal moves when shifting.
+- **Cockpit radio.** A control highlights when it is within grip range. Drag the volume slider or press previous, play/pause or next. The track title and artist appear below the buttons. Muting and raising the volume keeps the current song playing. The radio controls also recover after closing VR Settings.
+- **Steam Link.** Hold **Y** on the left controller for about 0.65 seconds while driving to open the in-game pause menu.
+- **Intro and story videos.** Both platforms now use a native VP6 decoder. In a PC comparison across 2,700 frames, average decode time fell from 7.23 ms to 1.13 ms with identical output. On a Quest 3, decoding averaged 1.19 ms per opening-video frame and 1.52 ms for the first story video over 360 frames of each clip. These timings measure decoding. Headset presentation and streaming can still introduce judder.
+
+### Downloads and installation
+
+**Quest 3** — Install the APK over your existing installation to keep imported data, settings and saves. The package is `org.nfsu2.quest`, version code 6, signed with the same certificate as 0.3.2-dev.
+
+**Windows PCVR** — Extract the entire ZIP to a writable folder and keep your existing `game/` directory when updating. Run `Start-PCVR.cmd` for the active OpenXR runtime. For Steam Link, connect the headset to SteamVR and run `Start-PCVR.cmd -SteamVR` to select SteamVR explicitly.
+
+Both platforms require your own supported original Xbox USA / NTSC-U game data. The release also includes the exact port and FFmpeg source archives, `BUILD-INFO.json` and `SHA256SUMS.txt`.
+
+The standing-start tests exercised both hands, five- and six-speed gearboxes, the starting brake and neutral at the signal. The updated PCVR game started with SteamVR tracking active. An in-headset hand test of the countdown grab is still outstanding.
+
+---
+
+## VR settings and vehicle cockpit fixes - dev-2026-10-17
 
 Development prerelease for **Meta Quest 3 standalone** and **Windows x64 PCVR**.
 

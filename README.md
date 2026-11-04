@@ -36,7 +36,7 @@ https://youtu.be/MHHi2G6Lixk
 
 | Target | Runtime | Development status |
 | --- | --- | --- |
-| **PCVR — Windows x64** | Vulkan + OpenXR; development testing uses Virtual Desktop / VDXR with Quest 3 | Stereo races and Touch controls have been exercised. Bugs, audio glitches and frame-time spikes remain; stable 72 FPS across gameplay has not been established. |
+| **PCVR — Windows x64** | Vulkan + OpenXR; tested with Quest 3 using Steam Link / SteamVR and Virtual Desktop / VDXR | Stereo races and Touch controls have been exercised. Bugs, audio glitches and frame-time spikes remain; stable 72 FPS across gameplay has not been established. |
 | **Meta Quest 3 — standalone** | Native Android ARM64, Vulkan + OpenXR | Boots and races directly on the headset with tracked stereo and Touch controls. Rendering issues, stutters and performance limitations remain. |
 
 Other PC OpenXR runtimes and other Quest models have not been established as
@@ -45,14 +45,14 @@ the tree; the focus of this development publication is PCVR and Meta Quest 3.
 
 ## Development downloads
 
-The [current development release](https://github.com/DR-89/nfsu2-vr/releases/tag/dev-2026-10-17)
+The [current development release](https://github.com/DR-89/nfsu2-vr/releases/tag/dev-2026-11-04)
 includes:
 
-- [Meta Quest 3 APK](https://github.com/DR-89/nfsu2-vr/releases/download/dev-2026-10-17/NFSU2VR-Quest3-dev-2026-10-17.apk):
+- [Meta Quest 3 APK](https://github.com/DR-89/nfsu2-vr/releases/download/dev-2026-11-04/NFSU2VR-Quest3-dev-2026-11-04.apk):
   sideload the development APK, then use its setup panel to import your own
   supported Xbox USA ZIP, 7z or ISO/XISO.
   Follow the [Quest installation guide](#installing-on-meta-quest-3) below.
-- [Windows PCVR package](https://github.com/DR-89/nfsu2-vr/releases/download/dev-2026-10-17/NFSU2VR-PCVR-dev-2026-10-17.zip):
+- [Windows PCVR package](https://github.com/DR-89/nfsu2-vr/releases/download/dev-2026-11-04/NFSU2VR-PCVR-dev-2026-11-04.zip):
   extract the whole ZIP to a writable folder and run **Start-PCVR.cmd**.
   If game data is missing, **Game data setup** opens automatically. Select your
   Xbox USA ISO/XISO; progress and cancellation are available. All 12 required
@@ -61,14 +61,18 @@ includes:
 
 The PCVR ZIP includes the EXE, SDL/OpenXR loader DLLs, Visual C++ runtime DLLs,
 launcher, preset and notices. Install your GPU's Vulkan driver and a compatible
-OpenXR runtime separately; development testing uses Virtual Desktop / VDXR.
+OpenXR runtime separately. For Steam Link, connect to SteamVR and run `Start-PCVR.cmd -SteamVR`.
 No Python, Java or external ISO extractor is required to run the PCVR importer.
 See the included README for system requirements. These downloads remain
 **development builds, not fully tested**, with possible bugs and performance issues.
 
+## November 4 cockpit and cutscene update
+
+Version **0.4.0-dev** adds a physical H-pattern shifter, including first-gear selection during the countdown, a wheel you can catch as it returns to center, adjustable mirrors, animated pedals and a dashboard radio. Quest 3 and PCVR also use a faster decoder for the intro and story videos. [Controls, measurements and update instructions](RELEASE_NOTES.md).
+
 ## October 20 color and mirror fixes
 
-The existing release downloads now include **0.3.2-dev** (Quest version code 5).
+The October 20 update shipped **0.3.2-dev** (Quest version code 5).
 OpenXR presentation preserves the game's display-encoded colors, fixing the
 washed-out, gray appearance in menus and stereo gameplay. VR Settings colors
 also use the correct channel order.
@@ -318,8 +322,7 @@ outputs and data archives private; they are excluded from Git.
 ## Build for PCVR
 
 Requires Windows x64, Visual Studio 2022 C++ tools, CMake, Ninja, Vulkan headers
-and a working Vulkan graphics driver. The current launcher is configured for
-Virtual Desktop / VDXR.
+and a working Vulkan graphics driver. The VP6 build also requires Git for Windows with Bash.
 
 Fetch and verify the pinned source dependencies once:
 
@@ -329,7 +332,7 @@ foreach ($item in $dependencies.PSObject.Properties) {
     $destination = "build/deps/$($item.Name)"
     $dependency = $item.Value
     if (-not (Test-Path -LiteralPath $destination)) {
-        git clone --depth 1 --branch $dependency.tag $dependency.url $destination
+        git clone --config core.autocrlf=false --depth 1 --branch $dependency.tag $dependency.url $destination
         if ($LASTEXITCODE) { throw "Dependency clone failed: $($item.Name)" }
     }
     $revision = git -C $destination rev-parse HEAD
@@ -341,7 +344,7 @@ foreach ($item in $dependencies.PSObject.Properties) {
 .\tools\start-pcvr.ps1
 ```
 
-Connect the headset through Virtual Desktop before launching. The local output
+Connect the headset before launching. For Steam Link, use `tools/start-pcvr.ps1 -SteamVR`. The default developer launcher uses Virtual Desktop when available. The local output
 is `build/pcvr/game/nfsu2-pcvr.exe`; keep its required SDL and OpenXR DLLs beside
 it. See [PCVR build, configuration and testing notes](pcvr/README.md).
 

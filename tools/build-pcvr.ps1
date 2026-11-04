@@ -14,6 +14,7 @@ $vcvars = Join-Path $vsPath 'VC/Auxiliary/Build/vcvars64.bat'
 }
 $ninjaDir = Join-Path $vsPath 'Common7/IDE/CommonExtensions/Microsoft/CMake/Ninja'
 $env:PATH = "$ninjaDir;$env:PATH"
+& "$PSScriptRoot/build-vr-vp6.ps1" -Target pcvr -Jobs $Jobs
 if (-not $VulkanHeaders -and $env:VULKAN_SDK) { $VulkanHeaders = Join-Path $env:VULKAN_SDK 'Include' }
 if (-not (Test-Path (Join-Path $VulkanHeaders 'vulkan/vulkan.h'))) { throw 'Pass -VulkanHeaders with the Vulkan SDK or NDK header directory.' }
 $vulkanPc = Join-Path $pcvrRoot 'build/deps/vulkan-pc'

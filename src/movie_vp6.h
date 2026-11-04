@@ -6,6 +6,7 @@
 /* 0 = the title's (lifted) decoder, 1 = FFmpeg (default), 2 = FFmpeg
  * checked against the lifted decoder. From NFSU2_NATIVE_VP6. */
 int nfsu2_vp6_mode(void);
+double nfsu2_vp6_now_ms(void);
 
 /* Decode one VP6 frame (the payload of an MV0K/MV0F chunk) into bottom-up
  * YUV 4:2:0 planes; y/u/v point at the picture's first stored row. `handle`

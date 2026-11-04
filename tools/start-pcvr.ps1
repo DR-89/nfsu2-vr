@@ -1,4 +1,4 @@
-param([string]$GameDirectory='', [switch]$DesktopOnly, [switch]$Wait, [switch]$Diagnostics, [switch]$Capture,
+param([string]$GameDirectory='', [switch]$DesktopOnly, [switch]$Wait, [switch]$Diagnostics, [switch]$Capture, [switch]$SteamVR,
       [hashtable]$EnvironmentOverrides=@{})
 $ErrorActionPreference='Stop'
 $pcvrRoot=Split-Path -Parent $PSScriptRoot
@@ -29,7 +29,13 @@ if($Diagnostics) {
 }
 if($DesktopOnly) { $env:NFSU2_VR='0'; $env:RECOMP_VK_HEADLESS='0' }
 $runtime='C:/Program Files/Virtual Desktop Streamer/OpenXR/virtualdesktop-openxr.json'
-if(Test-Path -LiteralPath $runtime) { $env:XR_RUNTIME_JSON=$runtime }
+if($SteamVR) {
+    $openvr=Get-Content -LiteralPath (Join-Path $env:LOCALAPPDATA 'openvr/openvrpaths.vrpath') -Raw | ConvertFrom-Json
+    $manifest=@($openvr.runtime | ForEach-Object { Join-Path $_ 'steamxr_win64.json' } |
+        Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } | Select-Object -First 1)
+    if(!$manifest.Count){ throw 'Start SteamVR first so it can register its OpenXR runtime.' }
+    $env:XR_RUNTIME_JSON=$manifest[0]
+} elseif(Test-Path -LiteralPath $runtime) { $env:XR_RUNTIME_JSON=$runtime }
 $stamp=Get-Date -Format 'yyyyMMdd-HHmmss'
 $env:NFSU2_PCVR_STDOUT=Join-Path $pcvrRun "stdout-$stamp.log"
 $env:NFSU2_PCVR_STDERR=Join-Path $pcvrRun "stderr-$stamp.log"

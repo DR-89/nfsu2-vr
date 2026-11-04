@@ -5,6 +5,33 @@
 
 typedef struct { uint32_t tick; int driving,armed,pulse; uint32_t action_tick; int action_armed,action; } QuestShiftInput;
 
+/* Steam Link can reserve Touch Menu for the dashboard. During driving only,
+ * defer Touch Y until a tap or hold can be distinguished. Latch ownership
+ * across the resulting pause so the held Y never leaks into the menu. */
+typedef struct { uint32_t down_at,pulse_at; int phase,pulse; } QuestPauseGesture;
+enum { QUEST_Y_IDLE, QUEST_Y_TIMING, QUEST_Y_MENU, QUEST_Y_RELEASE };
+enum { QUEST_Y_TAP=1, QUEST_Y_START=2 };
+static inline int quest_steamvr_y(QuestPauseGesture *s,uint32_t now,int valid,int driving,int down)
+{
+    if(!valid) { s->phase=QUEST_Y_RELEASE;s->pulse=0;return 0; }
+    if(now-s->pulse_at>=(s->pulse==QUEST_Y_START?200u:100u) || (s->pulse==QUEST_Y_TAP && !driving))s->pulse=0;
+    if(s->phase==QUEST_Y_IDLE && down) {
+        s->phase=driving?QUEST_Y_TIMING:QUEST_Y_MENU;s->down_at=now;
+    }
+    if(s->phase==QUEST_Y_TIMING) {
+        if(!driving)s->phase=QUEST_Y_RELEASE;
+        else if(now-s->down_at>=650 || !down) {
+            s->pulse=now-s->down_at>=650?QUEST_Y_START:QUEST_Y_TAP;
+            s->pulse_at=now;s->phase=QUEST_Y_RELEASE;
+        }
+    }
+    if(s->phase==QUEST_Y_MENU && driving)s->phase=QUEST_Y_RELEASE;
+    int result=s->pulse;
+    if(s->phase==QUEST_Y_MENU && down)result|=QUEST_Y_TAP;
+    if(!down)s->phase=QUEST_Y_IDLE;
+    return result;
+}
+
 /* Xbox retail layout: A handbrake, B nitrous, X upshift, Y downshift.
  * Touch A/B swap only in gameplay. Keep menu buttons and D-pad navigation.
  * A shift is one 100-ms button pulse, rearmed only near stick center. */

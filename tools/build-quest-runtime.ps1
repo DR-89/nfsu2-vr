@@ -18,6 +18,7 @@ function Run-Checked([string]$Exe, [string[]]$Arguments) {
 }
 $dependencies = Get-Content -LiteralPath (Join-Path $repo 'android/dependencies.json') -Raw | ConvertFrom-Json
 foreach ($property in $dependencies.PSObject.Properties) {
+    if ($property.Name -eq 'FFmpeg') { continue } # Full game builds fetch it in build-vr-vp6.ps1.
     $dep = $property.Value
     $destination = Join-Path $repo "build/deps/$($property.Name)"
     if (-not (Test-Path -LiteralPath $destination)) {

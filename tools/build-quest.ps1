@@ -18,6 +18,7 @@ function Invoke-Checked([string]$Exe, [string[]]$Arguments) {
     & $Exe @Arguments
     if ($LASTEXITCODE -ne 0) { throw "$Exe exited with $LASTEXITCODE" }
 }
+& "$PSScriptRoot/build-vr-vp6.ps1" -Target quest -Ndk $Ndk -Jobs $Jobs
 & "$PSScriptRoot/build-quest-runtime.ps1" -Ndk $Ndk -Jobs $Jobs
 Invoke-Checked cmake @('-S', "$repo/android/runtime", '-B', "$repo/build/quest-runtime", '-DNFSU2_ANDROID_GAME=ON')
 Invoke-Checked cmake @('--build', "$repo/build/quest-runtime", '--target', 'nfsu2_quest', '--parallel', "$Jobs")

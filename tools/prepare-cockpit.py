@@ -64,6 +64,10 @@ def prepare(source, destination, preview, config):
     transform = np.asarray(config['transform'], dtype=float)
     assert transform.shape == (4, 4) and np.isfinite(transform).all()
     wheel_nodes = config['wheel_nodes']
+    shifter_node = config.get('shifter_node')
+    shifter_first = shifter_count = 0
+    pedal_fit = config.get('pedals', {})
+    gas, brake, clutch = [], [], []
     rim_node = config['rim_node']
     assert rim_node in wheel_nodes and len(set(wheel_nodes)) == len(wheel_nodes)
     assert set(wheel_nodes).issubset(scene.graph.nodes_geometry)
@@ -101,6 +105,26 @@ def prepare(source, destination, preview, config):
         adjustment = np.asarray(adjustments.get(node, np.eye(4)), dtype=float)
         assert adjustment.shape == (4, 4) and np.isfinite(adjustment).all()
         mesh.apply_transform(transform @ adjustment @ matrix)
+        if node == pedal_fit.get('accelerator_pad'):
+            gas.append(mesh)
+            continue
+        if node == pedal_fit.get('floor_node'):
+            # Both pedal arms are fused to the molded footwell. Retain the
+            # original UVs and leave the broad floor/wall triangles stationary.
+            centers = mesh.triangles_center
+            def faces_in(box):
+                low, high = pedal_fit[box]
+                return np.all((centers >= low) & (centers <= high), axis=1)
+            brake_faces = faces_in('brake_bounds')
+            arm_faces = faces_in('accelerator_arm_bounds') & (mesh.triangles[:,:,1].min(axis=1) > -.752)
+            assert brake_faces.any() and arm_faces.any() and not np.any(brake_faces & arm_faces)
+            brake_pad = mesh.submesh([brake_faces], append=True, repair=False)
+            brake.append(brake_pad)
+            clutch_pad = brake_pad.copy()
+            clutch_pad.apply_translation(pedal_fit['clutch_offset'])
+            clutch.append(clutch_pad)
+            gas.append(mesh.submesh([arm_faces], append=True, repair=False))
+            mesh = mesh.submesh([~(brake_faces | arm_faces)], append=True, repair=False)
         if node in wheel_nodes:
             wheel.append(mesh)
             wheel_names.append(node)
@@ -112,6 +136,9 @@ def prepare(source, destination, preview, config):
                 local = mesh.vertices @ basis
                 pivot = ((local.min(axis=0)+local.max(axis=0))/2) @ basis.T
         else:
+            if node == shifter_node:
+                shifter_first = sum(len(part.vertices) for part in parts)
+                shifter_count = len(mesh.vertices)
             parts.append(mesh)
             if node in mirrored:
                 other = scene.geometry[geometry].copy()
@@ -130,6 +157,15 @@ def prepare(source, destination, preview, config):
             wheel[i] = m.submesh([moving], append=True)
             parts.append(m.submesh([~moving], append=True))
 
+    pedals = []
+    if pedal_fit:
+        assert len(gas) == 2 and len(brake) == len(clutch) == 1
+        clutch_hinge = np.add(pedal_fit['brake_hinge'], pedal_fit['clutch_offset']).tolist()
+        for name, group, hinge in [('accelerator', gas, pedal_fit['accelerator_hinge']),
+                                   ('brake', brake, pedal_fit['brake_hinge']), ('clutch', clutch, clutch_hinge)]:
+            pedals.append(dict(name=name, first_vertex=sum(len(m.vertices) for m in parts),
+                               vertex_count=sum(len(m.vertices) for m in group), hinge=hinge))
+            parts.extend(group)
     wheel_first = sum(m.faces.size for m in parts)
     wheel_count = sum(m.faces.size for m in wheel)
     fixed_vertices = sum(len(m.vertices) for m in parts)
@@ -152,8 +188,13 @@ def prepare(source, destination, preview, config):
     assert (faces >= 0).all() and faces.max() < len(vertices)
     atlas = material.image.convert('RGBA')
     w, h = atlas.size
-    header = struct.pack('<4s7I6f2I', b'NCPK', 2, len(vertices), faces.size, w, h,
-                         wheel_first, wheel_count, *pivot, *axis, 0, 0)
+    assert not shifter_node or shifter_count, 'Missing shifter geometry'
+    version = 4 if pedals else (3 if shifter_node else 2)
+    header = struct.pack('<4s7I6f2I', b'NCPK', version, len(vertices), faces.size, w, h,
+                         wheel_first, wheel_count, *pivot, *axis, shifter_first, shifter_count)
+    if pedals:
+        header += b''.join(struct.pack('<2I3f', p['first_vertex'], p['vertex_count'], *p['hinge'])
+                           for p in pedals) + bytes(4)
     destination.parent.mkdir(parents=True, exist_ok=True)
     destination.write_bytes(header + vertex_data.tobytes() + faces.astype('<u4').tobytes() + atlas.tobytes())
     result = trimesh.Scene()
@@ -180,6 +221,10 @@ def prepare(source, destination, preview, config):
                             'axis':axis.tolist(), 'first_index':wheel_first, 'index_count':wheel_count,
                             'max_degrees':config['steering_max_degrees'], 'input':'player 1 left-stick X delivered to the game'},
                 'includes':config['includes']}
+    if shifter_node:
+        metadata['shifter'] = {'node': shifter_node, 'first_vertex': shifter_first, 'vertex_count': shifter_count}
+    if pedals:
+        metadata['pedals'] = pedals
     destination.with_suffix('.json').write_text(json.dumps(metadata,indent=2)+'\n')
     print(json.dumps(metadata))
 

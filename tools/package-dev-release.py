@@ -36,6 +36,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--source-dir', type=Path, required=True, help='Clean, published source checkout')
     parser.add_argument('--crt-dir', type=Path, required=True, help='Visual Studio x64 Microsoft.VC143.CRT redistributable directory')
+    parser.add_argument('--pcvr-exe', type=Path, help='Release executable when staged separately from an active PCVR session')
     parser.add_argument('--output', type=Path, required=True, help='New output directory')
     parser.add_argument('--version', required=True)
     parser.add_argument('--validation', type=Path, required=True, help='JSON list of checks actually completed for this release')
@@ -55,6 +56,8 @@ def main():
     package = args.output / 'PCVR'
     package.mkdir()
     inputs = {name: ROOT / 'build/pcvr/game' / name for name in ('nfsu2-pcvr.exe', 'SDL2.dll', 'openxr_loader.dll')}
+    if args.pcvr_exe:
+        inputs['nfsu2-pcvr.exe'] = args.pcvr_exe
     inputs.update({name: args.crt_dir / name for name in ('msvcp140.dll', 'vcruntime140.dll', 'vcruntime140_1.dll')})
     inputs.update({'Start-PCVR.cmd': ROOT / 'pcvr/release/Start-PCVR.cmd',
                    'cockpits/shared.ncpk': ROOT / 'assets/cockpits/runtime/cockpits/shared.ncpk',
@@ -93,11 +96,17 @@ def main():
     source_name = f'NFSU2VR-Source-{commit[:12]}.zip'
     subprocess.run(['git', '-C', str(source), 'archive', '--format=zip', '--prefix=nfsu2-vr/',
                     '-o', str((args.output / source_name).resolve()), commit], check=True)
+    dependencies = json.loads((ROOT / 'android/dependencies.json').read_text())
+    ffmpeg = dependencies['FFmpeg']
+    codec_source = args.output / f"FFmpeg-{ffmpeg['tag']}-source.zip"
+    subprocess.run(['git', '-C', str(ROOT / 'build/deps/FFmpeg'), 'archive', '--format=zip',
+                    f"--prefix=FFmpeg-{ffmpeg['tag']}/", '-o', str(codec_source.resolve()),
+                    ffmpeg['revision']], check=True)
     info = {'project': 'Need For Speed Underground 2 VR', 'version': args.version,
             'development_build': True, 'not_fully_tested': True,
             'source_commit': commit, 'source_url': f'https://github.com/DR-89/nfsu2-vr/tree/{commit}',
             'source_archive': source_name, 'platforms': ['Windows x64 PCVR', 'Meta Quest 3 standalone'],
-            'dependencies': json.loads((ROOT / 'android/dependencies.json').read_text()),
+            'dependencies': dependencies, 'ffmpeg_source_archive': codec_source.name,
             'game_assets_included': False,
             'generated_cockpit_and_glove_assets_included': True,
             'pcvr_files': {n: {'bytes': (package / n).stat().st_size, 'sha256': sha256(package / n)} for n in inputs},
@@ -113,7 +122,7 @@ def main():
                 if relative not in inputs and relative != 'BUILD-INFO.json':
                     raise ValueError(f'Unexpected PCVR package file: {relative}')
                 archive.write(path, 'NFSU2VR-PCVR/' + relative)
-    artifacts = [args.output / n for n in (zip_name, apk_name, source_name, 'BUILD-INFO.json')]
+    artifacts = [args.output / n for n in (zip_name, apk_name, source_name, 'BUILD-INFO.json')] + [codec_source]
     (args.output / 'SHA256SUMS.txt').write_text(''.join(f'{sha256(p)}  {p.name}\n' for p in artifacts), encoding='ascii')
     print(json.dumps({'source_commit': commit, 'files': [{'name': p.name, 'bytes': p.stat().st_size} for p in artifacts]}, indent=2))
 

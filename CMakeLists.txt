@@ -61,7 +61,10 @@ target_link_libraries(${PROJECT_NAME} PRIVATE xboxrecomp)
 # build from tools/build_ffmpeg_vp6.sh (libavcodec with only the vp6
 # decoder); without it the lifted decoder plays the movies.
 set(NFSU2_FFMPEG_DIR "" CACHE PATH "FFmpeg (vp6 decoder) install prefix")
-if(NFSU2_FFMPEG_DIR)
+if(NFSU2_PCVR)
+    include("${CMAKE_CURRENT_SOURCE_DIR}/android/cmake/VRMovies.cmake")
+    nfsu2_vr_movies(${PROJECT_NAME} pcvr)
+elseif(NFSU2_FFMPEG_DIR)
     if(NOT EXISTS "${NFSU2_FFMPEG_DIR}/lib/libavcodec.a")
         message(FATAL_ERROR "no libavcodec.a in ${NFSU2_FFMPEG_DIR}/lib (tools/build_ffmpeg_vp6.sh)")
     endif()

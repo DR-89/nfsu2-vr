@@ -126,6 +126,25 @@ static int steering_response_test(void)
 }
 int main(int argc,char **argv)
 {
+    QuestPauseGesture menu_y={0};
+    uint32_t start=0xffffff00u;
+    CHECK(quest_steamvr_y(&menu_y,start,1,1,1)==0);
+    CHECK(quest_steamvr_y(&menu_y,start+649,1,1,1)==0);
+    CHECK(quest_steamvr_y(&menu_y,start+650,1,1,1)==QUEST_Y_START);
+    CHECK(quest_steamvr_y(&menu_y,start+680,1,0,1)==QUEST_Y_START);
+    CHECK(quest_steamvr_y(&menu_y,start+1600,1,0,1)==0); /* no repeat or stray Y in pause */
+    CHECK(quest_steamvr_y(&menu_y,start+1700,1,0,0)==0);
+    CHECK(quest_steamvr_y(&menu_y,2000,1,0,1)==QUEST_Y_TAP); /* ordinary menu Y */
+    CHECK(quest_steamvr_y(&menu_y,2016,1,1,1)==0); /* held across menu exit */
+    CHECK(quest_steamvr_y(&menu_y,2032,1,1,0)==0);
+    CHECK(quest_steamvr_y(&menu_y,2100,1,1,1)==0);
+    CHECK(quest_steamvr_y(&menu_y,2210,1,1,0)==QUEST_Y_TAP);
+    CHECK(quest_steamvr_y(&menu_y,2310,1,1,0)==0);
+    CHECK(quest_steamvr_y(&menu_y,2400,1,1,1)==0);
+    CHECK(quest_steamvr_y(&menu_y,2500,0,1,0)==0);
+    CHECK(quest_steamvr_y(&menu_y,3400,1,1,1)==0); /* refocus while still held */
+    CHECK(quest_steamvr_y(&menu_y,3420,1,1,0)==0);
+    puts("SteamVR Y tap/hold, one Start pulse, menu ownership and dashboard focus checks passed.");
     CHECK(!held_contact_test());
     CHECK(!steering_response_test());
     uint32_t test_tick=0;
@@ -329,11 +348,10 @@ int main(int argc,char **argv)
         CHECK(quest_wheel_update(&w,test_tick+=14,1,valid,p,g,0));
         CHECK(fabsf(w.angle-direction*(QUEST_WHEEL_LOCK_RADIANS-.1f))<.00004f);
     }
-    /* Releasing BOTH hands must retain the actual game input, including the
-     * release frame and many later neutral-stick frames. Regrabbing another
-     * part of the rim resumes from that angle, never the fallback stick. */
+    /* With the return slider off, releasing both grips holds the steering. */
     for(int turn=-4;turn<=4;++turn) {
         quest_wheel_configure(&w,pivot,axis,.185f);
+        w.return_speed=0;
         valid[0]=valid[1]=1;g[0]=1;g[1]=0;
         location(&w,.4f,p[0]);location(&w,-1.1f,p[1]);
         CHECK(quest_wheel_input(&w,1,1234)==1234); /* stick before first grab */
@@ -368,6 +386,29 @@ int main(int argc,char **argv)
         CHECK(fabsf(w.angle-.1f*QUEST_WHEEL_LOCK_RADIANS)<.00001f);
         CHECK(!quest_wheel_update(&w,test_tick+=14,0,valid,p,g,0));
         CHECK(!w.latched && quest_wheel_input(&w,1,1234)==1234);
+    }
+    /* Catch and release a returning wheel repeatedly at different frame rates,
+     * on either side of center and across a timer wrap. */
+    for(int step=5;step<=25;step+=5)for(int sign=-1;sign<=1;sign+=2) {
+        quest_wheel_configure(&w,pivot,axis,.185f);
+        uint32_t t=0xffffff00u;
+        valid[0]=valid[1]=1;g[0]=1;g[1]=0;
+        location(&w,.6f,p[0]);location(&w,-.5f,p[1]);
+        CHECK(quest_wheel_update(&w,t,1,valid,p,g,(float)sign));
+        for(int catch_no=0;catch_no<3;++catch_no) {
+            g[0]=g[1]=0;quest_wheel_update(&w,t+=step,1,valid,p,g,0);
+            float start=w.angle;
+            for(int n=0;n<150/step;++n)quest_wheel_update(&w,t+=step,1,valid,p,g,0);
+            float caught=w.angle;
+            float seconds=(150/step)*step*.001f;
+            CHECK(fabsf(caught-(start-sign*QUEST_WHEEL_RETURN_DEFAULT*seconds*QUEST_WHEEL_PI/180.f))<.00002f);
+            CHECK(fabsf(retail_steering(quest_wheel_input(&w,1,0))-caught/w.limit)<.00005f);
+            g[catch_no%2]=1;quest_wheel_update(&w,t+=step,1,valid,p,g,0);
+            quest_wheel_update(&w,t+=500,1,valid,p,g,0);CHECK(w.angle==caught);
+        }
+        g[0]=g[1]=0;
+        for(int n=0;n<1000/step;++n)quest_wheel_update(&w,t+=step,1,valid,p,g,0);
+        CHECK(w.angle==0 && quest_wheel_input(&w,1,0)==0);
     }
     /* Hand -> held angle -> stick -> hand, repeatedly without changing camera.
      * Check both directions, either hand and two hands. Holding either grip

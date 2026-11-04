@@ -24,6 +24,7 @@ static int create_swapchain(QuestSwapchain *,int64_t,uint32_t,uint32_t);
 
 static void vr_publish_settings(void)
 {
+    wheel_grip.return_speed=vr_settings.return_speed;
     float limit=vr_settings.rotation*QUEST_WHEEL_PI/360.0f;
     if(wheel_configured && (wheel_grip.limit!=limit || wheel_grip.sensitivity!=vr_settings.sensitivity)) {
         quest_wheel_reset(&wheel_grip);
@@ -45,6 +46,23 @@ static void vr_load_settings(void)
         if(f) {
             char text[4096];size_t n=SDL_RWread(f,text,1,sizeof text-1);text[n]=0;
             SDL_RWclose(f);quest_vr_parse(&vr_settings,text);
+            for(const char *line=text;*line;) {
+                char name[32];float y,p,sy,sp;int choice;
+                if(sscanf(line,"race_camera=%d",&choice)==1 && choice>=0 && choice<=6)
+                    camera_choice=choice;
+                if(sscanf(line,"last_mirrors=%f,%f,%f,%f",&y,&p,&sy,&sp)==4 &&
+                   isfinite(y) && isfinite(p) && isfinite(sy) && isfinite(sp))
+                    last_mirrors=(QuestMirrorSetting){quest_mirror_trim(y,p),quest_mirror_trim(sy,sp)};
+                if(sscanf(line,"mirror_%31[A-Z0-9]=%f,%f,%f,%f",name,&y,&p,&sy,&sp)==5 &&
+                   isfinite(y) && isfinite(p) && isfinite(sy) && isfinite(sp)) {
+                    int i=quest_cockpit_vehicle_index(name);
+                    if(!strcmp(name,quest_cockpit_vehicle(i)->name)) {
+                        mirror_settings[i]=(QuestMirrorSetting){quest_mirror_trim(y,p),quest_mirror_trim(sy,sp)};
+                        mirror_known[i]=1;
+                    }
+                }
+                line+=strcspn(line,"\n");if(*line)++line;
+            }
         }
     }
     vr_start_resolution=vr_settings.resolution;
@@ -54,9 +72,21 @@ static void vr_load_settings(void)
 }
 static void vr_save_settings(void)
 {
-    char text[512],temporary[4112];int n=quest_vr_format(&vr_settings,text,sizeof text);
+    char text[4096],temporary[4112];int n=quest_vr_format(&vr_settings,text,sizeof text);
     vr_save_status=-1;
     if(!*vr_settings_path || n<=0 || n>=(int)sizeof text)return;
+    int base=snprintf(text+n,sizeof text-n,"race_camera=%d\nlast_mirrors=%.6f,%.6f,%.6f,%.6f\n",
+        quest_xr_camera_choice(),last_mirrors.inside.yaw,last_mirrors.inside.pitch,last_mirrors.outside.yaw,last_mirrors.outside.pitch);
+    if(base<0 || base>=(int)sizeof text-n)return;
+    n+=base;
+    for(int i=0;i<QUEST_COCKPIT_VEHICLES;++i) {
+        const QuestMirrorSetting *m=&mirror_settings[i];
+        if(!mirror_known[i])continue;
+        int added=snprintf(text+n,sizeof text-n,"mirror_%s=%.6f,%.6f,%.6f,%.6f\n",quest_cockpit_vehicle(i)->name,
+            m->inside.yaw,m->inside.pitch,m->outside.yaw,m->outside.pitch);
+        if(added<0 || added>=(int)sizeof text-n)return;
+        n+=added;
+    }
     snprintf(temporary,sizeof temporary,"%s.tmp",vr_settings_path);
     SDL_RWops *f=SDL_RWFromFile(temporary,"wb");if(!f)return;
     int complete=SDL_RWwrite(f,text,1,(size_t)n)==(size_t)n;
@@ -111,10 +141,16 @@ static int vr_settings_input(uint16_t buttons,const uint8_t analog[8],const int1
     if(analog[2]>127)keys|=QUEST_VR_OPEN;
     int old_open=vr_menu.open,old_row=vr_menu.row;
     int changed=quest_vr_menu_step(&vr_menu,&vr_settings,SDL_GetTicks(),paused,keys);
+    if(changed&QUEST_VR_RESET_MIRRORS) {
+        pthread_mutex_lock(&input_lock);int vehicle=cockpit_vehicle_index;pthread_mutex_unlock(&input_lock);
+        mirror_settings[vehicle]=last_mirrors=(QuestMirrorSetting){0};mirror_known[vehicle]=1;
+        quest_mirror_release(&mirror_grip);
+        ++vr_panel_revision;
+    }
     if(changed&1)vr_publish_settings();
     if(changed&2) {
         vr_save_settings();
-        if(vr_save_status<0 && paused) {vr_menu.open=1;vr_menu.row=6;}
+        if(vr_save_status<0 && paused) {vr_menu.open=1;vr_menu.row=QUEST_VR_SAVE_ROW;}
     }
     if(old_open!=vr_menu.open || old_row!=vr_menu.row || (changed&2))++vr_panel_revision;
     return changed&4;

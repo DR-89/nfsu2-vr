@@ -4,18 +4,21 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "quest_wheel_limits.h"
 
 typedef struct {
     float sensitivity, rotation, height, distance;
     int resolution;
+    float return_speed;
 } QuestVRSettings;
 
-enum { QUEST_VR_RESOLUTIONS=6, QUEST_VR_ROWS=7 };
+enum { QUEST_VR_RESOLUTIONS=6, QUEST_VR_RETURN_ROW=5, QUEST_VR_RESET_MIRRORS_ROW, QUEST_VR_DEFAULTS_ROW, QUEST_VR_SAVE_ROW, QUEST_VR_ROWS };
+enum { QUEST_VR_RESET_MIRRORS=8 };
 static const unsigned quest_vr_resolutions[QUEST_VR_RESOLUTIONS][2]={
     {0,0},{1280,1344},{1680,1760},{2550,2640},{2940,3080},{3360,3520}
 };
 static inline QuestVRSettings quest_vr_defaults(void)
-{ return (QuestVRSettings){1,360,0,0,0}; }
+{ return (QuestVRSettings){1,360,0,0,0,QUEST_WHEEL_RETURN_DEFAULT}; }
 static inline float quest_vr_bound(float v,float lo,float hi,float fallback)
 { return isfinite(v)?fmaxf(lo,fminf(hi,v)):fallback; }
 static inline void quest_vr_validate(QuestVRSettings *s)
@@ -24,6 +27,7 @@ static inline void quest_vr_validate(QuestVRSettings *s)
     s->rotation=quest_vr_bound(s->rotation,180,1080,360);
     s->height=quest_vr_bound(s->height,-.35f,.35f,0);
     s->distance=quest_vr_bound(s->distance,-.40f,.40f,0);
+    s->return_speed=quest_vr_bound(s->return_speed,0,QUEST_WHEEL_RETURN_MAX,QUEST_WHEEL_RETURN_DEFAULT);
     if(s->resolution<0 || s->resolution>=QUEST_VR_RESOLUTIONS) s->resolution=0;
 }
 /* Explicit keys and bounded input: ignore unknown/future settings. */
@@ -37,6 +41,7 @@ static inline void quest_vr_parse(QuestVRSettings *s,const char *text)
             if(sscanf(line,"%63[^=]=%f",key,&value)==2) {
                 if(!strcmp(key,"steering_sensitivity")) s->sensitivity=value;
                 else if(!strcmp(key,"wheel_rotation")) s->rotation=value;
+                else if(!strcmp(key,"wheel_return_speed")) s->return_speed=value;
                 else if(!strcmp(key,"seat_height")) s->height=value;
                 else if(!strcmp(key,"seat_distance")) s->distance=value;
                 else if(!strcmp(key,"resolution") && isfinite(value) && value>=0 && value<QUEST_VR_RESOLUTIONS) s->resolution=(int)value;
@@ -48,8 +53,8 @@ static inline void quest_vr_parse(QuestVRSettings *s,const char *text)
 }
 static inline int quest_vr_format(const QuestVRSettings *s,char *out,size_t capacity)
 {
-    return snprintf(out,capacity,"version=1\nsteering_sensitivity=%.3f\nwheel_rotation=%.1f\nseat_height=%.3f\nseat_distance=%.3f\nresolution=%d\n",
-        s->sensitivity,s->rotation,s->height,s->distance,s->resolution);
+    return snprintf(out,capacity,"version=1\nsteering_sensitivity=%.3f\nwheel_rotation=%.1f\nseat_height=%.3f\nseat_distance=%.3f\nresolution=%d\nwheel_return_speed=%.1f\n",
+        s->sensitivity,s->rotation,s->height,s->distance,s->resolution,s->return_speed);
 }
 static inline void quest_vr_adjust(QuestVRSettings *s,int row,int step)
 {
@@ -58,10 +63,11 @@ static inline void quest_vr_adjust(QuestVRSettings *s,int row,int step)
     if(row==2) s->height+=step*.01f;
     if(row==3) s->distance+=step*.01f;
     if(row==4) s->resolution=(s->resolution+step+QUEST_VR_RESOLUTIONS)%QUEST_VR_RESOLUTIONS;
+    if(row==QUEST_VR_RETURN_ROW)s->return_speed+=step*30.f;
     quest_vr_validate(s);
 }
 
-typedef struct { int open,row,held,swallow; uint32_t repeat; } QuestVRMenu;
+typedef struct { int open,row,held,swallow; uint32_t repeat; int mirrors_centered; } QuestVRMenu;
 enum { QUEST_VR_UP=1,QUEST_VR_DOWN=2,QUEST_VR_LEFT=4,QUEST_VR_RIGHT=8,
        QUEST_VR_ACCEPT=16,QUEST_VR_BACK=32,QUEST_VR_OPEN=64 };
 /* Return bit 1 on data change, bit 2 on closing (persist), bit 4 to consume
@@ -78,7 +84,7 @@ static inline int quest_vr_menu_step(QuestVRMenu *m,QuestVRSettings *s,
     if(m->swallow) { if(!keys)m->swallow=0;m->held=keys;return 4; }
     int edge=keys&~m->held;m->held=keys;
     if(!m->open) {
-        if(edge&QUEST_VR_OPEN) {m->open=1;m->repeat=now+350;return 4;}
+        if(edge&QUEST_VR_OPEN) {m->open=1;m->mirrors_centered=0;m->repeat=now+350;return 4;}
         return 0;
     }
     if(edge&QUEST_VR_BACK) {m->open=0;m->swallow=1;return 6;}
@@ -87,11 +93,12 @@ static inline int quest_vr_menu_step(QuestVRMenu *m,QuestVRSettings *s,
         m->repeat=now+((edge&15)?350:140);
         if(nav&QUEST_VR_UP)m->row=(m->row+QUEST_VR_ROWS-1)%QUEST_VR_ROWS;
         else if(nav&QUEST_VR_DOWN)m->row=(m->row+1)%QUEST_VR_ROWS;
-        else if(m->row<5) {quest_vr_adjust(s,m->row,(nav&QUEST_VR_RIGHT)?1:-1);return 5;}
+        else if(m->row<QUEST_VR_RESET_MIRRORS_ROW) {quest_vr_adjust(s,m->row,(nav&QUEST_VR_RIGHT)?1:-1);return 5;}
     }
     if(edge&QUEST_VR_ACCEPT) {
-        if(m->row==5) {*s=quest_vr_defaults();return 5;}
-        if(m->row==6) {m->open=0;m->swallow=1;return 6;}
+        if(m->row==QUEST_VR_RESET_MIRRORS_ROW) {m->mirrors_centered=1;return 4|QUEST_VR_RESET_MIRRORS;}
+        if(m->row==QUEST_VR_DEFAULTS_ROW) {*s=quest_vr_defaults();m->mirrors_centered=1;return 5|QUEST_VR_RESET_MIRRORS;}
+        if(m->row==QUEST_VR_SAVE_ROW) {m->open=0;m->swallow=1;return 6;}
     }
     return 4;
 }

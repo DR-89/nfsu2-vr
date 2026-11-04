@@ -116,9 +116,14 @@ geometry without overwriting them. All extracted fixtures remain in ignored
 `build/` directories. The cockpit tests also cover all 29 body/driver/central
 mirror fixtures, both side mirrors and profile alignment on Windows and Quest.
 
-NCPK v2 stores a 64-byte little-endian header: magic, version, vertex/index
+NCPK v4 starts with a 64-byte little-endian header with magic, version, vertex/index
 counts, atlas width/height, wheel first index/count, pivot float3, normalized
-shaft float3, two reserved zero uint32s. Interleaved position/normal/UV float
+shaft float3 and the shifter's first vertex and vertex count. A second 64-byte
+block contains the accelerator, brake and clutch vertex ranges and their
+three hinge points, followed by a reserved zero word. The pedal arms and pads
+come from the original footwell, with a second brake pad fitted for the clutch.
+The loader also accepts v3 cabins with fixed pedals and v2 cabins with a fixed shifter.
+Interleaved position/normal/UV float
 vertices, uint32 triangle indices and raw RGBA atlas follow. The parser checks
 all sizes, ranges, finite values, index bounds and the shaft before GPU upload.
 

@@ -43,7 +43,7 @@ static int ui_notification_test(void)
         {{"HUD_SingleRace.fng","Chyron_FE.fng"},1},
         {{"HUD_SingleRace.fng","Chyron_IG.fngX"},1},
         {{"HUD_SingleRace.fng","Chyron_IG.fng "},1},
-        {{"Chyron_IG.fng"},1},
+        {{"Chyron_IG.fng"},QUEST_UI_NO_HUD},
         {{"HUD_Drag.fng","chyron_ig.FNG"},0},
         {{"HUD_SingleRace.fng","UI_PauseOptionsMain.fng"},1},
         {{"HUD_SingleRace.fng","Unknown.fng"},1},
@@ -64,6 +64,9 @@ static int ui_notification_test(void)
         CHECK(quest_cockpit_ui_menu(ui_test_read,&memory)==cases[i].menu);
         CHECK(quest_cockpit_ui_paused(ui_test_read,&memory)==cases[i].pause);
     }
+    memset(pages[1].bytes+0x1e4,0,4);
+    CHECK(quest_cockpit_ui_menu(ui_test_read,&memory)==QUEST_UI_NO_HUD);
+    memcpy(pages[1].bytes+0x1e4,&first,4);
     /* A cyclic/incomplete active list must not authorize settings. */
     strcpy((char *)pages[1].bytes+0x400,"UI_Pause.fng");
     memcpy(pages[1].bytes+0x304,&first,4);
@@ -108,7 +111,7 @@ int main(int argc,char **argv)
             uint32_t h[2];CHECK(fread(h,sizeof h,1,f)==1 && h[0]<=1 && h[1]>0 && h[1]<=256);
             ui.count=h[1];ui.pages=calloc(ui.count,sizeof *ui.pages);CHECK(ui.pages);
             CHECK(fread(ui.pages,sizeof *ui.pages,ui.count,f)==ui.count);
-            CHECK(quest_cockpit_ui_menu(ui_test_read,&ui)==(int)h[0]);
+            CHECK(!!quest_cockpit_ui_menu(ui_test_read,&ui)==(int)h[0]);
             free(ui.pages);ui.pages=NULL;ui.count=0;
         }
         CHECK(fgetc(f)==EOF && !ferror(f));fclose(f);
@@ -385,13 +388,17 @@ int main(int argc,char **argv)
         CHECK(!quest_cockpit_asset(&asset,data,(size_t)length-1));
         unsigned char saved[4]; memcpy(saved,data+8,4); memset(data+8,255,4);
         CHECK(!quest_cockpit_asset(&asset,data,(size_t)length)); memcpy(data+8,saved,4);
-        size_t offset=64+(size_t)asset.vertices*32; memcpy(saved,data+offset,4); memset(data+offset,255,4);
+        size_t offset=(size_t)(asset.index_data-data); memcpy(saved,data+offset,4); memset(data+offset,255,4);
         CHECK(!quest_cockpit_asset(&asset,data,(size_t)length)); memcpy(data+offset,saved,4);
         for(size_t i=24;i<=60;i+=4) {
             memcpy(saved,data+i,4); memset(data+i,255,4);
             CHECK(!quest_cockpit_asset(&asset,data,(size_t)length)); memcpy(data+i,saved,4);
         }
-        float bad=NAN; memcpy(data+64,&bad,4); CHECK(!quest_cockpit_asset(&asset,data,(size_t)length));
+        if(quest_cockpit_u32(data+4)==4)for(size_t i=64;i<128;i+=4) {
+            memcpy(saved,data+i,4);memset(data+i,255,4);
+            CHECK(!quest_cockpit_asset(&asset,data,(size_t)length));memcpy(data+i,saved,4);
+        }
+        float bad=NAN; memcpy(data+(asset.vertex_data-data),&bad,4); CHECK(!quest_cockpit_asset(&asset,data,(size_t)length));
         free(data);
     }
     puts("Cockpit camera, controls, wheel rotation and asset validation checks passed");

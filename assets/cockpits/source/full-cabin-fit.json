@@ -40,6 +40,16 @@
     "tripo_part_48"
   ],
   "rim_node": "tripo_part_48",
+  "shifter_node": "tripo_part_58",
+  "pedals": {
+    "floor_node": "tripo_part_17",
+    "accelerator_pad": "tripo_part_16",
+    "brake_bounds": [[-0.200, -0.720, -0.750], [-0.072, -0.640, -0.600]],
+    "accelerator_arm_bounds": [[-0.045, -0.750, -0.750], [0.025, -0.585, -0.661]],
+    "brake_hinge": [-0.137, -0.652, -0.753],
+    "accelerator_hinge": [-0.005, -0.586, -0.743],
+    "clutch_offset": [-0.116, 0, 0]
+  },
   "wheel_stationary_cut_m": {
     "tripo_part_32": -0.087
   },
@@ -99,7 +109,8 @@
     "full rear bench with headrests",
     "rear parcel shelf",
     "carpet floor",
-    "center console"
+    "center console",
+    "animated accelerator, brake and clutch"
   ],
   "glass_remnant_nodes": [],
   "original_body_fit": {

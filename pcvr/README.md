@@ -4,8 +4,18 @@ The shared Quest Vulkan/OpenXR renderer now also builds for Windows x64. The
 game runs on the PC; Virtual Desktop streams the eye images to Quest 3 through
 VDXR. Quest and PCVR share the cockpit, input and VR settings implementation.
 
+Intro and story movies use the same native VP6 decoder as Quest. The original
+movie player handles audio, timing and skipping. The first Windows build
+fetches FFmpeg 7.1.5 and GNU Make for Git Bash. Subsequent builds reuse the
+compiled decoder. Set `NFSU2_NATIVE_VP6=2` for a timed frame comparison
+against the original decoder.
+
 ## VR settings and controller update (2026-10-17, testing)
 
+For Steam Link, start SteamVR and run `tools/start-pcvr.ps1 -SteamVR`.
+Hold **Y on the left Touch controller for 0.65 seconds** while
+driving to open the game's pause menu. A short Y press performs the usual
+action on release. A mapped gamepad can also pause with Start.
 Pause during a race and press **X** on Touch or a mapped gamepad to open the
 English **VR Settings** panel. A visible `[X] VR SETTINGS` entry appears below
 the pause menu. Use either stick or the D-pad to select a row and adjust it
@@ -47,8 +57,8 @@ This revision also caches original mirror geometry, uploads immutable cabin
 and glove geometry to device-local GPU memory, and defers pipeline-cache disk
 writes until outside races. Player-shell backface culling is disabled only for
 the detected seated player's body. Mirror detection accepts additional heights
-and slants beyond the Peugeot reference; the three mirrors still share sectors
-of one rear camera. These are targeted changes, not a claim of stable 72 FPS.
+and slants beyond the Peugeot reference. The three mirrors use the rear camera
+and per-eye reflections described below.
 
 Seat adjustments use a shared XR eye transform with fixed vehicle/mirror
 coordinates. The shared renderer also hides the crossed retail driver proxy
@@ -110,10 +120,10 @@ Touch controls now use right stick click to cycle cameras and left stick click
 to hold rear view outside Cockpit View. The cockpit has no button-driven rear
 view; turn your head there. Grip near the rim enables one- or two-hand motion
 steering with translucent ghost hands, visible only in the cockpit. Releasing
-both grips retains the last steering angle until grabbing again or deliberately
-deflecting the left stick at least 25%. Stick steering then remains active,
-including centering on release, until the next grab. Either grasped hand takes
-priority over the stick; small stick drift does not release a held angle.
+both grips lets the wheel return to center. Grab anywhere on the rim to catch it.
+In the in-game pause menu, press X and adjust **Wheel Return Speed** from Off
+to 540 degrees/second. The default is 240 degrees/second. With both hands off,
+a deliberate left-stick deflection of at least 25% takes over steering.
 Tracked wheel input compensates for the game's 24% stick deadzone, allowing
 small wheel turns to steer proportionally. Stick/gamepad deadzones remain intact.
 A new grab starts at the stick's effective steering to avoid a response jump;
@@ -132,17 +142,45 @@ send those buttons, so gripping cannot change cameras, and the right click
 remains usable to leave the cockpit while steering.
 While driving, Touch A is nitro, B is handbrake, and right stick up/down shifts
 gears once per deflection (return to center to shift again). Use the game's
-manual transmission setting. In menus A/B and right-stick navigation retain
+manual transmission setting. In Cockpit View, either hand can hold Grip on the
+shift knob while the other steers. Pull the lever into neutral, move across,
+then push forward for 1/3/5 or pull back for 2/4. On a five-speed, reverse is
+directly behind fifth. On a six-speed, sixth is behind fifth and reverse has
+its own rear slot one lane farther right. The installed gearbox selects the
+layout, including after upgrades. Release Grip once the gear is engaged.
+In menus A/B and right-stick navigation retain
 their original behavior. The shared headliner is removed and the eye is lower
 and closer to the wheel; this fit is user-confirmed on Quest. The mirror glass
 detector now uses car-relative bounds and the same seat definition as the camera.
 The new driving mapping and mirror repair pass packet/geometry tests and are
 user-confirmed on native Quest. PCVR headset validation remains pending.
 
-The shared renderer also maps the live 512x128 rear-camera image onto the
-original interior and outside mirror glass, using three sectors of one rear
-camera, not three separate reflection cameras. The additional floating mirror
-rectangle is removed. The cockpit map is lower left and the smaller speed
+Hold Grip on the center mirror and tilt your wrist or push one edge of the
+glass. Either outside mirror adjusts both together, inward/outward and up/down.
+Release Grip to save the angles for this vehicle. Leaning changes the reflected
+view in each eye. Mirror optics use 70% of head translation around your configured
+seat, preserving eye separation. Select **Reset Car Mirrors** in VR Settings to
+restore the center and both outside mirrors for this vehicle. The cockpit rear
+capture uses a 600 m far plane for rendering and visibility.
+
+For a standing start with manual transmission and VR controllers, the lever
+starts in neutral. Hold Grip, move it to the left rail, and push fully forward
+to engage first. You can seat the lever during the countdown.
+
+The next race restores your last camera, including Cockpit View. Each car
+recalls its own mirror setup, with your last setup as the starting point for
+a new car. The minimap sits above the radio on the center console. Under it, hold Grip
+and drag the music slider, or squeeze Grip once on previous, play/pause or
+next. The display below the buttons shows the current EA TRAX title and artist.
+A cyan outline marks each control that a free hand can grab.
+Long names scroll. Muting the music with the slider keeps the song playing.
+The stock song-change banner appears in the other driving cameras. The
+cockpit shows the title on the radio display.
+
+The right trigger depresses the accelerator and the left trigger depresses
+the brake in proportion to its travel. During manual shifts the clutch pedal
+moves down through neutral and returns after the gear engages. The cockpit
+map is lower left and the smaller speed
 instrument is behind the wheel, composed before the wheel and hands without an
 added black backing. See [implementation and verification](../android/README.md).
 Pause/options menus use a complete panel selected from the active frontend

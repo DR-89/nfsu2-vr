@@ -47,12 +47,14 @@ static inline int quest_cockpit_ui_paused(QuestUiRead read,void *context)
  * a transient driving notification, not a menu: treating it as paused moves
  * the instruments back to the complete HUD plane until the message expires.
  * An incomplete/invalid list also gets the unsplit presentation. */
+enum { QUEST_UI_HUD, QUEST_UI_MENU, QUEST_UI_NO_HUD };
 static inline int quest_cockpit_ui_menu(QuestUiRead read,void *context)
 {
     uint32_t frontend,manager,node;
     if(!read(context,0x003fbd08u,&frontend,4) || !frontend ||
        !read(context,frontend+8,&manager,4) || !manager ||
-       !read(context,manager+0xe4,&node,4) || !node) return 1;
+       !read(context,manager+0xe4,&node,4)) return QUEST_UI_MENU;
+    if(!node)return QUEST_UI_NO_HUD;
     int has_hud=0;
     for(unsigned count=0;node && count<32;++count) {
         uint32_t fields[4];unsigned char name[4];
@@ -69,7 +71,7 @@ static inline int quest_cockpit_ui_menu(QuestUiRead read,void *context)
                 if((full[i]|32)!=(overlay[i]|32))return 1;
         } else has_hud=1;
         node=fields[1];
-        if(!node) return !has_hud;
+        if(!node) return has_hud?QUEST_UI_HUD:QUEST_UI_NO_HUD;
     }
     return 1;
 }

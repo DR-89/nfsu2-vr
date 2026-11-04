@@ -4,6 +4,11 @@ This branch builds the NTSC-U Xbox executable as native Android ARM64 code and
 runs it standalone on Quest 3. It is based on `antoxa2584x/nfsu2-sw`, revision
 `6e19726414e829d808f7acb0258c0902f04a923a`.
 
+Intro and story movies use the native FFmpeg VP6 decoder. The Xbox player
+still handles audio, timing and skipping. The Windows APK build downloads
+the pinned decoder sources and GNU Make on its first run and uses Git Bash,
+the Android NDK and the Windows C++ Build Tools with the Windows SDK.
+
 Current performance target: stable 72 newly rendered game frames/s, including
 dense scenes and crashes, without new rendering regressions at the accepted
 image quality. This supersedes the earlier 120 Hz target and has not been met
@@ -24,6 +29,8 @@ open it. Holding X before pausing requires release and a new press.
   with less physical wheel movement.
 - **Wheel rotation:** 180–1080 degrees total, lock to lock; default 360.
   This controls physical travel independently of steering sensitivity.
+- **Wheel Return Speed** sets how fast the released rim centers, from Off to
+  540 degrees/second in steps of 30. The default is 240 degrees/second.
 - **Seat height:** ±35 cm, in 1 cm steps. Positive moves the eye upward.
 - **Seat distance:** ±40 cm, in 1 cm steps. Positive moves the eye backward.
   The interior, instruments and grasp points stay attached to the car.
@@ -52,8 +59,8 @@ This revision also caches original mirror geometry, uploads immutable cabin
 and glove geometry to device-local GPU memory, and defers pipeline-cache disk
 writes until outside races. Player-shell backface culling is disabled only for
 the detected seated player's body. Mirror detection accepts additional heights
-and slants beyond the Peugeot reference; the three mirrors still share sectors
-of one rear camera. These are targeted changes, not a claim of stable 72 FPS.
+and slants beyond the Peugeot reference. The three mirrors use the rear camera
+and per-eye reflections described below.
 
 Seat adjustments now move the shared XR eye transform while the game's base
 camera and original mirror geometry remain fixed to the car. This avoids
@@ -181,12 +188,12 @@ The implementation uses [OpenXR haptic output](https://registry.khronos.org/Open
 
 In Cockpit View, bring a controller near the steering rim and hold its Grip
 button. One or both hands can steer by moving around the wheel. Releasing both
-retains the last steering angle, including the actual input sent to the game.
-Free hands do not move the wheel; grabbing again at any rim point resumes from
-that retained angle without a jump. To return to left-stick steering, release
+lets it return to center at the speed set in VR Settings. Grab anywhere on the rim
+to stop the return and steer from that angle. With the slider set to Off the
+released wheel holds its angle. To return to left-stick steering, release
 both grips and deflect the stick at least 25% sideways. Ordinary stick steering,
 including centering on release, then remains active until the next wheel grab.
-Small stick drift preserves the held angle; either grasped hand takes priority.
+Small stick drift leaves tracked steering active. Either grasped hand takes priority.
 Regrabbing uses the current stick's effective steering after the game's deadzone,
 not an older guest input packet. Tracked wheel input compensates for the original
 game's 24% stick deadzone, so small wheel turns reach the car proportionally.
@@ -427,11 +434,20 @@ boot actually begins. Regular Android screenshots do not capture this VR layer.
   X/Y retain their original actions (also secondary gear buttons in gameplay).
 - Left menu button maps to Start; right stick also supplies the menu D-pad.
 - Left stick maps to the Xbox left stick; triggers map to the Xbox triggers.
+- The accelerator follows the right trigger and the brake follows the left
+  trigger through their full analog range. The clutch pedal depresses during
+  a manual shift and springs back once the shift completes.
 - Right stick click cycles cameras, including leaving Cockpit View (on release).
 - Left stick click holds rear view in the original driving cameras. It has
   no rear-view action in Cockpit View; turn your head there.
-- Grips only grasp the steering wheel in Cockpit View; they do not send
-  camera or rear-view buttons in any view.
+- In Cockpit View, hold Grip on the shift knob with either hand. Pull the
+  lever into the neutral crossbar before changing lanes. Push forward for
+  1/3/5 or pull back for 2/4. The five-speed has reverse behind fifth.
+  The six-speed has sixth behind fifth and reverse one lane farther right,
+  also toward the seat. Release Grip to leave the gear engaged. The other
+  hand can stay on the wheel. The installed gearbox determines the layout.
+  Manual standing starts use neutral until you push the lever to the front
+  stop of the left rail. First gear can be selected during the countdown.
 - Press both sticks together to recenter the seated origin.
 
 The stick-click actions map to the retail **analog White/Black buttons**,
@@ -454,12 +470,33 @@ reset the shift latch and require neutral before the next gear command. Packet
 tests cover held input, entry from menus, axis noise, timers wrapping and
 25–125 Hz polling. Gameplay state is published from the guest thread.
 
-The cockpit mirrors use the game's separate rear camera (retail view 3).
-The Vulkan backend stores its 256x64 logical target at 512x128 and maps the
-horizontally flipped rear image onto the **original car's glass triangles**.
-There is no additional rectangular mirror below the original interior mirror.
-The outside mirrors use left/right sectors of this same wide rear image; these
-are not three independently positioned reflection cameras. Glass detection
+Hold Grip on the center mirror or either outside mirror. Tilt your wrist or
+push the edge of the glass. The outside mirrors turn inward or outward together
+and share a vertical tilt. The center mirror adjusts independently. Releasing
+Grip saves the angles for this vehicle. Select **Reset Car Mirrors** in VR
+Settings to restore all three to their normal aim for the current seat.
+The next race restores your last driving camera, including Cockpit View.
+A car with its own mirror setup recalls it. A car without one starts with the
+last setup you used.
+
+The EA TRAX radio sits below the raised minimap on the center console. A cyan
+outline marks each control that a free hand can grab. Reach
+to the volume slider, hold Grip and slide left or right. Squeeze and release
+Grip on the previous, play/pause or next button for a single action. Track
+selection follows the titles enabled for racing in EA TRAX. The slider adjusts
+in-game music volume independently of the engine and other sound effects.
+The song continues playing when muted. The display below the controls shows
+the current title and artist, scrolling names that exceed its width.
+The cockpit uses this display for song changes. The other driving cameras
+show the original EA TRAX banner.
+
+The rear camera (retail view 3) captures a wide 1024×256 image and depth.
+Its far plane is 600 m. Its position follows the reflected head center at 70%
+of tracked translation about the adjusted seat. Each eye
+traces a reflected ray through each glass surface into that capture. Leaning
+and seat adjustments change the view, including the parallax of nearby cars.
+The three mirrors share camera coverage, so occluded scenery or directions
+beyond the capture can be missing near the edges. Glass detection
 requires the player's rigid car transform and small, thin glass geometry.
 The recorded test car identifies 2 interior and 10 triangles per outside mirror;
 all 42 nearby recorded batches pass the positive/negative geometry checks on

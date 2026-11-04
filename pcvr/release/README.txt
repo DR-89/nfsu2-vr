@@ -7,8 +7,9 @@ are not guaranteed.
 
 1. Extract the entire ZIP into a writable folder. Do not run inside the ZIP.
 2. Install a current GPU driver with Vulkan support and connect your headset
-   through Virtual Desktop. This development configuration uses VDXR.
-3. Run Start-PCVR.cmd. If game data is missing, Game data setup opens.
+   through Steam Link and SteamVR, or through Virtual Desktop and VDXR.
+3. Run Start-PCVR.cmd to use your active OpenXR runtime. To explicitly select
+   SteamVR, run Start-PCVR.cmd -SteamVR. On first launch, Game data setup opens.
 4. Click Select ISO... and choose your original Xbox USA / NTSC-U ISO/XISO.
    PC and European discs are unsupported. Unpack ZIP/7z archives first.
 5. Wait for extraction and SHA-256 verification. PCVR starts automatically.
@@ -24,8 +25,8 @@ it uses a complete game/ in the working directory or beside the EXE, otherwise
 %LOCALAPPDATA%\NFSU2VR\game. Use Start-PCVR.cmd for the supplied tested preset.
 
 Required system software: Windows 10/11 x64, Vulkan-capable graphics driver,
-and an installed/configured OpenXR runtime. Virtual Desktop/VDXR is the
-development-tested configuration. Windows N editions need Media Feature Pack.
+and an installed/configured OpenXR runtime. Development testing used SteamVR
+and Virtual Desktop/VDXR. Windows N editions need Media Feature Pack.
 Driver files and the headset runtime are installed separately; they cannot be
 bundled as application DLLs. No Python, Java or separate ISO extractor is needed.
 
@@ -35,27 +36,43 @@ Xbox executable, disc images, game assets and saves are NOT included.
 
 Controls (Touch controllers):
 - Left menu button: pause/Start. Right stick navigates menus.
+- Steam Link: hold Y on the left Touch controller for 0.65 seconds while
+  driving to pause. Tap Y for its usual action. Gamepad Start also pauses.
 - Right stick click: cycle cameras, including entering/leaving Cockpit View.
 - Left stick click: hold rear view outside the cockpit; disabled inside it.
 - Both stick clicks: recenter the view and release wheel grips.
 - A: nitro while driving. B: handbrake while driving.
 - Right stick up/down: shift up/down with Manual transmission; return it to
   center between shifts. Right stick left reads SMS; right enters a race/shop.
+- With Manual transmission in Cockpit View, hold Grip on the shift knob and
+  move it through neutral into a slot. Five-speed reverse is behind fifth.
+  Six-speed reverse is one lane to the right of sixth. Either hand can shift.
+  For a manual standing start with VR controllers, push the lever fully
+  forward in the left rail to engage first. You can do this during the countdown.
   Menu confirm/back retain their normal mapping.
 - Grip near any rim point: one- or two-hand motion steering in the cockpit,
   including crossed hands. Default wheel travel is 360 degrees (+/-180).
+- Grip the center mirror to tilt it. Gripping either outside mirror adjusts
+  both together. Release Grip to save the angles for this car.
+  In VR Settings, select Reset Car Mirrors to restore their normal aim.
+- The next race restores the last camera and mirror setup. Under the
+  minimap, drag the EA TRAX volume slider with Grip or squeeze Grip once on
+  previous, play/pause or next. Title and artist appear below the buttons.
+  Turning the slider down to silence keeps the song playing.
+- Right and left trigger travel animates the accelerator and brake. Manual
+  shifts depress the clutch pedal and it returns as the shift completes.
 - October 18 steering fix: small hand-driven wheel turns now compensate for
   the original game's 24% stick deadzone. Stick/gamepad deadzones are unchanged;
   switching between the stick and wheel preserves the effective steering.
-- Releasing both grips retains steering. Move the left stick at least 25%
-  sideways to resume ordinary stick steering. A held glove stays attached to
-  its initial rim point; release/regrip to choose another point.
+- Set Wheel Return Speed in VR Settings (Off to 540 degrees/second, default
+  240). Release both grips to let the wheel center. Catch it with either hand.
+  Move the left stick at least 25% sideways to resume ordinary stick steering.
 - Controller vibration follows the game's rumble; enable Vibration in-game.
 
 The shared anthracite/blue Tripo cabin includes doors, front seats, rear bench,
 floor, dashboard and animated wheel. Its extra headliner/window pillars were
 removed to fit the original car body and hood. Three original mirror surfaces
-use sectors of one live rear camera. The speed display sits behind the wheel,
+reflect a wide live rear-camera capture per eye. The speed display sits behind the wheel,
 with the map on the center console; pause menus stay on one complete panel.
 Keep the entire bundled cockpits/ folder, including the racing gloves.
 The cabin now has base seat/body fitting for all 29 stock cars. Miata and 350Z

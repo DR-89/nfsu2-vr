@@ -63,8 +63,12 @@ int main(int argc,char **argv)
     CHECK(s.sensitivity==1 && s.rotation==360 && s.resolution==0);
     quest_vr_parse(&s,"steering_sensitivity=nan\nwheel_rotation=inf\nseat_height=99\nseat_distance=-99\nresolution=999999999999\nunknown=7\n");
     CHECK(s.sensitivity==1 && s.rotation==360 && s.height==.35f && s.distance==-.4f && s.resolution==0);
-    s=(QuestVRSettings){2,720,-.13f,.22f,4};quest_vr_format(&s,text,sizeof text);quest_vr_parse(&round,text);
+    CHECK(s.return_speed==QUEST_WHEEL_RETURN_DEFAULT);
+    s=(QuestVRSettings){2,720,-.13f,.22f,4,330};quest_vr_format(&s,text,sizeof text);quest_vr_parse(&round,text);
     CHECK(!memcmp(&s,&round,sizeof s));
+    quest_vr_parse(&s,"wheel_return_speed=-3\n");CHECK(s.return_speed==0);
+    quest_vr_parse(&s,"wheel_return_speed=9999\n");CHECK(s.return_speed==QUEST_WHEEL_RETURN_MAX);
+    quest_vr_parse(&s,"wheel_return_speed=nan\n");CHECK(s.return_speed==QUEST_WHEEL_RETURN_DEFAULT);
     for(int i=0;i<1000;++i){quest_vr_adjust(&s,0,1);quest_vr_adjust(&s,1,-1);quest_vr_adjust(&s,2,-1);quest_vr_adjust(&s,3,1);}
     CHECK(s.sensitivity==3 && s.rotation==180 && s.height==-.35f && s.distance==.4f);
     QuestVRMenu menu={0};s=quest_vr_defaults();
@@ -76,6 +80,8 @@ int main(int argc,char **argv)
     CHECK(quest_vr_menu_step(&menu,&s,3,1,QUEST_VR_RIGHT)==5 && fabsf(s.sensitivity-1.1f)<1e-5f);
     CHECK(quest_vr_menu_step(&menu,&s,100,1,QUEST_VR_RIGHT)==4);
     CHECK(quest_vr_menu_step(&menu,&s,354,1,QUEST_VR_RIGHT)==5);
+    menu.row=QUEST_VR_RETURN_ROW;quest_vr_menu_step(&menu,&s,360,1,0);
+    CHECK(quest_vr_menu_step(&menu,&s,370,1,QUEST_VR_LEFT)==5 && s.return_speed==QUEST_WHEEL_RETURN_DEFAULT-30);
     CHECK(quest_vr_menu_step(&menu,&s,400,1,QUEST_VR_BACK)==6 && !menu.open);
     CHECK(quest_vr_menu_step(&menu,&s,500,1,QUEST_VR_BACK)==4);
     CHECK(quest_vr_menu_step(&menu,&s,600,1,0)==4);
@@ -111,9 +117,17 @@ int main(int argc,char **argv)
         }
         CHECK(count==1);
     }
+    /* Reset this car's mirrors is a distinct edge-triggered menu action. */
+    s=quest_vr_defaults();s.sensitivity=1.5f;s.height=.04f;
+    menu=(QuestVRMenu){0};menu.open=1;menu.row=QUEST_VR_RESET_MIRRORS_ROW;
+    CHECK(quest_vr_menu_step(&menu,&s,700,1,QUEST_VR_ACCEPT)==(4|QUEST_VR_RESET_MIRRORS));
+    CHECK(menu.open && menu.mirrors_centered && s.sensitivity==1.5f && s.height==.04f);
+    CHECK(quest_vr_menu_step(&menu,&s,730,1,QUEST_VR_ACCEPT)==4);
+    quest_vr_menu_step(&menu,&s,750,1,0);menu.row=QUEST_VR_SAVE_ROW;
+    CHECK(quest_vr_menu_step(&menu,&s,780,1,QUEST_VR_ACCEPT)==6 && !menu.open);
     if(argc>1) {
         uint32_t *pixels=malloc(1024*768*4);CHECK(pixels);
-        s=quest_vr_defaults();s.resolution=3;menu.open=1;menu.row=4;
+        s=quest_vr_defaults();s.resolution=3;menu.open=1;menu.row=QUEST_VR_RETURN_ROW;
         quest_vr_panel(pixels,&s,&menu,1,1);
         FILE *f=fopen(argv[1],"wb");CHECK(f);fprintf(f,"P6\n1024 768\n255\n");
         for(int i=0;i<1024*768;++i){unsigned char rgb[3]={(pixels[i]>>16)&255,(pixels[i]>>8)&255,pixels[i]&255};fwrite(rgb,1,3,f);}
