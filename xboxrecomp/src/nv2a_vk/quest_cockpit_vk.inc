@@ -7,7 +7,8 @@
 #include "quest_cockpit_panels.h"
 #include "quest_cockpit_occlusion.h"
 #include "quest_cockpit_vehicle.h"
-#include "quest_radio_display.h"
+#include "quest_cockpit_controls.h"
+#include "quest_cockpit_ui.h"
 static int s_cockpit_frame;
 static int s_cockpit_vehicle;
 static uint32_t s_cockpit_windows[QUEST_COCKPIT_WINDOWS];
@@ -25,7 +26,7 @@ static struct {
     VkPipeline wheel_pipeline[2];
     VkPipeline hand_pipeline[2];
     VkPipeline mirror_pipeline[2];
-    VkPipeline radio_pipeline[2];
+    VkPipeline radio_pipeline[2],control_pipeline[2];
     QuestRadioFont radio_font;
     QuestRadioSong radio_song;
     uint32_t radio_song_tick;
@@ -34,7 +35,8 @@ static struct {
     uint32_t mirror_frame;
     VkSurf hud;
     int hud_split;
-    VkPipeline hud_pipeline[2], info_pipeline[2];
+    QuestMinimapMount map_mounts[QUEST_COCKPIT_VEHICLES];
+    VkPipeline hud_pipeline[2], info_pipeline[2], map_pipeline[2];
     VkBuffer panels;
     VkDeviceMemory panels_mem;
     VkBuffer hands;
@@ -238,6 +240,45 @@ static VkPipeline cockpit_pipeline(int multiview,int ghost)
             "color=vec4(inside(uv)?rgb(uv):vec3(.04,.045,.05),1);}",
             s_multiview?"sampler2DArray":"sampler2D",s_multiview?"sampler2DArray":"sampler2D",
             s_multiview?"vec3(p,0)":"p",s_multiview?"vec3(p,0)":"p");
+    } else if(ghost==9) {
+        snprintf(vertex,sizeof vertex,
+            "#version 450\n%s\n"
+            "layout(location=0) in vec3 position;layout(location=2) in vec2 uv;"
+            "layout(location=0) out vec2 coord;layout(location=1) flat out int hover;"
+            "layout(push_constant) uniform Camera{mat4 eyes[2];}camera;"
+            "void main(){gl_Position=camera.eyes[%s]*vec4(position,1);coord=uv;hover=gl_InstanceIndex;}",
+            multiview?"#extension GL_EXT_multiview : require":"",multiview?"gl_ViewIndex":"0");
+        snprintf(fragment,sizeof fragment,
+            "#version 450\nlayout(location=0) in vec2 coord;layout(location=1) flat in int hover;"
+            "layout(set=0,binding=0) uniform %s atlas;layout(location=0) out vec4 color;"
+            /* Retail's map is an ellipse in the 640x480 HUD. Sample its full
+             * axes onto the circular mount, including markers on the rim. */
+            "void main(){vec2 p=coord-.5;vec2 uv=(vec2(98.,372.5)+p*vec2(110.,151.))/vec2(640.,480.);"
+            "vec4 hud=texture(atlas,%s);float d=length(p);float aa=clamp(fwidth(d),.001,.04);"
+            "float coverage=1.-smoothstep(.5-aa,.5,d);if(coverage<=0.)discard;"
+            "vec3 face=hud.rgb+(1.-hud.a)*vec3(.042,.052,.06);"
+            "vec3 rim=hover!=0?vec3(.30,.80,1.):vec3(.12,.15,.17);"
+            "color=vec4(mix(face,rim,smoothstep(.48-aa,.48,d))*coverage,coverage);}",
+            s_multiview?"sampler2DArray":"sampler2D",s_multiview?"vec3(uv,0)":"uv");
+    } else if(ghost==8) {
+        snprintf(vertex,sizeof vertex,
+            "#version 450\n%s\n"
+            "layout(location=0) in vec3 position;layout(location=1) in vec3 style;layout(location=2) in vec2 uv;"
+            "layout(location=0) out vec2 coord;layout(location=1) flat out vec3 data;"
+            "layout(push_constant) uniform Camera{mat4 eyes[2];}camera;"
+            "void main(){gl_Position=camera.eyes[%s]*vec4(position,1);coord=uv;data=style;}",
+            multiview?"#extension GL_EXT_multiview : require":"",multiview?"gl_ViewIndex":"0");
+        snprintf(fragment,sizeof fragment,
+            "#version 450\nlayout(location=0) in vec2 coord;layout(location=1) flat in vec3 data;"
+            "layout(location=0) out vec4 color;void main(){int style=int(data.x);"
+            "if(style==%d){ivec2 cell=clamp(ivec2(coord*vec2(5,7)),ivec2(0),ivec2(4,6));"
+            "uint rows=uint(cell.y<4?data.y:data.z);if(((rows>>uint(5*(cell.y%%4)+4-cell.x))&1u)==0u)discard;"
+            "color=vec4(.94,.97,1,1);}"
+            "else if(style==%d){if(length(coord-.5)>.5)discard;color=vec4(1,.66,.12,1);}"
+            "else if(style==%d)color=vec4(.35,.86,1,.85);"
+            "else {vec2 q=abs(coord-.5)-.40;if(length(max(q,0.))>.10)discard;"
+            "color=style==%d?vec4(.09,.41,.56,1):vec4(.09,.12,.16,1);}}",
+            QUEST_KEY_TEXT,QUEST_GATE_CURSOR,QUEST_GATE_RAIL,QUEST_KEY_HOVER);
     } else if(ghost==7) {
         snprintf(vertex,sizeof vertex,
             "#version 450\n%s\n"
@@ -248,17 +289,16 @@ static VkPipeline cockpit_pipeline(int multiview,int ghost)
             multiview?"#extension GL_EXT_multiview : require":"",multiview?"gl_ViewIndex":"0");
         snprintf(fragment,sizeof fragment,
             "#version 450\nlayout(location=0) in vec2 coord;layout(location=1) flat in vec3 radio;layout(location=0) out vec4 color;"
-            "layout(set=0,binding=2,std140) uniform Display{uvec4 cells[%d];vec2 scroll;uint hoverMask;}lcd;"
+            "layout(set=0,binding=2,std140) uniform Display{uvec4 cells[%d];vec2 scroll;uint hoverMask;uint pressedMask;}lcd;"
             "float dotAt(vec2 p,int line){ivec2 xy=ivec2(floor(p));if(xy.x<0||xy.x>=%d||xy.y<0||xy.y>=7)return 0.;"
             "int x=xy.x%%6;if(x>=5)return 0.;uint bits=lcd.cells[xy.x/6][2*line+xy.y/4];"
             "return float((bits>>uint(5*(xy.y%%4)+4-x))&1u);}"
             "float box(vec2 p,vec2 halfSize,float r){vec2 q=abs(p)-halfSize+r;"
             "return length(max(q,0.))+min(max(q.x,q.y),0.)-r;}"
             "float ink(float d){return 1.-smoothstep(-.012,.012,d);}"
-            "vec3 controlFace(vec3 bg,float d,int id,vec3 face){"
-            "if(radio.z==float(id))face=vec3(.08,.36,.48);"
-            "else if((lcd.hoverMask&(1u<<uint(id)))!=0u)"
-            "face=mix(vec3(.11,.24,.29),vec3(.43,.90,1.),smoothstep(-.055,-.04,d));"
+            "vec3 controlFace(vec3 bg,float d,int id,vec3 face){uint bit=1u<<uint(id);"
+            "if(radio.z>=0.){if((lcd.pressedMask&bit)!=0u)face=vec3(.08,.36,.48);"
+            "else if((lcd.hoverMask&bit)!=0u)face=mix(vec3(.11,.24,.29),vec3(.43,.90,1.),smoothstep(-.055,-.04,d));}"
             "return mix(bg,face,ink(d));}"
             "void main(){vec2 p=vec2(coord.x*4.45,coord.y-.5);"
             "if(coord.y>1.){float rim=box(vec2(p.x-2.225,coord.y-1.39),vec2(2.225,.39),.08);if(rim>0.)discard;"
@@ -323,11 +363,15 @@ static VkPipeline cockpit_pipeline(int multiview,int ghost)
     VkPipelineMultisampleStateCreateInfo ms={VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO};
     ms.rasterizationSamples=VK_SAMPLE_COUNT_1_BIT;
     VkPipelineDepthStencilStateCreateInfo ds={VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO};
-    ds.depthTestEnable=(ghost==5||ghost==7)?VK_FALSE:VK_TRUE; ds.depthWriteEnable=(ghost==4||ghost==5||ghost==7)?VK_FALSE:VK_TRUE; ds.depthCompareOp=VK_COMPARE_OP_LESS_OR_EQUAL;
+    /* Radio and armrest/shift controls sit over baked trim. Keep their
+     * visible face depth for the movable map, wheel and hands. */
+    ds.depthTestEnable=ghost!=5;
+    ds.depthWriteEnable=ds.depthTestEnable && ghost!=4;
+    ds.depthCompareOp=(ghost==7 || ghost==8)?VK_COMPARE_OP_ALWAYS:VK_COMPARE_OP_LESS_OR_EQUAL;
     VkPipelineColorBlendAttachmentState attachment={0}; attachment.colorWriteMask=15;
-    if(ghost==1 || ghost==2 || ghost==4 || ghost==5) {
+    if(ghost==1 || ghost==2 || ghost==4 || ghost==5 || ghost==8 || ghost==9) {
         attachment.blendEnable=VK_TRUE;
-        attachment.srcColorBlendFactor=ghost>=4?VK_BLEND_FACTOR_ONE:VK_BLEND_FACTOR_SRC_ALPHA;
+        attachment.srcColorBlendFactor=(ghost==4 || ghost==5 || ghost==9)?VK_BLEND_FACTOR_ONE:VK_BLEND_FACTOR_SRC_ALPHA;
         attachment.dstColorBlendFactor=VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
         attachment.colorBlendOp=VK_BLEND_OP_ADD;
         attachment.srcAlphaBlendFactor=VK_BLEND_FACTOR_ONE;
@@ -418,38 +462,38 @@ static void cockpit_initialize(void)
     memcpy(s_cockpit.wheel_axis,asset.wheel_axis,12);
     s_cockpit.mirror_pipeline[0]=cockpit_pipeline(0,3);
     quest_radio_font_init(&s_cockpit.radio_font);
-    for(int e=0;e<1+s_multiview;++e)s_cockpit.radio_pipeline[e]=cockpit_pipeline(e,7);
+    for(int e=0;e<1+s_multiview;++e) {
+        s_cockpit.radio_pipeline[e]=cockpit_pipeline(e,7);
+        s_cockpit.control_pipeline[e]=cockpit_pipeline(e,8);
+    }
     if(s_multiview) s_cockpit.mirror_pipeline[1]=cockpit_pipeline(1,3);
     /* Shared transparent cockpit UI: split only during driving. Pause menus
      * use the complete image on one plane; other cameras retain their path. */
     s_cockpit.hud=(VkSurf){.w=640,.h=480,.pw=1280,.ph=960,.layers=1,
         .aa_sx=1,.aa_sy=1,.eye=-1,.va=0xfffffffdu};
-    QuestGhostVertex all_panels[QUEST_COCKPIT_VEHICLES][30];
+    QuestGhostVertex all_panels[QUEST_COCKPIT_VEHICLES][QUEST_PANEL_VERTICES];
     for(int vehicle=0;vehicle<QUEST_COCKPIT_VEHICLES;++vehicle) {
     QuestGhostVertex *panels=all_panels[vehicle];
     /* Place the gauge on the shared instrument face (about 66 cm ahead),
      * rather than floating 10 cm in front of it. Keep the accepted height
      * and size; the instrument overlay remains visible through baked trim. */
     quest_cockpit_panel(panels,0,-.205f,-.66f,.24f,.24f,440,260,640,480);
-    /* Navigation on the radio/heater center stack. Follow its sloping face,
-     * then apply the same per-car fit as the dashboard (including RHD). */
-    quest_cockpit_panel(panels+6,.3116f,-.155f,-.463f,.20f,.22f,0,260,200,480);
+    QuestMinimapMount *mount=&s_cockpit.map_mounts[vehicle];
+    *mount=quest_minimap_mount(quest_cockpit_vehicle(vehicle));
+    quest_cockpit_panel(panels+6,0,0,0,1,1,0,0,640,480);
     for(int v=6;v<12;++v) {
-        panels[v].position[2]-=.40f*(panels[v].position[1]+.155f);
-        panels[v].normal[1]=.37139068f;panels[v].normal[2]=.92847669f;
+        float x=(2.f*panels[v].uv[0]-1.f)*QUEST_MINIMAP_RADIUS;
+        float y=(1.f-2.f*panels[v].uv[1])*QUEST_MINIMAP_RADIUS;
+        panels[v].position[0]=mount->center[0]+x;
+        panels[v].position[1]=mount->center[1]+y*mount->up_y;
+        panels[v].position[2]=mount->center[2]+y*mount->up_z;
     }
-    /* Remaining race information retains its former windshield plane. */
-    quest_cockpit_panel(panels+12,0,.9895833f,-3,2.8f,.9208333f,0,0,640,260);
-    quest_cockpit_panel(panels+18,0,.1395833f,-3,1.05f,.7791667f,200,260,440,480);
-    quest_cockpit_menu_panel(panels+24);
-    /* Gauge and map follow the same static dashboard fit. Menus, mirrors,
-     * wheel rotation and controller poses retain their independent spaces. */
-    for(int v=0;v<12;++v) {
+    quest_cockpit_race_panels(panels+QUEST_PANEL_WINDSHIELD,quest_cockpit_vehicle(vehicle));
+    quest_cockpit_menu_panel(panels+QUEST_PANEL_MENU);
+    for(int v=0;v<6;++v) {
         float position[3];quest_cockpit_fit_point(position,panels[v].position,quest_cockpit_vehicle(vehicle));
         memcpy(panels[v].position,position,sizeof position);
-        /* Mirror the mounting position for RHD, not the map or its labels. */
-        if(quest_cockpit_vehicle(vehicle)->side<0)
-            panels[v].uv[0]=(v<6?1080.0f/640.0f:200.0f/640.0f)-panels[v].uv[0];
+        if(quest_cockpit_vehicle(vehicle)->side<0)panels[v].uv[0]=1080.f/640.f-panels[v].uv[0];
     }
     }
     if(make_image(1280,960,VK_FORMAT_B8G8R8A8_UNORM,
@@ -459,6 +503,7 @@ static void cockpit_initialize(void)
         for(int e=0;e<1+s_multiview;++e) {
             s_cockpit.hud_pipeline[e]=cockpit_pipeline(e,4);
             s_cockpit.info_pipeline[e]=cockpit_pipeline(e,5);
+            s_cockpit.map_pipeline[e]=cockpit_pipeline(e,9);
         }
     }
     /* Prefer fitted textured Tripo gloves; retain the small fallback if the
@@ -470,9 +515,18 @@ static void cockpit_initialize(void)
         SDL_free(base);glove_data=SDL_LoadFile(glove_path,&glove_size);
     }
     QuestGloveAsset glove;unsigned hand_count=0;int hand_type=1;
-    if(quest_glove_asset(&glove,glove_data,glove_size) &&
-       cockpit_static_buffer((VkDeviceSize)glove.vertices*64,VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-           &s_cockpit.hands,&s_cockpit.hands_mem,glove.geometry) &&
+    float tip[3]={-.027f,.095f,-.009f};
+    QuestGhostVertex *poses=NULL;
+    if(quest_glove_asset(&glove,glove_data,glove_size)) {
+        poses=malloc(3*glove.vertices*sizeof *poses);
+        if(poses) {
+            memcpy(poses,glove.geometry,2*glove.vertices*sizeof *poses);
+            quest_glove_point_pose(poses+2*glove.vertices,poses,poses+glove.vertices,glove.vertices,tip);
+        }
+    }
+    if(poses &&
+       cockpit_static_buffer((VkDeviceSize)glove.vertices*3*sizeof *poses,VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+           &s_cockpit.hands,&s_cockpit.hands_mem,poses) &&
        cockpit_buffer((VkDeviceSize)glove.width*glove.height*4,VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
            &s_cockpit.hand_staging,&s_cockpit.hand_staging_mem,glove.pixels) &&
        make_image(glove.width,glove.height,VK_FORMAT_R8G8B8A8_UNORM,
@@ -484,15 +538,18 @@ static void cockpit_initialize(void)
         vkCmdCopyBufferToImage(s_cb,s_cockpit.hand_staging,s_cockpit.hand_texture,VK_IMAGE_LAYOUT_GENERAL,1,&hand_copy);
         hand_count=glove.vertices;hand_type=2;
     }
-    SDL_free(glove_data);
+    free(poses);SDL_free(glove_data);
     QuestGhostMesh *hand=hand_count?NULL:malloc(sizeof *hand);
-    QuestGhostVertex *hand_data=hand_count?NULL:malloc(2*QUEST_GHOST_MAX_VERTICES*sizeof *hand_data);
+    QuestGhostVertex *hand_data=hand_count?NULL:malloc(3*QUEST_GHOST_MAX_VERTICES*sizeof *hand_data);
     if(!hand_count && hand && hand_data) {
         quest_ghost_mesh(hand,0); unsigned count=hand->count;
         memcpy(hand_data,hand->vertices,count*sizeof *hand_data);
         quest_ghost_mesh(hand,1);
         memcpy(hand_data+count,hand->vertices,hand->count*sizeof *hand_data);
-        if(hand->count==count && cockpit_static_buffer(2*count*sizeof *hand_data,VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+        quest_ghost_mesh(hand,QUEST_HAND_POINT);
+        memcpy(hand_data+2*count,hand->vertices,hand->count*sizeof *hand_data);
+        tip[0]=-.027f;tip[1]=.095f;tip[2]=-.009f;
+        if(hand->count==count && cockpit_static_buffer(3*count*sizeof *hand_data,VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
                &s_cockpit.hands,&s_cockpit.hands_mem,hand_data)) hand_count=count;
     }
     if(hand_count) {
@@ -500,6 +557,7 @@ static void cockpit_initialize(void)
         if(s_multiview) s_cockpit.hand_pipeline[1]=cockpit_pipeline(1,hand_type);
         if(s_cockpit.hand_pipeline[0] && (!s_multiview||s_cockpit.hand_pipeline[1])) {
             s_cockpit.hand_vertices=hand_count;
+            quest_xr_index_tip(tip);
             quest_xr_wheel_configure(asset.wheel_pivot,asset.wheel_axis,.185f);
             LOGE("Cockpit %s gloves: %u triangles per hand, free-position one/two-hand steering enabled\n",
                 hand_type==2?"Tripo textured":"fallback",hand_count/3);
@@ -568,14 +626,18 @@ static void cockpit_draw(VkSurf *target,int eye)
     VkDeviceSize mirror_offsets[3]={0};
     /* Keep the fitted cabin UBO, optics and all three glass meshes in the
      * same fenced ring generation even if this is the last draw of a frame. */
-    if(s_f->ring_off+3*s_ubo_align+512+sizeof(QuestRadioLCD)+3*(192*sizeof(QuestGhostVertex)+16)>RING_BYTES)
+    if(s_f->ring_off+3*s_ubo_align+512+QUEST_CONTROL_VERTICES*sizeof(QuestGhostVertex)+sizeof(QuestRadioLCD)+3*(192*sizeof(QuestGhostVertex)+16)>RING_BYTES)
         flush_frame_wait();
     const QuestCockpitVehicle *fit=quest_cockpit_vehicle(s_cockpit_vehicle);
     VkDeviceSize radio_offset=0,lcd_offset=0;
-    int draw_radio=s_cockpit.radio_pipeline[target->layers==2] && !quest_xr_cockpit_menu_active();
+    int ui=quest_xr_cockpit_menu_active();
+    int cabin_controls=ui!=QUEST_UI_MENU;
+    int draw_radio=s_cockpit.radio_pipeline[target->layers==2] && cabin_controls;
+    uint32_t hover=0;
     if(draw_radio) {
         const float uv[6][2]={{0,0},{1,0},{1,1.78f},{0,0},{1,1.78f},{0,1.78f}};
-        QuestRadioSong song;float state[3];uint32_t hover=quest_xr_radio_display(state,&song);
+        QuestRadioSong song;float state[3];uint32_t pressed;
+        hover=quest_xr_radio_display(state,&song,&pressed);
         uint32_t now=SDL_GetTicks();
         if(memcmp(&song,&s_cockpit.radio_song,sizeof song)) {
             s_cockpit.radio_song=song;s_cockpit.radio_song_tick=now;
@@ -584,7 +646,7 @@ static void cockpit_draw(VkSurf *target,int eye)
         if(!mapped)return;
         QuestRadioLCD *lcd=mapped;
         quest_radio_lcd(lcd,&s_cockpit.radio_font,&song,now-s_cockpit.radio_song_tick);
-        lcd->hover_mask=hover;
+        lcd->hover_mask=hover;lcd->pressed_mask=pressed;
         radio_offset=ring_alloc(6*sizeof(QuestGhostVertex),16,&mapped);
         if(!mapped)return;
         QuestGhostVertex *vertices=mapped;
@@ -599,6 +661,15 @@ static void cockpit_draw(VkSurf *target,int eye)
     VkDeviceSize fit_offset=ring_alloc(sizeof fit_data,s_ubo_align,&fit_mapped);
     if(!fit_mapped)return;
     quest_xr_shifter_offset(&fit_data[8],&fit_data[9]);
+    VkDeviceSize control_offset=0;
+    unsigned control_count=0;
+    if(cabin_controls && s_cockpit.control_pipeline[target->layers==2]) {
+        void *mapped=NULL;
+        control_offset=ring_alloc(QUEST_CONTROL_VERTICES*sizeof(QuestGhostVertex),16,&mapped);
+        if(!mapped)return;
+        control_count=quest_cockpit_controls(mapped,s_cockpit_vehicle,&s_cockpit.radio_font,hover,
+            quest_xr_guide_gears(),fit_data[8],fit_data[9]);
+    }
     for(int i=0;i<3;++i) {
         const QuestCockpitPedal *p=&s_cockpit.pedals[i];
         float *range=fit_data+12+i*4;
@@ -608,7 +679,7 @@ static void cockpit_draw(VkSurf *target,int eye)
     quest_xr_pedal_travel(fit_data+24);
     fit_data[27]=s_cockpit.pedals[1].hinge[0];
     memcpy(fit_mapped,fit_data,sizeof fit_data);
-    VkDeviceSize panel_offset=(VkDeviceSize)s_cockpit_vehicle*30*sizeof(QuestGhostVertex);
+    VkDeviceSize panel_offset=(VkDeviceSize)s_cockpit_vehicle*QUEST_PANEL_VERTICES*sizeof(QuestGhostVertex);
     QuestMirrorMount mounts[3]={0};
     if(s_cockpit.mirror_frame+1==s_frame) for(int part=0;part<3;++part) {
         unsigned count=s_cockpit.mirror_count[part];
@@ -709,16 +780,14 @@ static void cockpit_draw(VkSurf *target,int eye)
             LOGE("Cockpit live rear mirror: surface=%08x %ux%u, original glass, shared rear camera\n",mirror->va,mirror->pw,mirror->ph);
         }
     }
-    if(s_cockpit.hud_split && s_cockpit.hud.gen && s_cockpit.hud.draw_frame+1==s_frame && s_cockpit.info_pipeline[target->layers==2]) {
-        /* The gauge and center-stack map are instrument overlays on the
-         * fixed dashboard. Draw before the separate wheel/hands so those
-         * naturally occlude them, without slicing the cabin or adding black
-         * rectangles. Their planes still move with head parallax. */
+    int instruments=s_cockpit.hud_split && s_cockpit.hud.gen && s_cockpit.hud.draw_frame+1==s_frame;
+    if(instruments && s_cockpit.info_pipeline[target->layers==2]) {
+        /* The fixed gauge overlays the dashboard trim. */
         image.imageView=s_cockpit.hud.view;
         p_push_desc(s_cb,VK_PIPELINE_BIND_POINT_GRAPHICS,s_cockpit.layout,0,1,&write);
         vkCmdBindVertexBuffers(s_cb,0,1,&s_cockpit.panels,&panel_offset);
         vkCmdBindPipeline(s_cb,VK_PIPELINE_BIND_POINT_GRAPHICS,s_cockpit.info_pipeline[target->layers==2]);
-        vkCmdDraw(s_cb,12,1,0,0);
+        vkCmdDraw(s_cb,6,1,QUEST_PANEL_GAUGE,0);
         vkCmdBindPipeline(s_cb,VK_PIPELINE_BIND_POINT_GRAPHICS,s_cockpit.pipeline[target->layers==2]);
         vkCmdBindVertexBuffers(s_cb,0,1,&s_cockpit.geometry,&offset);
         image.imageView=s_cockpit.texture_view;
@@ -733,6 +802,12 @@ static void cockpit_draw(VkSurf *target,int eye)
         vkCmdDraw(s_cb,6,1,0,0);
         vkCmdBindVertexBuffers(s_cb,0,1,&s_cockpit.geometry,&offset);
     }
+    if(control_count) {
+        vkCmdBindPipeline(s_cb,VK_PIPELINE_BIND_POINT_GRAPHICS,s_cockpit.control_pipeline[target->layers==2]);
+        vkCmdBindVertexBuffers(s_cb,0,1,&s_f->ring,&control_offset);
+        vkCmdDraw(s_cb,control_count,1,0,0);
+        vkCmdBindVertexBuffers(s_cb,0,1,&s_cockpit.geometry,&offset);
+    }
     /* Update only on the first eye, so both eyes use the identical wheel pose.
      * Immutable vertices stay on the GPU; only two matrices change per frame. */
     if(eye==0) {
@@ -743,12 +818,26 @@ static void cockpit_draw(VkSurf *target,int eye)
             target_angle,(uint32_t)(now-s_cockpit.wheel_tick)*.001f);
         s_cockpit.wheel_tick=now;
     }
-    float wheel[16];
+    float wheel[16],wheel_eyes[2][16];
     vkCmdBindPipeline(s_cb,VK_PIPELINE_BIND_POINT_GRAPHICS,s_cockpit.wheel_pipeline[target->layers==2]);
     quest_cockpit_wheel_angle(wheel,s_cockpit.wheel_pivot,s_cockpit.wheel_axis,-s_cockpit.steering*QUEST_WHEEL_LOCK_RADIANS);
-    for(int e=0;e<2;++e) quest_cockpit_multiply(matrices[e],matrices[e],wheel);
-    vkCmdPushConstants(s_cb,s_cockpit.layout,VK_SHADER_STAGE_VERTEX_BIT,0,sizeof matrices,matrices);
+    for(int e=0;e<2;++e) quest_cockpit_multiply(wheel_eyes[e],matrices[e],wheel);
+    vkCmdPushConstants(s_cb,s_cockpit.layout,VK_SHADER_STAGE_VERTEX_BIT,0,sizeof wheel_eyes,wheel_eyes);
     vkCmdDrawIndexed(s_cb,s_cockpit.wheel_count,1,s_cockpit.wheel_first,0,0);
+    if(instruments && s_cockpit.map_pipeline[target->layers==2]) {
+        /* Blend the round edge over the opaque wheel wherever the map is
+         * closer. The following translucent gloves test against both. */
+        float map[3];
+        int hover_map=quest_xr_map_drawn(s_cockpit_vehicle,&s_cockpit.map_mounts[s_cockpit_vehicle],map);
+        for(int e=0;e<2;++e)for(int r=0;r<4;++r)
+            matrices[e][12+r]+=matrices[e][r]*map[0]+matrices[e][4+r]*map[1]+matrices[e][8+r]*map[2];
+        image.imageView=s_cockpit.hud.view;
+        p_push_desc(s_cb,VK_PIPELINE_BIND_POINT_GRAPHICS,s_cockpit.layout,0,1,&write);
+        vkCmdBindPipeline(s_cb,VK_PIPELINE_BIND_POINT_GRAPHICS,s_cockpit.map_pipeline[target->layers==2]);
+        vkCmdBindVertexBuffers(s_cb,0,1,&s_cockpit.panels,&panel_offset);
+        vkCmdPushConstants(s_cb,s_cockpit.layout,VK_SHADER_STAGE_VERTEX_BIT,0,sizeof matrices,matrices);
+        vkCmdDraw(s_cb,6,1,QUEST_PANEL_MAP,(uint32_t)hover_map);
+    }
     if(s_cockpit.hand_vertices) {
         if(s_cockpit.hand_texture_view) {
             image.imageView=s_cockpit.hand_texture_view;
@@ -761,7 +850,7 @@ static void cockpit_draw(VkSurf *target,int eye)
             for(int e=0;e<2;++e) quest_cockpit_multiply(matrices[e],matrices[e],pose);
             vkCmdBindPipeline(s_cb,VK_PIPELINE_BIND_POINT_GRAPHICS,s_cockpit.hand_pipeline[target->layers==2]);
             vkCmdPushConstants(s_cb,s_cockpit.layout,VK_SHADER_STAGE_VERTEX_BIT,0,sizeof matrices,matrices);
-            VkDeviceSize hand_offset=grasped?(VkDeviceSize)s_cockpit.hand_vertices*sizeof(QuestGhostVertex):0;
+            VkDeviceSize hand_offset=(VkDeviceSize)grasped*s_cockpit.hand_vertices*sizeof(QuestGhostVertex);
             vkCmdBindVertexBuffers(s_cb,0,1,&s_cockpit.hands,&hand_offset);
             vkCmdDraw(s_cb,s_cockpit.hand_vertices,1,0,0);
         }
@@ -775,12 +864,14 @@ static void cockpit_draw(VkSurf *target,int eye)
         vkCmdBindVertexBuffers(s_cb,0,1,&s_cockpit.panels,&panel_offset);
         if(s_cockpit.hud_split) {
             vkCmdBindPipeline(s_cb,VK_PIPELINE_BIND_POINT_GRAPHICS,s_cockpit.info_pipeline[target->layers==2]);
-            vkCmdDraw(s_cb,12,1,12,0);
+            vkCmdDraw(s_cb,QUEST_PANEL_WINDOW-QUEST_PANEL_WINDSHIELD,1,QUEST_PANEL_WINDSHIELD,0);
+            vkCmdBindPipeline(s_cb,VK_PIPELINE_BIND_POINT_GRAPHICS,s_cockpit.hud_pipeline[target->layers==2]);
+            vkCmdDraw(s_cb,6,1,QUEST_PANEL_WINDOW,0);
         } else {
             /* Draw the entire pause UI after the cabin/hands, without depth
              * occlusion. Both eyes use the mode recorded with this HUD image. */
             vkCmdBindPipeline(s_cb,VK_PIPELINE_BIND_POINT_GRAPHICS,s_cockpit.info_pipeline[target->layers==2]);
-            vkCmdDraw(s_cb,6,1,24,0);
+            vkCmdDraw(s_cb,6,1,QUEST_PANEL_MENU,0);
         }
     }
     p_end_rendering(s_cb);

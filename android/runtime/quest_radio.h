@@ -4,9 +4,14 @@
 #include <string.h>
 #include "quest_cockpit_vehicle.h"
 
-enum { QUEST_RADIO_NONE, QUEST_RADIO_VOLUME, QUEST_RADIO_PREV, QUEST_RADIO_PLAY, QUEST_RADIO_NEXT };
+enum { QUEST_RADIO_NONE, QUEST_RADIO_VOLUME, QUEST_RADIO_PREV, QUEST_RADIO_PLAY, QUEST_RADIO_NEXT,
+       QUEST_SEAT_FORWARD, QUEST_SEAT_BACK, QUEST_SEAT_UP, QUEST_SEAT_DOWN };
 typedef struct { int action;float volume; } QuestRadioCommand;
-typedef struct { int hand,control,blocked[2];uint32_t hover_mask; } QuestRadioGrip;
+typedef struct { float u,v,depth; } QuestRadioPosition;
+typedef struct {
+    int control,blocked,pointing,previous_valid;
+    QuestRadioPosition previous;
+} QuestCockpitTouch;
 typedef struct { char title[64],artist[64]; } QuestRadioSong;
 /* 0x8FE16 stops the stream on exact zero. At 0x7F519 the retail mixer
  * scales this same gain by at most 32767 and converts it to an integer.
@@ -28,47 +33,84 @@ static inline void quest_radio_point(float p[3],const QuestCockpitVehicle *fit,f
     float local[3]={.3116f+(u-.5f)*.236f*fit->side,y,-.365f-.40f*(y+.392f)};
     quest_cockpit_fit_point(p,local,fit);
 }
-static inline int quest_radio_hit(const float p[3],const QuestCockpitVehicle *fit,float *u)
+/* Four keys along the raised driver's door armrest. U increases to the
+ * driver's right on either side of the car. V increases toward the rear. */
+static inline void quest_seat_point(float p[3],const QuestCockpitVehicle *fit,float u,float v)
 {
-    float lo[3],hi[3];quest_radio_point(lo,fit,0,0);quest_radio_point(hi,fit,1,1);
-    *u=(p[0]-lo[0])/(hi[0]-lo[0]);
-    float v=(p[1]-lo[1])/(hi[1]-lo[1]);
-    float z=lo[2]+v*(hi[2]-lo[2]);
-    if(*u<0 || *u>1 || v<-.16f || v>1.f || fabsf(p[2]-z)>.032f)return QUEST_RADIO_NONE;
-    if(*u<.46f)return QUEST_RADIO_VOLUME;
-    if(*u<.64f)return QUEST_RADIO_PREV;
-    return *u<.82f?QUEST_RADIO_PLAY:QUEST_RADIO_NEXT;
+    float local[3]={-.322f+(u-.5f)*.047f*fit->side,-.429f,-.216f+v*.164f};
+    quest_cockpit_fit_point(p,local,fit);
 }
-static inline QuestRadioCommand quest_radio_update(QuestRadioGrip *g,const QuestCockpitVehicle *fit,
-    int active,const int valid[2],const float pose[2][16],const float squeeze[2],const int busy[2])
+typedef struct { int control;float depth,u; } QuestButtonHit;
+static inline QuestRadioPosition quest_radio_position(const float tip[3],const QuestCockpitVehicle *fit)
+{
+    float a[3],b[3];
+    quest_radio_point(a,fit,0,0);quest_radio_point(b,fit,1,1);
+    float dy=b[1]-a[1],dz=b[2]-a[2],y=tip[1]-a[1],z=tip[2]-a[2];
+    float length2=dy*dy+dz*dz;
+    return (QuestRadioPosition){(tip[0]-a[0])/(b[0]-a[0]),(dy*y+dz*z)/length2,(dz*y-dy*z)/sqrtf(length2)};
+}
+static inline QuestButtonHit quest_radio_hit(QuestRadioPosition p)
+{
+    if(p.u<0 || p.u>1 || p.v<0 || p.v>1 || p.depth>.095f)return (QuestButtonHit){0};
+    int id=p.u<.46f?QUEST_RADIO_VOLUME:(p.u<.64f?QUEST_RADIO_PREV:(p.u<.82f?QUEST_RADIO_PLAY:QUEST_RADIO_NEXT));
+    return (QuestButtonHit){id,p.depth,p.u};
+}
+static inline QuestButtonHit quest_seat_hit(const float tip[3],const QuestCockpitVehicle *fit)
+{
+    float a[3],b[3];quest_seat_point(a,fit,0,0);quest_seat_point(b,fit,1,1);
+    float u=(tip[0]-a[0])/(b[0]-a[0]),v=(tip[2]-a[2])/(b[2]-a[2]),depth=tip[1]-a[1];
+    if(u>=0 && u<=1 && v>=0 && v<1 && depth<=.095f)
+        return (QuestButtonHit){QUEST_SEAT_FORWARD+(int)(v*4),depth,u};
+    return (QuestButtonHit){0};
+}
+/* Each index finger has its own latch. A hand resting on the armrest or
+ * volume slider must not consume the other hand's next press. */
+static inline QuestRadioCommand quest_touch_update(QuestCockpitTouch *g,const QuestCockpitVehicle *fit,
+    int usable,int radio,const float pose[16],const float tip_local[3],int occupied)
 {
     QuestRadioCommand cmd={0};
-    g->hover_mask=0;
-    if(!active){g->hand=g->control=0;g->blocked[0]=g->blocked[1]=1;return cmd;}
-    for(int h=0;h<2;++h) {
-        if(!valid[h] || !isfinite(squeeze[h]) || busy[h]) {
-            if(g->hand==h+1)g->hand=g->control=0;
-            g->blocked[h]=1;continue;
+    if(!usable){*g=(QuestCockpitTouch){.blocked=1};return cmd;}
+    float tip[3];
+    for(int k=0;k<3;++k)tip[k]=pose[12+k]+pose[k]*tip_local[0]+pose[4+k]*tip_local[1]+pose[8+k]*tip_local[2];
+    QuestButtonHit hit={0};
+    if(radio) {
+        QuestRadioPosition p=quest_radio_position(tip,fit),old=g->previous;
+        hit=quest_radio_hit(p);
+        /* A quick poke can pass the entire key between tracked frames.
+         * Use the inward crossing to select the key at the instant of contact. */
+        float travel=old.depth-p.depth;
+        if(!g->blocked && g->previous_valid && old.depth>.006f && p.depth<=.006f &&
+           travel<.30f && fabsf(p.u-old.u)<1.2f && fabsf(p.v-old.v)<5.f) {
+            float t=(old.depth-.006f)/travel;
+            QuestButtonHit crossed=quest_radio_hit((QuestRadioPosition){
+                old.u+t*(p.u-old.u),old.v+t*(p.v-old.v),.006f});
+            if(crossed.control)hit=crossed;
         }
-        if(squeeze[h]<.15f){
-            g->blocked[h]=0;if(g->hand==h+1)g->hand=g->control=0;
-        }
-        float finger[3];for(int k=0;k<3;++k)finger[k]=pose[h][12+k]+.045f*pose[h][4+k];
-        float u;int control=quest_radio_hit(finger,fit,&u);
-        if(!g->blocked[h] && squeeze[h]>=.65f) {
-            g->blocked[h]=1;
-            if(!g->hand && control){g->hand=h+1;g->control=control;cmd.action=control;}
-        }
-        if(control && !g->blocked[h])g->hover_mask|=1u<<control;
-        if(g->hand==h+1 && g->control==QUEST_RADIO_VOLUME) {
-            cmd.action=QUEST_RADIO_VOLUME;cmd.volume=fmaxf(0,fminf(1,(u-.09f)/.33f));
-        }
+        g->previous=p;
     }
-    /* A held control owns the radio until release, even with two hands on it. */
-    if(g->hand)g->hover_mask=0;
+    g->previous_valid=radio;
+    if(!hit.control)hit=quest_seat_hit(tip,fit);
+    g->pointing=hit.control;
+    if(!hit.control || hit.depth>.025f || hit.depth<-.035f) {
+        g->control=0;g->blocked=hit.control && hit.depth<-.035f;
+        if(g->blocked)g->pointing=0;
+        return cmd;
+    }
+    if(!g->blocked && hit.depth<=.006f) {
+        g->blocked=1;
+        if(hit.control!=occupied){g->control=hit.control;cmd.action=hit.control;}
+    }
+    if(g->control==QUEST_RADIO_VOLUME && hit.control==QUEST_RADIO_VOLUME) {
+        cmd.action=QUEST_RADIO_VOLUME;cmd.volume=fmaxf(0,fminf(1,(hit.u-.09f)/.33f));
+    }
     return cmd;
 }
 /* The retail playlist contains 27 indices and separate FE/race enable masks. */
+static inline int quest_radio_playing(uint32_t sample_node,uint32_t polled_node,uint16_t voice_node)
+{
+    return sample_node<81 && polled_node<81 && voice_node<81?(int)(sample_node/3):-1;
+}
+
 static inline int quest_radio_track(int current,uint32_t enabled,int direction)
 {
     if(current<0 || current>=27)current=direction>0?26:0;

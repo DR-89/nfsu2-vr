@@ -13,7 +13,7 @@ static inline int quest_shifter_before_start(int stage) { return stage==2 || sta
 #define QUEST_SHIFT_PITCH .045f
 #define QUEST_SHIFT_THROW .060f
 typedef struct {
-    int hand, blocked[2], gear, lane, rebase, first_only;
+    int hand, blocked[2], gear, lane, rebase, first_only, at_lever;
     float x,z,offset_x,offset_z,last_x,last_z;
     uint32_t squeeze_tick;
 } QuestShifter;
@@ -78,8 +78,9 @@ static inline int quest_shifter_move(QuestShifter *s,float x,float z,int count)
 }
 
 static inline int quest_shifter_update(QuestShifter *s,uint32_t now,int vehicle,int count,int actual,
-    const int valid[2],const float pos[2][3],const float squeeze[2],const int wheel[2])
+    const int valid[2],const float pos[2][3],const float squeeze[2],const int busy[2])
 {
+    s->at_lever=0;
     for(int h=0;h<2;++h) {
         if(isfinite(squeeze[h]) && squeeze[h]<.15f) {
             if(s->hand==h+1)s->hand=0;
@@ -96,7 +97,6 @@ static inline int quest_shifter_update(QuestShifter *s,uint32_t now,int vehicle,
             }
             continue;
         }
-        if(squeeze[h]<.15f)continue;
         if(held)s->squeeze_tick=now;
         if(!valid[h] || !isfinite(pos[h][0]) || !isfinite(pos[h][1]) || !isfinite(pos[h][2])) {
             if(held)s->rebase=1;
@@ -104,12 +104,14 @@ static inline int quest_shifter_update(QuestShifter *s,uint32_t now,int vehicle,
         }
         float x=pos[h][0],z=pos[h][2];
         if(!held) {
-            if(s->hand || wheel[h] || s->blocked[h] || squeeze[h]<.65f)continue;
+            if(s->hand || busy[h] || s->blocked[h])continue;
             float knob[3];quest_shifter_knob(s,vehicle,knob);
             float dx=x-knob[0],dy=pos[h][1]-knob[1],dz=z-knob[2];
             if(!(dx*dx+dy*dy+dz*dz<=.065f*.065f))continue;
+            s->at_lever=1;
+            if(squeeze[h]<.65f)continue;
             s->hand=h+1;s->squeeze_tick=now;s->rebase=1;
-        }
+        } else s->at_lever=1;
         if(s->rebase || fabsf(x-s->last_x)>.13f || fabsf(z-s->last_z)>.15f) {
             s->offset_x=s->x-x;s->offset_z=s->z-z;s->rebase=0;
         }

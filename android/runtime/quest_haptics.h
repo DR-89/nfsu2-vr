@@ -1,5 +1,6 @@
 #pragma once
 #include <stdint.h>
+#include <math.h>
 #include <string.h>
 
 /* Xbox motor channels describe heavy/light effects, not left/right hands.
@@ -10,6 +11,19 @@ static inline float quest_haptic_amplitude(uint16_t low, uint16_t high)
     float a=low/65535.0f, b=high/65535.0f;
     float strength=a>b?a:b;
     return strength*(0.15f+0.85f*strength);
+}
+
+static inline float quest_engine_rumble(float rpm,float idle,float limit,float throttle)
+{
+    if(!isfinite(rpm) || rpm<=0 || !isfinite(idle) || idle<=0 || !isfinite(limit) || limit<=idle)return 0;
+    float rev=fminf(1,fmaxf(0,(rpm-idle)/(limit-idle)));
+    float load=isfinite(throttle)?fminf(1,fmaxf(0,throttle)):0;
+    return .025f*fminf(1,rpm/idle)+rev*(.14f+.14f*load);
+}
+
+static inline float quest_mix_rumble(float road,float engine,int allow_engine)
+{
+    return allow_engine?road+(1-road)*engine:road;
 }
 
 typedef struct {

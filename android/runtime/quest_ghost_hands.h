@@ -44,8 +44,10 @@ static inline void quest_ghost_segment(QuestGhostMesh *mesh,const float a[3],con
         }
     }
 }
-static inline void quest_ghost_mesh(QuestGhostMesh *mesh,int closed)
+enum { QUEST_HAND_OPEN, QUEST_HAND_GRIP, QUEST_HAND_POINT };
+static inline void quest_ghost_mesh(QuestGhostMesh *mesh,int pose)
 {
+    int closed=pose!=QUEST_HAND_OPEN;
     memset(mesh,0,sizeof *mesh);
     const float palm[3]={0,-.005f,.006f},size[3]={.038f,.046f,.017f};
     const float wrist[3]={0,-.055f,.006f},wrist_size[3]={.027f,.024f,.016f};
@@ -54,8 +56,9 @@ static inline void quest_ghost_mesh(QuestGhostMesh *mesh,int closed)
     for(int finger=0;finger<4;++finger) {
         float x=.027f-finger*.018f,l=lengths[finger];
         float a[3]={x,.026f,.006f};
-        float b[3]={x,.026f+l*.53f,closed?-.012f:.002f};
-        float c[3]={x,.026f+l*(closed?.45f:.94f),closed?-.047f:-.009f};
+        int curled=closed && (pose!=QUEST_HAND_POINT || finger!=0);
+        float b[3]={x,.026f+l*.53f,curled?-.012f:.002f};
+        float c[3]={x,.026f+l*(curled?.45f:.94f),curled?-.047f:-.009f};
         quest_ghost_segment(mesh,a,b,.009f-finger*.0005f);
         quest_ghost_segment(mesh,b,c,.008f-finger*.0004f);
     }

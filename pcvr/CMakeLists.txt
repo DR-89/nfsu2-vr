@@ -34,6 +34,7 @@ add_library(nfsu2_xr STATIC "${NFSU2_ROOT}/android/runtime/quest_xr.c")
 target_include_directories(nfsu2_xr PUBLIC "${NFSU2_ROOT}/android/runtime")
 target_link_libraries(nfsu2_xr PUBLIC openxr_loader SDL2::SDL2 Vulkan::Vulkan)
 add_subdirectory("${NFSU2_ROOT}" "${CMAKE_BINARY_DIR}/game")
+target_link_libraries(nfsu2_xr PRIVATE xbox_apu)
 # Share the Quest importer's metadata; the generated include contains no game bytes.
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${NFSU2_ROOT}/android/app/src/main/java/org/nfsu2/quest/GameManifest.java")
 file(STRINGS "${NFSU2_ROOT}/android/app/src/main/java/org/nfsu2/quest/GameManifest.java" game_manifest_lines REGEX "new GameDataImporter.Expected")

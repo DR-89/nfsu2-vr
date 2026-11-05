@@ -4,12 +4,142 @@
 #include "../android/runtime/quest_cockpit.h"
 #include "../android/runtime/quest_driving_input.h"
 #include "../android/runtime/quest_cockpit_panels.h"
+#include "../android/runtime/quest_cockpit_vehicle.h"
 #include "../android/runtime/quest_culling.h"
 #include "../android/runtime/quest_projection.h"
 #include "quest_steering_reference.h"
 #define CHECK(x) do {if(!(x)){fprintf(stderr,"FAIL line %d: %s\n",__LINE__,#x);return 1;}}while(0)
 static float point_component(const float m[16],const float p[3],int row)
 { return m[row]*p[0]+m[4+row]*p[1]+m[8+row]*p[2]+m[12+row]; }
+static int haptics_menu_test(void)
+{
+    QuestVRSettings s=quest_vr_defaults();
+    QuestVRMenu m={.open=1,.row=QUEST_VR_HAPTICS_ROW};
+    quest_vr_parse(&s,"version=1\nseat_height=0.05\n");
+    CHECK(!s.engine_rumble && s.grip_feedback && s.master_gain_db==0);
+    quest_vr_parse(&s,"engine_rumble=2\ngrip_feedback=nan\nmaster_gain_db=inf\nmaster_gain_db=4.5\n");
+    CHECK(!s.engine_rumble && s.grip_feedback && s.master_gain_db==0);
+    CHECK(quest_vr_menu_step(&m,&s,1,1,QUEST_VR_ACCEPT)==4 && m.row==QUEST_VR_ENGINE_ROW);
+    CHECK(quest_vr_menu_step(&m,&s,2,1,QUEST_VR_ACCEPT)==4 && !s.engine_rumble);
+    quest_vr_menu_step(&m,&s,3,1,0);
+    CHECK(quest_vr_menu_step(&m,&s,4,1,QUEST_VR_ACCEPT)==5 && s.engine_rumble);
+    quest_vr_menu_step(&m,&s,5,1,QUEST_VR_DOWN);
+    CHECK(m.row==QUEST_VR_GRIP_ROW && quest_vr_menu_step(&m,&s,6,1,QUEST_VR_LEFT)==5 && !s.grip_feedback);
+    CHECK(quest_vr_menu_step(&m,&s,500,1,QUEST_VR_LEFT)==4 && !s.grip_feedback);
+    quest_vr_menu_step(&m,&s,501,1,QUEST_VR_DOWN);
+    CHECK(m.row==QUEST_VR_HAPTICS_BACK && quest_vr_menu_step(&m,&s,502,1,QUEST_VR_DOWN)==4);
+    quest_vr_menu_step(&m,&s,900,1,QUEST_VR_DOWN);
+    CHECK(m.row==QUEST_VR_ENGINE_ROW && quest_vr_menu_step(&m,&s,901,1,QUEST_VR_BACK)==4);
+    CHECK(m.open && m.row==QUEST_VR_HAPTICS_ROW);
+    quest_vr_menu_step(&m,&s,902,1,QUEST_VR_UP);
+    CHECK(m.row==QUEST_VR_GAIN_ROW && quest_vr_menu_step(&m,&s,903,1,QUEST_VR_RIGHT)==5 && s.master_gain_db==1);
+    for(int n=0;n<30;++n)quest_vr_adjust(&s,m.row,1);
+    CHECK(s.master_gain_db==12);
+    for(int n=0;n<30;++n)quest_vr_adjust(&s,m.row,-1);
+    CHECK(s.master_gain_db==-12);
+    m.row=QUEST_VR_DEFAULTS_ROW;
+    CHECK(quest_vr_menu_step(&m,&s,904,1,QUEST_VR_ACCEPT)==(5|QUEST_VR_RESET_MIRRORS));
+    CHECK(!s.engine_rumble && s.grip_feedback && s.master_gain_db==0);
+    return 0;
+}
+static int minimap_shortcut_test(void)
+{
+    const unsigned both=QUEST_MAP_X|QUEST_MAP_A;
+    for(int h=0;h<2;++h) {
+        unsigned button=1u<<h,other=both^button;
+        QuestMinimapGrip grip={0};
+        QuestMinimapShortcut key={0};
+        CHECK(!quest_minimap_shortcut(&key,0,1,&grip,both,0));
+        CHECK(!quest_minimap_shortcut(&key,1,1,&grip,both,button));
+        grip.hover[h]=1;
+        CHECK(!quest_minimap_shortcut(&key,2,1,&grip,both,button)); /* already held on approach */
+        CHECK(!quest_minimap_shortcut(&key,3,1,&grip,both,other) && !key.captured);
+        CHECK(quest_minimap_shortcut(&key,4,1,&grip,both,both) && key.captured==button);
+        uint8_t analog[8]={255,0,255};int16_t sticks[4]={0};uint16_t digital=0;
+        QuestShiftInput shift={0};
+        quest_minimap_mask_buttons(key.captured,analog);
+        quest_driving_input(&shift,4,1,&digital,analog,sticks);
+        CHECK(analog[1]==(h?0:255) && analog[2]==(h?255:0));
+        sticks[3]=24000;
+        quest_driving_input(&shift,5,1,&digital,analog,sticks);
+        CHECK(analog[2]==255); /* right-stick upshift has its own input */
+        grip.hover[h]=0;
+        CHECK(quest_minimap_shortcut(&key,103,1,&grip,both,button));
+        CHECK(!quest_minimap_shortcut(&key,104,1,&grip,both,button) && key.captured==button);
+        CHECK(!quest_minimap_shortcut(&key,105,0,&grip,0,0) && key.captured==button);
+        CHECK(!quest_minimap_shortcut(&key,106,0,&grip,both,button) && key.captured==button);
+        CHECK(!quest_minimap_shortcut(&key,107,0,&grip,both,0) && !key.captured);
+        grip.hover[h]=1;
+        CHECK(!quest_minimap_shortcut(&key,108,0,&grip,both,button) && !key.captured); /* race or menu */
+        CHECK(!quest_minimap_shortcut(&key,109,1,&grip,both,button));
+        CHECK(!quest_minimap_shortcut(&key,110,1,&grip,both,0));
+        grip.hand=h+1;grip.hover[h]=0;
+        CHECK(!quest_minimap_shortcut(&key,111,1,&grip,both,button) && key.captured==button);
+        grip.hand=0;grip.hover[h]=1;
+        CHECK(!quest_minimap_shortcut(&key,112,1,&grip,0,0));
+        CHECK(!quest_minimap_shortcut(&key,113,1,&grip,both,button)); /* tracking resumes held */
+        CHECK(!quest_minimap_shortcut(&key,114,1,&grip,both,0));
+        grip.hover[1-h]=1;
+        CHECK(quest_minimap_shortcut(&key,115,1,&grip,both,both) && key.captured==both);
+        CHECK(!quest_minimap_shortcut(&key,116,0,&grip,both,both) && key.captured==both);
+    }
+    puts("Minimap shortcut: hand-specific buttons, driving bindings, grip priority and menu transitions passed.");
+    return 0;
+}
+static int minimap_grip_test(void)
+{
+    for(int car=0;car<QUEST_COCKPIT_VEHICLES;++car)for(int h=0;h<2;++h) {
+        const QuestCockpitVehicle *fit=quest_cockpit_vehicle(car);
+        QuestMinimapMount mount=quest_minimap_mount(fit);
+        CHECK(fabsf(hypotf(mount.up_y,mount.up_z)-1.f)<1.e-6f);
+        QuestVRSettings settings=quest_vr_defaults();
+        float *offset=settings.map_offset;offset[0]=.18f;
+        float p[2][3]={{0}},squeeze[2]={0};
+        int valid[2]={1,1},busy[2]={0};
+        QuestMinimapGrip grip={0};
+        for(int k=0;k<3;++k)p[h][k]=mount.center[k]+offset[k];
+        p[h][0]+=QUEST_MINIMAP_RADIUS;
+        p[h][1]+=mount.up_y*QUEST_MINIMAP_RADIUS;p[h][2]+=mount.up_z*QUEST_MINIMAP_RADIUS;
+        CHECK(!quest_minimap_near(&mount,offset,p[h])); /* outside the circular rim */
+        p[h][0]-=QUEST_MINIMAP_RADIUS;
+        CHECK(quest_minimap_near(&mount,offset,p[h]));
+        p[h][2]+=.20f;
+        CHECK(!quest_minimap_near(&mount,offset,p[h]));
+        quest_minimap_update(&grip,&mount,offset,1,valid,p,squeeze,busy);
+        squeeze[h]=1;quest_minimap_update(&grip,&mount,offset,1,valid,p,squeeze,busy);
+        p[h][2]-=.20f;
+        quest_minimap_update(&grip,&mount,offset,1,valid,p,squeeze,busy);
+        CHECK(!grip.hand && !grip.hover[h]); /* squeezing elsewhere then touching the map */
+        squeeze[h]=0;quest_minimap_update(&grip,&mount,offset,1,valid,p,squeeze,busy);
+        CHECK(grip.hover[h]);
+        busy[h]=1;squeeze[h]=1;quest_minimap_update(&grip,&mount,offset,1,valid,p,squeeze,busy);
+        CHECK(!grip.hand && !grip.hover[h]);
+        busy[h]=0;squeeze[h]=0;quest_minimap_update(&grip,&mount,offset,1,valid,p,squeeze,busy);
+        squeeze[h]=1;quest_minimap_update(&grip,&mount,offset,1,valid,p,squeeze,busy);
+        CHECK(grip.hand==h+1 && !grip.hover[h] && !grip.hover[1-h] && offset[0]==.18f && offset[1]==0 && offset[2]==0);
+        memcpy(p[1-h],p[h],sizeof p[h]);squeeze[1-h]=1;
+        p[h][0]-=.123f;p[h][1]+=.147f;p[h][2]+=.241f;
+        CHECK(!quest_minimap_update(&grip,&mount,offset,1,valid,p,squeeze,busy) && grip.hand==h+1);
+        CHECK(fabsf(offset[0]-.057f)<1e-6f && fabsf(offset[1]-.147f)<1e-6f && fabsf(offset[2]-.241f)<1e-6f);
+        p[h][2]+=.013f;squeeze[h]=0;
+        CHECK(quest_minimap_update(&grip,&mount,offset,1,valid,p,squeeze,busy) && !grip.hand);
+        CHECK(fabsf(offset[2]-.254f)<1e-6f);
+        char text[512];QuestVRSettings loaded=quest_vr_defaults();
+        quest_vr_format(&settings,text,sizeof text);quest_vr_parse(&loaded,text);
+        for(int k=0;k<3;++k)CHECK(fabsf(loaded.map_offset[k]-offset[k])<.00051f);
+        squeeze[h]=1;quest_minimap_update(&grip,&mount,offset,1,valid,p,squeeze,busy);
+        CHECK(grip.hand==h+1); /* regrab at the new mount */
+        p[h][1]+=3;quest_minimap_update(&grip,&mount,offset,1,valid,p,squeeze,busy);
+        CHECK(offset[1]==QUEST_MINIMAP_LIMIT);
+        valid[h]=0;p[h][1]-=1;
+        CHECK(quest_minimap_update(&grip,&mount,offset,1,valid,p,squeeze,busy) && !grip.hand);
+        valid[h]=1;
+        CHECK(!quest_minimap_update(&grip,&mount,offset,0,valid,p,squeeze,busy) && offset[1]==QUEST_MINIMAP_LIMIT);
+        CHECK(!quest_minimap_update(&grip,&mount,offset,1,valid,p,squeeze,busy) && !grip.hand);
+    }
+    puts("Minimap: fitted contact, both hands, exclusive grab, continuous placement, release/save and tracking loss passed.");
+    return 0;
+}
 static int seat_mirror_test(void)
 {
     unsigned cases=0;
@@ -58,13 +188,19 @@ static int seat_mirror_test(void)
 }
 int main(int argc,char **argv)
 {
+    CHECK(!haptics_menu_test());
+    CHECK(!minimap_grip_test());
+    CHECK(!minimap_shortcut_test());
     CHECK(!seat_mirror_test());
     QuestVRSettings s=quest_vr_defaults(),round=quest_vr_defaults();char text[512];
     CHECK(s.sensitivity==1 && s.rotation==360 && s.resolution==0);
     quest_vr_parse(&s,"steering_sensitivity=nan\nwheel_rotation=inf\nseat_height=99\nseat_distance=-99\nresolution=999999999999\nunknown=7\n");
     CHECK(s.sensitivity==1 && s.rotation==360 && s.height==.35f && s.distance==-.4f && s.resolution==0);
     CHECK(s.return_speed==QUEST_WHEEL_RETURN_DEFAULT);
-    s=(QuestVRSettings){2,720,-.13f,.22f,4,330};quest_vr_format(&s,text,sizeof text);quest_vr_parse(&round,text);
+    CHECK(s.mirror_resolution==2 && s.shift_guide==QUEST_GUIDE_ALWAYS && s.map_offset[2]==0);
+    quest_vr_parse(&s,"mirror_resolution=nan\nshift_guide=3\nshift_guide=1.5\nmap_x=inf\nmap_y=42\n");
+    CHECK(s.mirror_resolution==2 && s.shift_guide==QUEST_GUIDE_ALWAYS && s.map_offset[0]==0 && s.map_offset[1]==2);
+    s=(QuestVRSettings){2,720,-.13f,.22f,4,330,4,0,{.24f,-.32f,.26f},1,0,6};quest_vr_format(&s,text,sizeof text);quest_vr_parse(&round,text);
     CHECK(!memcmp(&s,&round,sizeof s));
     quest_vr_parse(&s,"wheel_return_speed=-3\n");CHECK(s.return_speed==0);
     quest_vr_parse(&s,"wheel_return_speed=9999\n");CHECK(s.return_speed==QUEST_WHEEL_RETURN_MAX);
@@ -89,6 +225,46 @@ int main(int argc,char **argv)
     CHECK(quest_vr_menu_step(&menu,&s,602,1,QUEST_VR_OPEN)==4 && menu.open);
     CHECK(quest_vr_menu_step(&menu,&s,603,0,QUEST_VR_OPEN)==2 && !menu.open);
     CHECK(!quest_vr_menu_step(&menu,&s,604,1,QUEST_VR_OPEN) && !menu.open);
+    for(int preset=0;preset<QUEST_MIRROR_PRESETS;++preset) {
+        quest_vr_adjust(&s,QUEST_VR_MIRROR_ROW,1);
+        CHECK(s.mirror_resolution==(3+preset)%QUEST_MIRROR_PRESETS);
+    }
+    menu=(QuestVRMenu){.open=1,.row=QUEST_VR_GUIDE_ROW};
+    CHECK(quest_vr_menu_step(&menu,&s,604,1,QUEST_VR_RIGHT)==5 && s.shift_guide==QUEST_GUIDE_AT_LEVER);
+    quest_vr_format(&s,text,sizeof text);quest_vr_parse(&round,text);
+    CHECK(round.shift_guide==QUEST_GUIDE_AT_LEVER);
+    quest_vr_menu_step(&menu,&s,605,1,0);
+    CHECK(quest_vr_menu_step(&menu,&s,606,1,QUEST_VR_RIGHT)==5 && s.shift_guide==QUEST_GUIDE_OFF);
+    quest_vr_adjust(&s,QUEST_VR_GUIDE_ROW,-1);CHECK(s.shift_guide==QUEST_GUIDE_AT_LEVER);
+    quest_vr_adjust(&s,QUEST_VR_GUIDE_ROW,-1);CHECK(s.shift_guide==QUEST_GUIDE_ALWAYS);
+    quest_vr_adjust(&s,QUEST_VR_GUIDE_ROW,-1);CHECK(s.shift_guide==QUEST_GUIDE_OFF);
+    quest_vr_adjust(&s,QUEST_VR_MAP_X,1);CHECK(s.map_offset[0]==.02f);
+    menu=(QuestVRMenu){.open=1,.row=QUEST_VR_MAP_Y};
+    s.map_offset[1]=.143f;s.map_offset[2]=-.217f;
+    CHECK(quest_vr_menu_step(&menu,&s,605,1,QUEST_VR_ACCEPT)==5);
+    CHECK(!s.map_offset[0] && !s.map_offset[1] && !s.map_offset[2] && !s.shift_guide);
+    QuestReplayButton replay={0};uint8_t b=255;
+    CHECK(!quest_replay_button(&replay,1,0,&b) && !b);
+    CHECK(!quest_replay_button(&replay,1,10,&b));
+    b=255;CHECK(!quest_replay_button(&replay,1,20,&b) && !b);
+    CHECK(quest_replay_button(&replay,1,210,&b));
+    CHECK(!quest_replay_button(&replay,1,220,&b));
+    b=255;CHECK(!quest_replay_button(&replay,1,300,&b) && !b);
+    b=255;CHECK(!quest_replay_button(&replay,1,801,&b) && b==255);
+    b=0;CHECK(!quest_replay_button(&replay,1,850,&b));
+    b=255;CHECK(!quest_replay_button(&replay,0,900,&b) && b==255);
+    QuestReplayGrip grip={0};
+    float squeeze[2]={1,NAN};
+    CHECK(!quest_replay_grip(&grip,squeeze)); /* already held on entry */
+    squeeze[0]=squeeze[1]=0;CHECK(!quest_replay_grip(&grip,squeeze));
+    squeeze[0]=.8f;CHECK(quest_replay_grip(&grip,squeeze));
+    squeeze[1]=1;CHECK(!quest_replay_grip(&grip,squeeze)); /* overlapping hands */
+    squeeze[0]=0;CHECK(!quest_replay_grip(&grip,squeeze));
+    squeeze[1]=.3f;CHECK(!quest_replay_grip(&grip,squeeze));
+    squeeze[1]=0;CHECK(!quest_replay_grip(&grip,squeeze));
+    squeeze[1]=1;CHECK(quest_replay_grip(&grip,squeeze));
+    squeeze[1]=NAN;CHECK(!quest_replay_grip(&grip,squeeze));
+    squeeze[1]=1;CHECK(!quest_replay_grip(&grip,squeeze)); /* reconnect held */
     /* Separate physical limits and game sensitivity. The displayed wheel
      * and contact matrix must continue beyond 180 degrees at larger ranges. */
     const float pivot[3]={0},axis[3]={0,0,1};
@@ -125,11 +301,11 @@ int main(int argc,char **argv)
     CHECK(quest_vr_menu_step(&menu,&s,730,1,QUEST_VR_ACCEPT)==4);
     quest_vr_menu_step(&menu,&s,750,1,0);menu.row=QUEST_VR_SAVE_ROW;
     CHECK(quest_vr_menu_step(&menu,&s,780,1,QUEST_VR_ACCEPT)==6 && !menu.open);
-    if(argc>1) {
+    for(int page=1;page<argc && page<=2;++page) {
         uint32_t *pixels=malloc(1024*768*4);CHECK(pixels);
-        s=quest_vr_defaults();s.resolution=3;menu.open=1;menu.row=QUEST_VR_RETURN_ROW;
+        s=quest_vr_defaults();s.resolution=3;menu.open=1;menu.row=page==1?QUEST_VR_RETURN_ROW:QUEST_VR_GRIP_ROW;
         quest_vr_panel(pixels,&s,&menu,1,1);
-        FILE *f=fopen(argv[1],"wb");CHECK(f);fprintf(f,"P6\n1024 768\n255\n");
+        FILE *f=fopen(argv[page],"wb");CHECK(f);fprintf(f,"P6\n1024 768\n255\n");
         for(int i=0;i<1024*768;++i){unsigned char rgb[3]={(pixels[i]>>16)&255,(pixels[i]>>8)&255,pixels[i]&255};fwrite(rgb,1,3,f);}
         fclose(f);free(pixels);
     }

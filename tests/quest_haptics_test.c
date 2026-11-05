@@ -13,6 +13,19 @@ int main(void)
         float a=quest_haptic_amplitude((uint16_t)i,0);
         CHECK(isfinite(a) && a>=previous && a<=1); previous=a;
     }
+    float idle=quest_engine_rumble(850,850,7500,0);
+    float cruise=quest_engine_rumble(4200,850,7500,0);
+    float accel=quest_engine_rumble(4200,850,7500,1);
+    float limit=quest_engine_rumble(7500,850,7500,1);
+    CHECK(idle>0 && cruise>idle && accel>cruise && limit>accel && limit<1);
+    CHECK(quest_engine_rumble(9000,850,7500,2)==limit);
+    CHECK(quest_engine_rumble(4200,850,9000,1)<accel);
+    CHECK(quest_engine_rumble(4200,850,7500,NAN)==cruise);
+    CHECK(!quest_engine_rumble(0,850,7500,1) && !quest_engine_rumble(NAN,850,7500,1));
+    CHECK(!quest_engine_rumble(4200,850,850,1) && !quest_engine_rumble(4200,850,INFINITY,1));
+    CHECK(quest_mix_rumble(0,accel,1)==accel && quest_mix_rumble(0,accel,0)==0);
+    CHECK(quest_mix_rumble(.2f,accel,1)>.2f && quest_mix_rumble(.2f,accel,0)==.2f);
+    CHECK(quest_mix_rumble(.2f,0,1)==.2f && quest_mix_rumble(1,limit,1)==1);
     /* A 4-ms collision between render frames survives at 30/72/120 FPS.
      * A zero report then stops it within a bounded 65-ms envelope. */
     const unsigned intervals[]={33,14,8};
@@ -41,6 +54,6 @@ int main(void)
     quest_haptics_report(&h,0xfffffff0u,65535,0);
     CHECK(quest_haptics_sample(&h,0x10)==1);
     CHECK(quest_haptics_sample(&h,0x100)==0); /* timer wrap */
-    puts("Touch haptics: strength range, short impacts, road heartbeat, timeout and focus checks passed");
+    puts("Haptics: RPM and throttle gradient, grip mix, impacts, road heartbeat, timeout and focus passed.");
     return 0;
 }

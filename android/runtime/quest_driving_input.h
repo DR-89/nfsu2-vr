@@ -1,9 +1,40 @@
 #pragma once
+#include <math.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 
 typedef struct { uint32_t tick; int driving,armed,pulse; uint32_t action_tick; int action_armed,action; } QuestShiftInput;
+
+/* Tap B/Circle for the VR timeline. A deliberate hold still reaches the
+ * retail replay controls. Arm on release when entering or regaining focus. */
+typedef struct { uint32_t since;int armed,pressed; } QuestReplayButton;
+static inline int quest_replay_button(QuestReplayButton *b,int active,uint32_t now,uint8_t *button)
+{
+    if(!active){*b=(QuestReplayButton){0};return 0;}
+    if(*button<128) {
+        int toggle=b->pressed && now-b->since<500;
+        b->pressed=0;b->armed=1;return toggle;
+    }
+    if(b->armed && !b->pressed){b->pressed=1;b->since=now;}
+    if(!b->pressed || now-b->since<500)*button=0;
+    return 0;
+}
+
+/* Either physical grip advances one view. Overlapping grips count as a
+ * single press. Each source must first report a release in this viewer. */
+typedef struct { unsigned armed,held; } QuestReplayGrip;
+static inline int quest_replay_grip(QuestReplayGrip *g,const float grip[2])
+{
+    unsigned previous=g->held;
+    for(int hand=0;hand<2;++hand) {
+        unsigned bit=1u<<hand;
+        if(!isfinite(grip[hand])) {g->armed&=~bit;g->held&=~bit;}
+        else if(grip[hand]<=.15f) {g->armed|=bit;g->held&=~bit;}
+        else if(grip[hand]>=.65f && (g->armed&bit))g->held|=bit;
+    }
+    return !previous && g->held;
+}
 
 /* Steam Link can reserve Touch Menu for the dashboard. During driving only,
  * defer Touch Y until a tap or hold can be distinguished. Latch ownership

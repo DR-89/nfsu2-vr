@@ -25,6 +25,15 @@ The entry is authorized only by the active root `UI_Pause.fng` package;
 race notifications, loading screens, options and confirmation dialogs cannot
 open it. Holding X before pausing requires release and a new press.
 
+- **Advanced Haptics / Rumble** opens with **A**. Turn on **Engine REV Rumble**
+  for a gentle idle vibration that grows with RPM and throttle. **Grip Feedback**
+  starts on and limits engine vibration to each hand holding the wheel. Release
+  one hand to feel the difference. Road and collision effects still reach both
+  hands. A mapped gamepad uses engine rumble independently of wheel grip.
+- **Master Gain** adjusts all game audio immediately in 1 dB steps from −12 to
+  +12 dB. The default is 0 dB. **B** returns from the haptics submenu, and
+  **B** on the main settings page saves your choices.
+
 - **Steering sensitivity:** 50–300%. Higher values reach full game steering
   with less physical wheel movement.
 - **Wheel rotation:** 180–1080 degrees total, lock to lock; default 360.
@@ -169,20 +178,39 @@ to engage first. You can seat the lever during the countdown.
 
 The next race restores your last camera, including Cockpit View. Each car
 recalls its own mirror setup, with your last setup as the starting point for
-a new car. The minimap sits above the radio on the center console. Under it, hold Grip
-and drag the music slider, or squeeze Grip once on previous, play/pause or
-next. The display below the buttons shows the current EA TRAX title and artist.
-A cyan outline marks each control that a free hand can grab.
-Long names scroll. Muting the music with the slider keeps the song playing.
-The stock song-change banner appears in the other driving cameras. The
-cockpit shows the title on the radio display.
+a new car. In the pause menu, press **X** to open **VR Settings**. **Mirror
+Resolution** adjusts the shared rear camera from 256×64 to 4096×1024, with
+1024×256 as the default. To move the minimap in the cockpit, reach for it with
+either free hand, hold **Grip**, and move your hand left/right, up/down or
+closer/farther away. Release Grip to save its position. The three **Minimap**
+rows let you fine-tune the placement. Press **A** on any of them to restore
+the console mount. In career free roam, reach for the minimap until its rim
+turns blue. Tap **A** with the right hand or **X** with the left hand at the
+minimap to open the world map. Press **B** to return to the cockpit.
+
+Reach toward the radio with either free hand. The glove extends its index
+finger and the control under the fingertip lights up blue. Tap previous,
+play/pause or next, or slide your fingertip across the volume control.
+Lift before pressing again. The display shows title and artist.
+The same controls work during a cockpit replay. Tap **B** (Circle on a
+PlayStation pad) to hide or show the timeline. A long press passes B through
+to the game's replay controls. Press **Grip** on either VR controller to cycle
+through the five replay views and the driver's seat. Your selection stays
+active until you press Grip again or leave the replay, even with the timeline hidden.
+
+Tap **FWD**, **BACK**, **UP** or **DOWN** on the driver's door armrest to move
+the seat by 1 cm. Manual gearboxes show a labeled H-pattern above the lever.
+The dot follows the lever through neutral and into gear. In VR Settings,
+**H-Pattern Guide** offers **Always** (the default), **Near Shifter**, and
+**Off**. Near Shifter shows the pattern as soon as either free hand is within
+grabbing range and keeps it visible while you hold the lever.
 
 The right trigger depresses the accelerator and the left trigger depresses
 the brake in proportion to its travel. During manual shifts the clutch pedal
 moves down through neutral and returns after the gear engages. The cockpit
-map is lower left and the smaller speed
-instrument is behind the wheel, composed before the wheel and hands without an
+map starts above the radio and the speed instrument is behind the wheel, composed before the wheel and hands without an
 added black backing. See [implementation and verification](../android/README.md).
+During a race, look at the right side window for your position, lap count and times.
 Pause/options menus use a complete panel selected from the active frontend
 package list, retaining both lower corners; the HUD split returns during driving.
 The Windows build and geometry tests pass; PCVR visual behavior needs a separate

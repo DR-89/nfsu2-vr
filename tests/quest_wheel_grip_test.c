@@ -524,6 +524,15 @@ int main(int argc,char **argv)
         FILE *f=fopen(argv[2],"rb");CHECK(f);CHECK(!fseek(f,0,SEEK_END));long size=ftell(f);CHECK(size>0&&size<40000000);rewind(f);
         unsigned char *data=malloc((size_t)size);CHECK(data);CHECK(fread(data,1,size,f)==(size_t)size);fclose(f);
         QuestGloveAsset glove;CHECK(quest_glove_asset(&glove,data,size));
+        const QuestGhostVertex *open=(const QuestGhostVertex *)glove.geometry,*grip=open+glove.vertices;
+        QuestGhostVertex *point=malloc(glove.vertices*sizeof *point);CHECK(point);
+        float tip[3];quest_glove_point_pose(point,open,grip,glove.vertices,tip);
+        CHECK(tip[0]<-.02f && tip[0]>-.05f && tip[1]>.13f);
+        for(unsigned i=0;i<glove.vertices;++i) {
+            /* Only the extended index can touch a control in front of the fist. */
+            if(point[i].position[1]>.10f)CHECK(point[i].position[0]<-.009f && point[i].position[0]>-.065f);
+        }
+        free(point);
         CHECK(!quest_glove_asset(&glove,data,size-1));
         for(int offset=4;offset<32;offset+=4) {
             unsigned char saved[4];memcpy(saved,data+offset,4);memset(data+offset,255,4);

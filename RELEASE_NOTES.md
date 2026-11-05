@@ -1,5 +1,33 @@
 # Release notes
 
+## 0.5.0-dev · Replay cameras and cockpit controls
+
+Development prerelease for Windows x64 PCVR and standalone Meta Quest 3.
+
+### Replays
+- Press **Grip** on either VR controller to cycle through five original replay views and the driver's seat. Your choice stays active until the next press or the end of the replay, even with the timeline hidden. You can still look around and use the cockpit radio from the driver's seat.
+- Tap **B / Circle** to hide or show the timeline. A long press keeps its original replay action. On runtimes that report hand-tracking sources, curling a bare finger no longer triggers replay controls.
+- Fixed premature returns to the results screen. Playback also restores the recorded VR gear changes and pedal inputs for the race.
+
+### Cockpit
+- **Minimap and world map.** The minimap is round and its rim turns blue within reach. Hold **Grip** to move it, then release to save. Placing it in front of the steering wheel now draws it in front. In career free roam, reach for the rim and press **A** on the right controller or **X** on the left to open the world map.
+- **Seat and radio.** Tap the highlighted controls with your virtual index finger. The door armrest moves the seat in 1 cm steps. EA TRAX supports fingertip volume adjustment, previous, play/pause and next during driving and cockpit replays. Fixed track skipping and a case where the radio showed a title but stayed silent.
+- **Shifter and race display.** A dot on the H-pattern shows where your hand is in the gate. Set the guide to **Always**, **Near Shifter** or **Off**. Lap count and times now sit on the right-side window.
+
+### Settings
+- **Mirror Resolution** offers five presets from **256×64** to **4096×1024**. The default is **1024×256**. Choose a lower resolution to reduce rendering work on standalone Quest.
+- **Advanced Haptics / Rumble** adds optional engine vibration that responds to RPM and throttle. Enable **Grip Feedback** to feel it only in the hand holding the wheel. **Master Gain** adjusts overall game audio from **−12 to +12 dB**.
+
+### Download and update
+- **Quest 3** — Install the [Quest APK](https://github.com/DR-89/nfsu2-vr/releases/download/dev-2026-11-06/NFSU2VR-Quest3-dev-2026-11-06.apk) over the previous installation to keep your imported data and saves. Version code **7** uses the same signing certificate as 0.4.0-dev.
+- **Windows PCVR** — Extract the [PCVR ZIP](https://github.com/DR-89/nfsu2-vr/releases/download/dev-2026-11-06/NFSU2VR-PCVR-dev-2026-11-06.zip) to a writable folder, keep your existing `game/` directory, and run `Start-PCVR.cmd`. For Steam Link, use `Start-PCVR.cmd -SteamVR`.
+
+Both versions require your own original Xbox USA / NTSC-U game data. The release includes the matching port and FFmpeg sources, build information and SHA-256 checksums.
+
+**Verification.** All 24 Windows regression executables, 32 Android importer tests and 13 Python input tests passed. A captured PCVR replay exercised the Grip camera cycle across all six views and 8,400 camera updates. The signed Quest APK was checked for package identity and upgrade compatibility. A fresh in-headset run of these final packages is still outstanding.
+
+---
+
 ## Cockpit controls and cutscene playback · 0.4.0-dev
 
 Development prerelease for standalone Meta Quest 3 and Windows x64 PCVR.

@@ -45,8 +45,46 @@ static int shifts_between_slots(int count,int vehicle,int hand)
     return 0;
 }
 
+static int shifter_reach_test(void)
+{
+    for(int vehicle=0;vehicle<QUEST_COCKPIT_VEHICLES;++vehicle)for(int h=0;h<2;++h) {
+        QuestShifter s;quest_shifter_reset(&s);
+        int valid[2]={0},busy[2]={0};
+        float pos[2][3]={{0}},squeeze[2]={0};
+        int gear=QUEST_SHIFT_FIRST;
+        quest_shifter_detent(&s,gear,5);
+        quest_shifter_knob(&s,vehicle,pos[h]);valid[h]=1;
+        pos[h][1]+=.066f;
+        quest_shifter_update(&s,0,vehicle,5,gear,valid,pos,squeeze,busy);
+        CHECK(!s.at_lever && !s.hand);
+        pos[h][1]-=.002f;busy[h]=1;
+        quest_shifter_update(&s,1,vehicle,5,gear,valid,pos,squeeze,busy);
+        CHECK(!s.at_lever && !s.hand);
+        busy[h]=0;
+        quest_shifter_update(&s,2,vehicle,5,gear,valid,pos,squeeze,busy);
+        CHECK(s.at_lever && !s.hand && s.gear==gear);
+        squeeze[h]=1;
+        quest_shifter_update(&s,3,vehicle,5,gear,valid,pos,squeeze,busy);
+        CHECK(s.at_lever && s.hand==h+1);
+        pos[h][1]+=.02f; /* Still holding the knob outside the pickup radius. */
+        quest_shifter_update(&s,4,vehicle,5,gear,valid,pos,squeeze,busy);
+        CHECK(s.at_lever && s.hand==h+1);
+        pos[h][1]-=.02f;squeeze[h]=0;
+        quest_shifter_update(&s,5,vehicle,5,gear,valid,pos,squeeze,busy);
+        CHECK(s.at_lever && !s.hand);
+        valid[h]=0;
+        quest_shifter_update(&s,6,vehicle,5,gear,valid,pos,squeeze,busy);
+        CHECK(!s.at_lever);
+        valid[h]=1;pos[h][1]+=.002f;
+        quest_shifter_update(&s,7,vehicle,5,gear,valid,pos,squeeze,busy);
+        CHECK(!s.at_lever);
+    }
+    return 0;
+}
+
 int main(void)
 {
+    CHECK(!shifter_reach_test());
     QuestPedals pedals={0};
     for(int i=0;i<256;++i) {
         quest_pedals_update(&pedals,i,1,i,255-i,1,2,0,0);

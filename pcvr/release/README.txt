@@ -55,10 +55,21 @@ Controls (Touch controllers):
 - Grip the center mirror to tilt it. Gripping either outside mirror adjusts
   both together. Release Grip to save the angles for this car.
   In VR Settings, select Reset Car Mirrors to restore their normal aim.
-- The next race restores the last camera and mirror setup. Under the
-  minimap, drag the EA TRAX volume slider with Grip or squeeze Grip once on
-  previous, play/pause or next. Title and artist appear below the buttons.
-  Turning the slider down to silence keeps the song playing.
+- Tap EA TRAX buttons with your extended index finger, or slide it along
+  the volume control. This also works in a cockpit replay. Tap B (Circle)
+  to toggle the timeline. Press either Grip to cycle through six replay
+  views, including the driver's seat. The view stays selected until the
+  next press or the end of the replay. Hold B for the original replay control.
+- Tap the driver's door-armrest keys to move the seat in 1 cm steps.
+- Hold Grip on the cockpit minimap with either free hand to reposition it.
+  Release to save. In career free roam, reach for its blue rim and tap A
+  with the right hand or X with the left to open the world map.
+  Press A on any minimap row in VR Settings to reset its position.
+- In the pause menu, press X for VR Settings. Adjust Mirror Resolution,
+  position the minimap on three axes, or set the manual H-Pattern Guide to
+  Always, Near Shifter or Off. Its dot follows the lever.
+- Under Advanced Haptics / Rumble, enable engine vibration and choose
+  whether it follows your grip on the wheel. Master Gain adjusts all audio.
 - Right and left trigger travel animates the accelerator and brake. Manual
   shifts depress the clutch pedal and it returns as the shift completes.
 - October 18 steering fix: small hand-driven wheel turns now compensate for

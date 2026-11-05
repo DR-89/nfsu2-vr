@@ -147,8 +147,29 @@ static void check_init_failures(HRESULT com_hr)
     }
 }
 
+static void check_output_gain(void)
+{
+    const int16_t input[]={400,-400,0,32767,-32768};
+    int16_t base[5],boost[5],quiet[5],unchanged[5];
+    apu_output_safety(input,base,5);
+    xa2_set_output_gain(powf(10.f,12.f/20.f));
+    apu_output_safety(input,boost,5);
+    xa2_set_output_gain(powf(10.f,-12.f/20.f));
+    apu_output_safety(input,quiet,5);
+    CHECK(abs(base[0]-200)<=1 && abs(boost[0]-796)<=2 && abs(quiet[0]-50)<=1);
+    CHECK(boost[1]==-boost[0] && boost[2]==0 && quiet[1]==-quiet[0]);
+    CHECK(boost[3]>base[3] && boost[3]<=16384 && boost[4]>=-16384);
+    xa2_set_output_gain(NAN);
+    apu_output_safety(input,unchanged,5);
+    CHECK(memcmp(quiet,unchanged,sizeof quiet)==0);
+    xa2_set_output_gain(1.f);
+    apu_output_safety(input,unchanged,5);
+    CHECK(memcmp(base,unchanged,sizeof base)==0);
+}
+
 int main(void)
 {
+    check_output_gain();
     master_vtable.DestroyVoice = destroy_master;
     source_vtable.DestroyVoice = destroy_source;
     master.lpVtbl = &master_vtable;

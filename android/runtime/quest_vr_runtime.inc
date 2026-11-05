@@ -1,6 +1,7 @@
 /* Included by quest_xr.c. All UI, settings I/O and gamepad sampling belong to
  * the OpenXR/render thread; the guest receives only locked snapshots. */
 #include "quest_vr_panel.h"
+#include "apu_xaudio2.h"
 #include "quest_gamepad.h"
 #include "quest_cockpit_fit.h"
 #ifdef NFSU2_PCVR
@@ -24,6 +25,7 @@ static int create_swapchain(QuestSwapchain *,int64_t,uint32_t,uint32_t);
 
 static void vr_publish_settings(void)
 {
+    xa2_set_output_gain(powf(10.f,vr_settings.master_gain_db/20.f));
     wheel_grip.return_speed=vr_settings.return_speed;
     float limit=vr_settings.rotation*QUEST_WHEEL_PI/360.0f;
     if(wheel_configured && (wheel_grip.limit!=limit || wheel_grip.sensitivity!=vr_settings.sensitivity)) {

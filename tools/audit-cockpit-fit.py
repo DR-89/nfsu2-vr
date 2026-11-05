@@ -102,6 +102,37 @@ def profiles(measured):
     return result
 
 
+def right_window(meta, meshes, row):
+    """Lateral distance to the right glass at eye height and its inward lean."""
+    car = row["name"]
+    forward, left, height = row["seat"]
+    forward += .11 if row["side"] < 0 else .038
+    # Some front door solids are packed. Prefer the opposite door's matching
+    # pane next, then the front edge of the right rear side glass at the B post.
+    for part in ("_KIT00_DOOR_RIGHT_A", "_KIT00_DOOR_LEFT_A", "_BASE_A"):
+        panes = []
+        for i, record in enumerate(meta):
+            if record["solid"] != car + part or record["flags"] not in (16768, 49536):
+                continue
+            v = meshes[i][0]
+            lo, hi = v.min(0), v.max(0)
+            if hi[0]-lo[0] < .28 or hi[2]-lo[2] < .18 or not lo[2] < height < hi[2]:
+                continue
+            if (lo[1] if "LEFT" in part else -hi[1]) < .40:
+                continue
+            sample = np.clip(forward, lo[0]+.10, hi[0]-.10)
+            panes.append((abs(sample-forward), i, sample))
+        if panes:
+            _, index, sample = min(panes)
+            v = meshes[index][0]
+            # Fit the glass in vehicle space, evaluating it at the mount's
+            # longitudinal position so slanted door windows sit at the right depth.
+            basis = np.column_stack((np.ones(len(v)), v[:, 0]-sample, v[:, 2]-height))
+            distance, _, lean = np.linalg.lstsq(basis, abs(v[:, 1]), rcond=None)[0]
+            return [left+distance, -lean]
+    raise ValueError(f"No measured side glass for {car}")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("inventory", type=Path, help="stock-solids.json")
@@ -112,7 +143,8 @@ def main():
     if not output.is_relative_to(ROOT / "build"):
         parser.error("Use a private output directory inside build/.")
     inventory = json.loads(args.inventory.read_text())
-    computed = profiles(measurements(*read_meshes(args.meshes), inventory))
+    meta, meshes, drivers = read_meshes(args.meshes)
+    computed = profiles(measurements(meta, meshes, drivers, inventory))
     source = (ROOT / "android/runtime/quest_cockpit_vehicle.h").read_text()
     rows = re.findall(r'\{"([A-Z0-9]+)",\{([^}]+)\},([^}]+)\}', source)
     compiled = {name: [float(x.strip().removesuffix("f"))
@@ -121,8 +153,9 @@ def main():
     if set(compiled) != {row["name"] for row in computed}:
         raise ValueError("Runtime and measured vehicle inventories differ")
     for row in computed:
+        row["right_window"] = right_window(meta, meshes, row)
         expected = [*row["seat"], row["near"], row["far"], row["front"],
-                    row["side"], row["rear"]]
+                    row["side"], row["rear"], *row["right_window"]]
         if not np.allclose(compiled[row["name"]], expected, atol=.00000051, rtol=0):
             raise ValueError(f"Profile differs from measured fit: {row['name']}")
     output.mkdir(parents=True, exist_ok=True)

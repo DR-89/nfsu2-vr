@@ -1,7 +1,7 @@
 # Development source publication
 
 This is the public development source for **DR-89/nfsu2-vr**, first published
-on October 14, 2026 and updated November 4. The project targets **Windows PCVR** and **Meta Quest 3
+on October 14, 2026 and updated November 6. The project targets **Windows PCVR** and **Meta Quest 3
 standalone** using Vulkan and OpenXR.
 
 **DEV BUILD — NOT 100% TESTED.** Bugs, crashes, freezes, rendering errors,

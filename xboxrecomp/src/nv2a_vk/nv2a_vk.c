@@ -993,11 +993,18 @@ static VkSurf *surf_get(uint32_t va, uint32_t w, uint32_t h, uint32_t aa_sx, uin
 {
     VkSurf *s = surf_find(va), *victim = NULL;
     int i;
+    unsigned mirror_width=0;
+#ifdef NFSU2_OPENXR
+    if(w==256 && h==64 && aa_sx==1 && aa_sy==1 && xr_stereo()) {
+        mirror_width=quest_xr_mirror_width();
+        if(mirror_width>s_max_size)mirror_width=s_max_size;
+    }
+#endif
 
     /* h is the surface clip, not the allocation (NFSU2's split screen clips
      * the back buffer to each player's half): keep the surface while the
      * clip fits, grow it when it does not. Same as nv2a_gl.c. */
-    if (s && s->w == w && s->h >= h) {
+    if (s && s->w == w && s->h >= h && (!mirror_width || s->h!=64 || s->pw==mirror_width)) {
         s->used = s_frame;
         return s;
     }
@@ -1056,8 +1063,8 @@ static VkSurf *surf_get(uint32_t va, uint32_t w, uint32_t h, uint32_t aa_sx, uin
         }
     }
     if(xr_stereo()) {
-        if(w==256 && h==64 && aa_sx==1 && aa_sy==1) {
-            s->pw=1024; s->ph=256;
+        if(mirror_width) {
+            s->pw=mirror_width; s->ph=mirror_width/4;
         }
         static double eye_scale=-1;
         if(eye_scale<0) {

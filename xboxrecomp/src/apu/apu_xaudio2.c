@@ -11,6 +11,12 @@
 #include <string.h>
 #include <math.h>
 #include "apu_xaudio2.h"
+#ifdef _WIN32
+#define COBJMACROS
+#include <windows.h>
+#else
+#include "platform/win32_compat.h"
+#endif
 
 /* Hearing safety, for every output path: master volume, then a soft limiter
  * whose output never exceeds -6 dBFS (16384). c * tanh(x / c) is linear for
@@ -18,13 +24,23 @@
  * spike (a mixdown summing many bins, a decoder glitch) is capped without the
  * harsh edge of hard clipping. */
 static float g_xa2_volume = 0.5f;
+/* The settings thread publishes gain; the audio thread reads it once per
+ * block. Unity preserves the backend's configured master volume. */
+static volatile LONG g_output_gain_q16 = 65536;
+
+void xa2_set_output_gain(float gain)
+{
+    if(isfinite(gain) && gain>=0 && gain<=4)
+        InterlockedExchange(&g_output_gain_q16,(LONG)lrintf(gain*65536.f));
+}
 
 void apu_output_safety(const int16_t *in, int16_t *out, int n)
 {
     const float ceiling = 16384.0f;
+    const float volume=g_xa2_volume*(InterlockedCompareExchange(&g_output_gain_q16,0,0)/65536.f);
     int i;
     for (i = 0; i < n; i++)
-        out[i] = (int16_t)(ceiling * tanhf((float)in[i] * g_xa2_volume / ceiling));
+        out[i] = (int16_t)(ceiling * tanhf((float)in[i] * volume / ceiling));
 }
 
 void xa2_set_master_volume(float v)
@@ -36,8 +52,6 @@ void xa2_set_master_volume(float v)
  * are served by SDL2 audio (below). */
 #if defined(_WIN32)
 
-#define COBJMACROS
-#include <windows.h>
 #include <xaudio2.h>
 
 #pragma comment(lib, "xaudio2.lib")

@@ -45,6 +45,10 @@ static int ui_notification_test(void)
         {{"HUD_SingleRace.fng","Chyron_IG.fng "},1},
         {{"Chyron_IG.fng"},QUEST_UI_NO_HUD},
         {{"HUD_Drag.fng","chyron_ig.FNG"},0},
+        {{"ui_ReplayControl.FNG"},QUEST_UI_REPLAY},
+        {{"HUD_Drag.fng","UI_ReplayControl.fng","Chyron_IG.fng"},QUEST_UI_REPLAY},
+        {{"UI_ReplayControl.fng","GenericDialog_SMALL.fng"},QUEST_UI_MENU},
+        {{"UI_ReplayControl.fngX"},QUEST_UI_MENU},
         {{"HUD_SingleRace.fng","UI_PauseOptionsMain.fng"},1},
         {{"HUD_SingleRace.fng","Unknown.fng"},1},
         {{"UI_Pause.fng"},1,1},
@@ -75,8 +79,50 @@ static int ui_notification_test(void)
     puts("Cockpit UI: exact pause authorization; notifications keep instruments seated; menus, dialogs and unknown packages remain whole.");
     return 0;
 }
+static int race_panel_test(void)
+{
+    QuestGhostVertex panels[QUEST_PANEL_VERTICES];
+    for(int car=0;car<QUEST_COCKPIT_VEHICLES;++car) {
+        const QuestCockpitVehicle *fit=quest_cockpit_vehicle(car);
+        quest_cockpit_race_panels(panels+QUEST_PANEL_WINDSHIELD,fit);
+        const QuestGhostVertex *window=panels+QUEST_PANEL_WINDOW;
+        /* Reading left to right on the right window points toward the rear
+         * for either steering side. The top edge leans into the cabin. */
+        CHECK(window[0].position[2]<window[1].position[2]);
+        CHECK(window[1].position[1]>window[2].position[1] && window[1].position[0]<window[2].position[0]);
+        for(int i=0;i<6;++i) {
+            float x=window[i].position[0],y=window[i].position[1];
+            CHECK(x>.12f && (fit->side<0?x<.36f:x>.75f));
+            CHECK(fabsf(x+y*fit->right_window_lean-fit->right_window_x+.025f)<.00001f);
+        }
+    }
+    unsigned char coverage[480][640]={0};
+    for(int first=QUEST_PANEL_WINDSHIELD;first<QUEST_PANEL_MENU;first+=6) {
+        const QuestGhostVertex *p=panels+first;
+        int x0=(int)lrintf(p[0].uv[0]*640),x1=(int)lrintf(p[2].uv[0]*640);
+        int y0=(int)lrintf(p[0].uv[1]*480),y1=(int)lrintf(p[2].uv[1]*480);
+        CHECK(x0>=0 && x0<x1 && x1<=640 && y0>=0 && y0<y1 && y1<=480);
+        for(int y=y0;y<y1;++y)for(int x=x0;x<x1;++x) {
+            CHECK(!coverage[y][x]);
+            coverage[y][x]=first==QUEST_PANEL_WINDOW?2:1;
+        }
+        if(first==QUEST_PANEL_WINDOW)continue;
+        for(int i=0;i<6;++i) {
+            CHECK(fabsf(p[i].position[0]-(p[i].uv[0]-.5f)*2.8f)<.00001f);
+            CHECK(fabsf(p[i].position[1]-(1.45f-p[i].uv[1]*1.7f))<.00001f && p[i].position[2]==-3);
+        }
+    }
+    for(int y=0;y<480;++y)for(int x=0;x<640;++x) {
+        /* Bounds of all visible standings glyphs from the retail HUD captures. */
+        if(x>=485 && x<585 && y>=61 && y<203)CHECK(coverage[y][x]==2);
+        CHECK(!!coverage[y][x]==(y<260 || (x>=200 && x<440)));
+    }
+    puts("Race HUD: right-window mounting, readable orientation and exclusive pixel coverage passed.");
+    return 0;
+}
 int main(int argc,char **argv)
 {
+    CHECK(!race_panel_test());
     CHECK(QUEST_COCKPIT_VEHICLES==30 && !quest_cockpit_vehicle_index("UNKNOWN"));
     const QuestCockpitVehicle *miata=quest_cockpit_vehicle(quest_cockpit_vehicle_index("MIATA"));
     CHECK(miata->seat[0]<-.30f && miata->seat[2]<.83f && miata->rear_limit<.9f);

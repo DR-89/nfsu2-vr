@@ -2,6 +2,7 @@
 #define QUEST_COCKPIT_UI_H
 #include <stdint.h>
 #include <stddef.h>
+#include <string.h>
 
 typedef int (*QuestUiRead)(void *context,uint32_t address,void *out,size_t size);
 
@@ -47,7 +48,14 @@ static inline int quest_cockpit_ui_paused(QuestUiRead read,void *context)
  * a transient driving notification, not a menu: treating it as paused moves
  * the instruments back to the complete HUD plane until the message expires.
  * An incomplete/invalid list also gets the unsplit presentation. */
-enum { QUEST_UI_HUD, QUEST_UI_MENU, QUEST_UI_NO_HUD };
+enum { QUEST_UI_HUD, QUEST_UI_MENU, QUEST_UI_NO_HUD, QUEST_UI_REPLAY };
+static inline int quest_ui_package(QuestUiRead read,void *context,uint32_t address,const char *expected)
+{
+    unsigned char name[32];size_t n=strlen(expected);
+    if(n>=sizeof name || !read(context,address,name,n+1) || name[n])return 0;
+    for(size_t i=0;i<n;++i)if((name[i]|32)!=(expected[i]|32))return 0;
+    return 1;
+}
 static inline int quest_cockpit_ui_menu(QuestUiRead read,void *context)
 {
     uint32_t frontend,manager,node;
@@ -55,7 +63,7 @@ static inline int quest_cockpit_ui_menu(QuestUiRead read,void *context)
        !read(context,frontend+8,&manager,4) || !manager ||
        !read(context,manager+0xe4,&node,4)) return QUEST_UI_MENU;
     if(!node)return QUEST_UI_NO_HUD;
-    int has_hud=0;
+    int has_hud=0,replay=0;
     for(unsigned count=0;node && count<32;++count) {
         uint32_t fields[4];unsigned char name[4];
         if(!read(context,node,fields,sizeof fields) || !fields[3] ||
@@ -64,14 +72,11 @@ static inline int quest_cockpit_ui_menu(QuestUiRead read,void *context)
            (name[2]|32)!='d' || name[3]!='_') {
             /* Exact, terminated name only. Unknown packages still use the
              * complete plane; never misclassify a real dialog or frontend. */
-            static const char overlay[]="Chyron_IG.fng";
-            unsigned char full[sizeof overlay];
-            if(!read(context,fields[3],full,sizeof full) || full[sizeof overlay-1])return 1;
-            for(unsigned i=0;i+1<sizeof overlay;++i)
-                if((full[i]|32)!=(overlay[i]|32))return 1;
+            if(quest_ui_package(read,context,fields[3],"UI_ReplayControl.fng"))replay=1;
+            else if(!quest_ui_package(read,context,fields[3],"Chyron_IG.fng"))return QUEST_UI_MENU;
         } else has_hud=1;
         node=fields[1];
-        if(!node) return has_hud?QUEST_UI_HUD:QUEST_UI_NO_HUD;
+        if(!node) return replay?QUEST_UI_REPLAY:(has_hud?QUEST_UI_HUD:QUEST_UI_NO_HUD);
     }
     return 1;
 }

@@ -9,7 +9,7 @@ enum { QUEST_RADIO_COLUMNS=20 };
 typedef struct {
     uint32_t cells[QUEST_RADIO_COLUMNS+1][4];
     float scroll[2];
-    uint32_t hover_mask,padding;
+    uint32_t hover_mask,pressed_mask;
 } QuestRadioLCD;
 typedef struct { uint32_t bits[128][2]; } QuestRadioFont;
 

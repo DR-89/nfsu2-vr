@@ -23,10 +23,12 @@ void quest_xr_cockpit_publish(int available, int active);
 #include "quest_cockpit_windows.h"
 void quest_xr_cockpit_vehicle_publish(uint32_t car,int index,const uint32_t windows[QUEST_COCKPIT_WINDOWS]);
 int quest_xr_cockpit_vehicle_snapshot(uint32_t windows[QUEST_COCKPIT_WINDOWS]);
-void quest_xr_driving_publish(int driving);
-void quest_xr_cockpit_menu_publish(int menu);
+void quest_xr_driving_publish(int driving,int world_map_available,float engine);
+/* Returns camera advances for this ReplayControl instance. */
+unsigned quest_xr_cockpit_menu_publish(int menu,uint32_t viewer);
 void quest_xr_pause_publish(int paused);
 int quest_xr_cockpit_menu_active(void);
+int quest_xr_take_replay_toggle(uint32_t owner);
 int quest_xr_cockpit_active(void);
 int quest_xr_cockpit_enabled(void);
 void quest_xr_cockpit_select(int selected);
@@ -35,8 +37,13 @@ int quest_xr_camera_choice(void);
 void quest_xr_camera_remember(int choice);
 #include "quest_radio.h"
 QuestRadioCommand quest_xr_radio_exchange(uint32_t owner,float volume,int paused,const QuestRadioSong *song);
-/* Returns the controls currently reachable by an armed Grip, one bit per control. */
-uint32_t quest_xr_radio_display(float state[3],QuestRadioSong *song);
+/* Renderer-thread controls and fitted geometry. */
+unsigned quest_xr_mirror_width(void);
+#include "quest_minimap.h"
+int quest_xr_map_drawn(int vehicle,const QuestMinimapMount *mount,float offset[3]);
+void quest_xr_index_tip(const float tip[3]);
+int quest_xr_guide_gears(void);
+uint32_t quest_xr_radio_display(float state[3],QuestRadioSong *song,uint32_t *pressed);
 void quest_xr_cockpit_matrix(int eye, float matrix[16]);
 void quest_xr_cockpit_steering_input(int16_t steering);
 float quest_xr_cockpit_steering(int *from_rim);

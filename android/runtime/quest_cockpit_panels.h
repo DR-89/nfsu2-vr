@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include <string.h>
 #include "quest_ghost_hands.h"
-#include "quest_cockpit_fit.h"
+#include "quest_cockpit_vehicle.h"
 
 /* The retail car is transformed into seated eye space before head tracking.
  * Only that rigid transform is eligible; roadside meshes and other cars must
@@ -193,6 +193,48 @@ static inline void quest_cockpit_panel(QuestGhostVertex out[6],float x,float y,
         unsigned c=corner[i];int right=c==1||c==2,bottom=c>=2;
         out[i]=(QuestGhostVertex){{x+(right?.5f:-.5f)*w,y+(bottom?-.5f:.5f)*h,z},
             {0,0,1},{(right?x1:x0)/640.0f,(bottom?y1:y0)/480.0f}};
+    }
+}
+
+/* Offsets into each car's immutable vertex buffer. All five windshield
+ * rectangles use one draw. The right-window text uses cabin depth testing. */
+enum {
+    QUEST_PANEL_GAUGE=0, QUEST_PANEL_MAP=6, QUEST_PANEL_WINDSHIELD=12,
+    QUEST_PANEL_WINDOW=QUEST_PANEL_WINDSHIELD+5*6, QUEST_PANEL_MENU=QUEST_PANEL_WINDOW+6,
+    QUEST_PANEL_VERTICES=QUEST_PANEL_MENU+6
+};
+
+static inline void quest_cockpit_windshield_rect(QuestGhostVertex out[6],int x0,int y0,int x1,int y1)
+{
+    const float dx=2.8f/640,dy=1.7f/480;
+    quest_cockpit_panel(out,((x0+x1)*.5f-320)*dx,1.45f-(y0+y1)*.5f*dy,-3,
+                        (x1-x0)*dx,(y1-y0)*dy,x0,y0,x1,y1);
+}
+
+static inline void quest_cockpit_race_panels(QuestGhostVertex out[36],const QuestCockpitVehicle *fit)
+{
+    /* The retail standings, lap count and times share the upper-right HUD
+     * block. Reserve room for longer race lists, leaving the other pixels
+     * in their original windshield coordinates. */
+    const int left=448,right=624,top=40,bottom=244;
+    quest_cockpit_windshield_rect(out,0,0,640,top);
+    quest_cockpit_windshield_rect(out+6,0,top,left,bottom);
+    quest_cockpit_windshield_rect(out+12,right,top,640,bottom);
+    quest_cockpit_windshield_rect(out+18,0,bottom,640,260);
+    quest_cockpit_windshield_rect(out+24,200,260,440,480);
+
+    QuestGhostVertex *window=out+30;
+    int right_hand_drive=fit->side<0;
+    float metres_per_pixel=right_hand_drive?.00080f:.00140f;
+    quest_cockpit_panel(window,0,0,0,1,1,left,top,right,bottom);
+    for(int i=0;i<6;++i) {
+        float u=640*window[i].uv[0],v=480*window[i].uv[1];
+        float y=(right_hand_drive?-.020f:.003f)+(132-v)*metres_per_pixel;
+        /* Inside the right glass, with text running toward the rear (+Z)
+         * when viewed from the seat. Right-hand-drive cars use the near pane. */
+        window[i].position[0]=fit->right_window_x-.025f-y*fit->right_window_lean;
+        window[i].position[1]=y;
+        window[i].position[2]=(right_hand_drive?-.110f:-.038f)+(u-535)*metres_per_pixel;
     }
 }
 

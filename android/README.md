@@ -25,6 +25,15 @@ The entry is authorized only by the active root `UI_Pause.fng` package;
 race notifications, loading screens, options and confirmation dialogs cannot
 open it. Holding X before pausing requires release and a new press.
 
+- **Advanced Haptics / Rumble** opens with **A**. Turn on **Engine REV Rumble**
+  for a gentle idle vibration that grows with RPM and throttle. **Grip Feedback**
+  starts on and limits engine vibration to each hand holding the wheel. Release
+  one hand to feel the difference. Road and collision effects still reach both
+  hands. A mapped gamepad uses engine rumble independently of wheel grip.
+- **Master Gain** adjusts all game audio immediately in 1 dB steps from −12 to
+  +12 dB. The default is 0 dB. **B** returns from the haptics submenu, and
+  **B** on the main settings page saves your choices.
+
 - **Steering sensitivity:** 50–300%. Higher values reach full game steering
   with less physical wheel movement.
 - **Wheel rotation:** 180–1080 degrees total, lock to lock; default 360.
@@ -479,18 +488,37 @@ The next race restores your last driving camera, including Cockpit View.
 A car with its own mirror setup recalls it. A car without one starts with the
 last setup you used.
 
-The EA TRAX radio sits below the raised minimap on the center console. A cyan
-outline marks each control that a free hand can grab. Reach
-to the volume slider, hold Grip and slide left or right. Squeeze and release
-Grip on the previous, play/pause or next button for a single action. Track
-selection follows the titles enabled for racing in EA TRAX. The slider adjusts
-in-game music volume independently of the engine and other sound effects.
-The song continues playing when muted. The display below the controls shows
-the current title and artist, scrolling names that exceed its width.
-The cockpit uses this display for song changes. The other driving cameras
-show the original EA TRAX banner.
+Press **X** in the pause menu to open **VR Settings**. **Mirror Resolution**
+sets the shared rear camera to 256×64, 512×128, 1024×256 (default),
+2048×512 or 4096×1024. The smaller sizes reduce the pixel cost on standalone.
+To move the minimap while driving, reach for it with either free hand,
+hold **Grip**, and move it into place. Release Grip to save its position.
+The three minimap rows also let you fine-tune it in 2 cm steps. Press **A**
+on any minimap row to return the map to the center console.
+In career free roam, reach for the minimap until its rim turns blue. Tap **A**
+with the right hand or **X** with the left hand at the minimap to open the
+world map. Press **B** to return to the cockpit.
 
-The rear camera (retail view 3) captures a wide 1024×256 image and depth.
+Bring a free controller hand up to the EA TRAX radio. The glove extends its
+index finger and the control under the fingertip lights up blue.
+Touch previous, play/pause or next, then lift before pressing
+again. Slide the fingertip along the volume control to change the music level.
+Track selection follows the racing playlist. Title and artist scroll below
+the controls. The four keys on the driver's door armrest work the same way.
+Each tap moves the seat forward, back, up or down by 1 cm and saves the position.
+
+In a cockpit replay the radio remains available. Tap **B** (Circle on a
+PlayStation pad) to hide or show the replay timeline. A long press passes B
+through to the game's replay controls. Press **Grip** on either controller
+to cycle through the five replay views and the driver's seat. The chosen
+view stays active until the next press or the end of the replay.
+With manual transmission, a guide above
+the shifter shows the installed gear slots and a moving dot for the lever.
+In VR Settings, set **H-Pattern Guide** to **Always** (the default),
+**Near Shifter**, or **Off**. Near Shifter shows the pattern when either free
+hand is within grabbing range or is holding the lever.
+
+The rear camera (retail view 3) captures color and depth at the selected resolution.
 Its far plane is 600 m. Its position follows the reflected head center at 70%
 of tracked translation about the adjusted seat. Each eye
 traces a reflected ray through each glass surface into that capture. Leaning
@@ -521,7 +549,8 @@ centered behind the wheel (0, -0.205, -0.56 m), with a 0.24 m square source
 region. It is drawn transparently over the fixed dummy instruments, before
 the moving wheel and hands, so the cabin cannot cut away digits and the wheel
 still covers them naturally. No added black panel or dashboard cutout remains.
-The rest of the race information retains its previous windshield placement.
+Race position, lap count, standings and times appear on the inside of the right
+side window. The text faces the driver and follows each car's window angle.
 In the cockpit, pausing switches this same UI image to one complete windshield
 plane, including both lower corners. Pause submenus use the same complete plane;
 the map/gauge split resumes only with active gameplay. The mode is recorded once

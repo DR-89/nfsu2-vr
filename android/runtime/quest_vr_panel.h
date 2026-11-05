@@ -30,11 +30,16 @@ static inline void quest_vr_panel(uint32_t *pixels,const QuestVRSettings *s,
     if(!m->open) {
         quest_vr_text(pixels,44,26,4,"[X] VR SETTINGS",0xffffffffu);return;
     }
-    quest_vr_text(pixels,40,34,5,"VR SETTINGS",0xffffffffu);
-    const char *labels[]={"STEERING SENSITIVITY","WHEEL ROTATION","SEAT HEIGHT","SEAT DISTANCE","RENDER RESOLUTION","WHEEL RETURN SPEED","RESET CAR MIRRORS","RESET DEFAULTS","SAVE AND BACK"};
-    for(int row=0;row<QUEST_VR_ROWS;++row) {
-        int y=112+row*50;char value[64]={0};
-        if(row==m->row)quest_vr_rect(pixels,24,y-12,976,48,0xff214171u);
+    int haptics=m->row>=QUEST_VR_ENGINE_ROW;
+    quest_vr_text(pixels,40,34,5,haptics?"ADVANCED HAPTICS / RUMBLE":"VR SETTINGS",0xffffffffu);
+    static const char *const labels[]={"STEERING SENSITIVITY","WHEEL ROTATION","SEAT HEIGHT","SEAT DISTANCE","RENDER RESOLUTION","WHEEL RETURN SPEED",
+        "MIRROR RESOLUTION","H-PATTERN GUIDE","MINIMAP LEFT / RIGHT","MINIMAP DOWN / UP","MINIMAP FAR / NEAR",
+        "MASTER GAIN","ADVANCED HAPTICS / RUMBLE","RESET CAR MIRRORS","RESET DEFAULTS","SAVE AND BACK",
+        "ENGINE REV RUMBLE","GRIP FEEDBACK","BACK"};
+    int first=haptics?QUEST_VR_ENGINE_ROW:0,end=haptics?QUEST_VR_END:QUEST_VR_ROWS;
+    for(int row=first;row<end;++row) {
+        int y=94+(row-first)*(haptics?54:34);char value[64]={0};
+        if(row==m->row)quest_vr_rect(pixels,24,y-6,976,32,0xff214171u);
         quest_vr_text(pixels,40,y,3,labels[row],0xffffffffu);
         if(row==0)snprintf(value,sizeof value,"< %d%% >",(int)lrintf(s->sensitivity*100));
         if(row==1)snprintf(value,sizeof value,"< %d DEG >",(int)lrintf(s->rotation));
@@ -45,6 +50,21 @@ static inline void quest_vr_panel(uint32_t *pixels,const QuestVRSettings *s,
             else snprintf(value,sizeof value,"< %uX%u >",quest_vr_resolutions[s->resolution][0],quest_vr_resolutions[s->resolution][1]);
         }
         if(row==QUEST_VR_RESET_MIRRORS_ROW && m->mirrors_centered)strcpy(value,"CENTERED");
+        if(row==QUEST_VR_MIRROR_ROW) {
+            unsigned w=quest_mirror_widths[s->mirror_resolution];
+            snprintf(value,sizeof value,"< %uX%u >",w,w/4);
+        }
+        if(row==QUEST_VR_GUIDE_ROW) {
+            static const char *const modes[QUEST_GUIDE_MODES]={"< OFF >","< ALWAYS >","< NEAR SHIFTER >"};
+            strcpy(value,modes[s->shift_guide]);
+        }
+        if(row>=QUEST_VR_MAP_X && row<=QUEST_VR_MAP_Z)
+            snprintf(value,sizeof value,"< %+.0f CM >",100*s->map_offset[row-QUEST_VR_MAP_X]);
+        if(row==QUEST_VR_GAIN_ROW)
+            snprintf(value,sizeof value,s->master_gain_db?"< %+d DB >":"< %d DB >",s->master_gain_db);
+        if(row==QUEST_VR_HAPTICS_ROW)strcpy(value,"[A] OPEN");
+        if(row==QUEST_VR_ENGINE_ROW)strcpy(value,s->engine_rumble?"< ON >":"< OFF >");
+        if(row==QUEST_VR_GRIP_ROW)strcpy(value,s->grip_feedback?"< ON >":"< OFF >");
         if(row==QUEST_VR_RETURN_ROW) {
             int width=(int)lrintf(184*s->return_speed/QUEST_WHEEL_RETURN_MAX);
             quest_vr_rect(pixels,518,y+8,184,5,0xff465566u);
@@ -55,9 +75,20 @@ static inline void quest_vr_panel(uint32_t *pixels,const QuestVRSettings *s,
         }
         quest_vr_text(pixels,row==QUEST_VR_RETURN_ROW?734:620,y,3,value,0xffffd79fu);
     }
-    quest_vr_text(pixels,40,568,2,"ROTATION IS TOTAL LOCK-TO-LOCK. HIGHER SENSITIVITY = QUICKER TURNS.",0xffc8beb4u);
-    quest_vr_text(pixels,40,600,2,"SEAT: POSITIVE HEIGHT = UP. POSITIVE DISTANCE = FARTHER BACK.",0xffc8beb4u);
-    quest_vr_text(pixels,40,632,2,resolution_pending?"RESOLUTION CHANGED: SAVE, THEN RESTART THE GAME.":"RESOLUTION CHANGES TAKE EFFECT ON THE NEXT GAME START.",0xffffd79fu);
+    const char *hint="";
+    if(m->row<2)hint="ROTATION IS TOTAL LOCK-TO-LOCK. HIGHER SENSITIVITY = QUICKER TURNS.";
+    if(m->row==2 || m->row==3)hint="EACH STEP MOVES THE SEAT ONE CENTIMETER.";
+    if(m->row==4)hint="EYE RESOLUTION CHANGES TAKE EFFECT ON THE NEXT GAME START.";
+    if(m->row==QUEST_VR_RETURN_ROW)hint="SPEED AT WHICH THE RELEASED WHEEL RETURNS TO CENTER.";
+    if(m->row==QUEST_VR_MIRROR_ROW)hint="ALL THREE MIRRORS SHARE THIS IMAGE. LOWER SIZES USE FEWER PIXELS.";
+    if(m->row==QUEST_VR_GUIDE_ROW)hint="NEAR SHIFTER SHOWS THE GUIDE WHEN EITHER HAND IS IN GRABBING RANGE.";
+    if(m->row>=QUEST_VR_MAP_X && m->row<=QUEST_VR_MAP_Z)hint="HOLD GRIP ON THE MAP TO MOVE IT. PRESS A HERE TO RESET ITS POSITION.";
+    if(m->row==QUEST_VR_GAIN_ROW)hint="ADJUST ALL GAME AUDIO IN 1 DB STEPS.";
+    if(m->row==QUEST_VR_ENGINE_ROW)hint="VIBRATION BUILDS WITH ENGINE RPM AND THROTTLE.";
+    if(m->row==QUEST_VR_GRIP_ROW)hint="ONLY HANDS HOLDING THE WHEEL FEEL ENGINE RUMBLE.";
+    if(resolution_pending && m->row==QUEST_VR_SAVE_ROW)hint="RESTART THE GAME TO APPLY YOUR EYE RESOLUTION.";
+    quest_vr_text(pixels,40,644,2,hint,0xffffd79fu);
     quest_vr_text(pixels,40,686,3,"STICK / D-PAD: SELECT + ADJUST   A: SELECT",0xffffffffu);
-    quest_vr_text(pixels,40,726,2,saved<0?"SAVE FAILED - CHECK FREE SPACE. B: BACK":"B: SAVE AND BACK TO PAUSE MENU",saved<0?0xff8888ffu:0xffc8beb4u);
+    const char *back=haptics?"B: BACK TO VR SETTINGS":"B: SAVE AND BACK TO PAUSE MENU";
+    quest_vr_text(pixels,40,726,2,saved<0?"SAVE FAILED - CHECK FREE SPACE. B: BACK":back,saved<0?0xff8888ffu:0xffc8beb4u);
 }
