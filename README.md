@@ -66,9 +66,11 @@ No Python, Java or external ISO extractor is required to run the PCVR importer.
 See the included README for system requirements. These downloads remain
 **development builds, not fully tested**, with possible bugs and performance issues.
 
-## November 6 replay and cockpit update
+## November 6 update · RPM-based engine rumble and replay cameras
 
-In **0.5.0-dev**, press either Grip to cycle replay cameras and stay in the driver's seat as the race plays back. You can also move the minimap by hand, change songs with a fingertip, adjust the seat from the door armrest, and tune mirror resolution, engine rumble and master volume. [Full changes and controls](RELEASE_NOTES.md).
+**Feel the engine RPM through your controllers.** In **0.5.0-dev**, switch on **VR Settings → Advanced Haptics / Rumble → Engine REV Rumble** for a gentle idle vibration that builds toward your car’s redline. Applying more throttle strengthens it. With **Grip Feedback** enabled, letting go of the wheel stops engine vibration in that hand.
+
+Press either Grip to cycle replay cameras and stay in the driver's seat as the race plays back. You can also move the minimap by hand, change songs with a fingertip, adjust the seat from the door armrest, and adjust mirror resolution and master volume. [Full changes and controls](RELEASE_NOTES.md).
 
 ## November 4 cockpit and cutscene update
 

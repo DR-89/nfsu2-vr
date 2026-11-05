@@ -68,8 +68,12 @@ Controls (Touch controllers):
 - In the pause menu, press X for VR Settings. Adjust Mirror Resolution,
   position the minimap on three axes, or set the manual H-Pattern Guide to
   Always, Near Shifter or Off. Its dot follows the lever.
-- Under Advanced Haptics / Rumble, enable engine vibration and choose
-  whether it follows your grip on the wheel. Master Gain adjusts all audio.
+- For RPM-based engine rumble, turn on Engine REV Rumble in VR Settings >
+  Advanced Haptics / Rumble. Feel a gentle vibration at idle that builds
+  toward your car's redline and eases when the revs drop. More throttle
+  strengthens the rumble. Grip Feedback stops it in a hand that lets go
+  of the wheel. Road and collision feedback still reach both hands.
+- Master Gain adjusts all game audio.
 - Right and left trigger travel animates the accelerator and brake. Manual
   shifts depress the clutch pedal and it returns as the shift completes.
 - October 18 steering fix: small hand-driven wheel turns now compensate for

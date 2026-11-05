@@ -1,8 +1,12 @@
 # Release notes
 
-## 0.5.0-dev · Replay cameras and cockpit controls
+## 0.5.0-dev · RPM-based engine rumble, replay cameras and cockpit controls
 
 Development prerelease for Windows x64 PCVR and standalone Meta Quest 3.
+
+### RPM-based engine rumble
+- **Engine REV Rumble** uses each car’s actual RPM, idle speed and rev limit. Feel a light vibration at idle that builds as the revs rise. More throttle makes it stronger at the same RPM. When the revs drop after an upshift, the rumble eases.
+- Turn it on in **VR Settings → Advanced Haptics / Rumble → Engine REV Rumble**. It starts off by default. With **Grip Feedback** on, releasing the wheel with one hand stops engine vibration on that side. Road and collision feedback still reach both hands.
 
 ### Replays
 - Press **Grip** on either VR controller to cycle through five original replay views and the driver's seat. Your choice stays active until the next press or the end of the replay, even with the timeline hidden. You can still look around and use the cockpit radio from the driver's seat.
@@ -16,7 +20,7 @@ Development prerelease for Windows x64 PCVR and standalone Meta Quest 3.
 
 ### Settings
 - **Mirror Resolution** offers five presets from **256×64** to **4096×1024**. The default is **1024×256**. Choose a lower resolution to reduce rendering work on standalone Quest.
-- **Advanced Haptics / Rumble** adds optional engine vibration that responds to RPM and throttle. Enable **Grip Feedback** to feel it only in the hand holding the wheel. **Master Gain** adjusts overall game audio from **−12 to +12 dB**.
+- **Master Gain** adjusts overall game audio from **−12 to +12 dB**.
 
 ### Download and update
 - **Quest 3** — Install the [Quest APK](https://github.com/DR-89/nfsu2-vr/releases/download/dev-2026-11-06/NFSU2VR-Quest3-dev-2026-11-06.apk) over the previous installation to keep your imported data and saves. Version code **7** uses the same signing certificate as 0.4.0-dev.

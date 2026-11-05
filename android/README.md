@@ -25,8 +25,10 @@ The entry is authorized only by the active root `UI_Pause.fng` package;
 race notifications, loading screens, options and confirmation dialogs cannot
 open it. Holding X before pausing requires release and a new press.
 
-- **Advanced Haptics / Rumble** opens with **A**. Turn on **Engine REV Rumble**
-  for a gentle idle vibration that grows with RPM and throttle. **Grip Feedback**
+- **RPM-based engine rumble.** Open **Advanced Haptics / Rumble** with **A**
+  and enable **Engine REV Rumble**. Vibration starts gently at idle, builds
+  toward each car’s rev limit and eases as RPM drops after an upshift.
+  More throttle makes it stronger at the same RPM. **Grip Feedback**
   starts on and limits engine vibration to each hand holding the wheel. Release
   one hand to feel the difference. Road and collision effects still reach both
   hands. A mapped gamepad uses engine rumble independently of wheel grip.
