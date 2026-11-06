@@ -115,8 +115,8 @@ static void crt_memmove(void)
 void sub_002A7EE0(void) { crt_memmove(); }
 
 /* The TrackCarCameraMover applies its final camera at 0x612CD. Intercept
- * this one call before Camera::SetMatrix computes derived position/history;
- * menus, race-intro cameras, reflections and other players keep their paths.
+ * the main driving camera and the race director's start-line camera before
+ * Camera::SetMatrix computes derived position and history.
  * US retail Car has render origin +0x50 and local-to-world axes +0x90. */
 extern void sub_00055C80_gen(void);
 #if defined(__ANDROID__) || defined(NFSU2_PCVR)
@@ -195,6 +195,11 @@ static int cockpit_replay_open(void)
 {
     uint32_t owner=MEM32(0x3f9c64u);
     return quest_rear_pointer(owner,0xd0) && MEM32(owner)==0x34d7a4u;
+}
+static int cockpit_current_race_stage(void)
+{
+    uint32_t director=MEM32(0x449478u);
+    return quest_rear_pointer(director,4)?(int)MEM32(director):0;
 }
 static int cockpit_replay_camera_context(uint32_t manager)
 {
@@ -296,8 +301,7 @@ static int cockpit_grid_gears(uint32_t car)
 static void cockpit_grid_update(void)
 {
     if(cockpit_replay_open())return;
-    uint32_t director=MEM32(0x449478u);
-    int stage=quest_rear_pointer(director,4)?(int)MEM32(director):0;
+    int stage=cockpit_current_race_stage();
     if(!quest_shifter_before_start(stage) && !quest_xr_shifter_grid_car())return;
     uint32_t car=cockpit_local_car();
     int gear=quest_xr_shifter_stage(car,stage,stage,cockpit_grid_gears(car));
@@ -447,7 +451,7 @@ void sub_00055C80(void)
      * eView 3. Move its capture origin to the reflected tracked head; the
      * retail mover still controls orientation, projection and visibility. */
     if(camera==0x003efb20u && MEM32(esp)==0x00059a2eu && cockpit_player_car &&
-       quest_xr_cockpit_requested() && quest_cockpit_window_address(esi,0x30) &&
+       quest_xr_cockpit_active() && quest_cockpit_window_address(esi,0x30) &&
        MEM32(esi+0x2c)==cockpit_player_car && quest_cockpit_window_address(target,64)) {
         float front[16],rear[16],rotation[12],pos[3],zero[3]={0};
         QuestMirrorCamera source;
@@ -486,14 +490,17 @@ void sub_00055C80(void)
         if(quest_rear_pointer(car,0x600) && !cockpit_replay_camera_selected(MEM32(0x449414u)))
             cockpit_restore_camera(mover,car);
     }
-    /* A standing-start director can temporarily replace the driving mover.
-     * Keep the selected cockpit and the fitted knob visible for the local
-     * player while the camera moves through the grid. */
-    if(main_camera && MEM32(0x00428e34u)==6 && !cockpit_replay_open()) {
-        uint32_t grid_car=quest_xr_shifter_grid_car();
-        if(grid_car && grid_car==cockpit_local_car()) {
-            car=grid_car;
-            if(!quest_xr_cockpit_requested())quest_xr_cockpit_select(1);
+    /* Retail enters stage 1 for the roll-in (0x1FA8FD), then stages 2/3
+     * for the grid/countdown. The cinematic mover can target an opponent.
+     * Fit our seat to the local car, independently of transmission or speed.
+     * Stage 4 hands the view back to the player's chosen driving camera. */
+    int startline=0;
+    if(main_camera && MEM32(0x428e34u)==6 && MEM32(0x3cc470u) &&
+       quest_xr_enabled() && quest_xr_cockpit_enabled() && !cockpit_replay_open()) {
+        int stage=cockpit_current_race_stage();
+        if(stage>=1 && stage<=3) {
+            car=cockpit_local_car();
+            startline=1;
         }
     }
     if(quest_rear_pointer(car,0x600) && quest_rear_pointer(target,64)) {
@@ -520,7 +527,7 @@ void sub_00055C80(void)
         /* User seat offsets belong to the common XR eye transform.
          * Keep the game's base camera stable for body/mirror identity. */
         available=quest_cockpit_view(matrix,rotation,position,fit->seat);
-        if(available && quest_xr_cockpit_requested()) {
+        if(available && (startline || quest_xr_cockpit_requested())) {
             memcpy(saved,(const void *)XBOX_PTR(target),sizeof saved);
             memcpy((void *)XBOX_PTR(target),matrix,sizeof matrix);
             /* Keep the original body and hood. The fitted cabin asset
@@ -690,7 +697,7 @@ static void cockpit_hud_package_begin(void)
     if(caller!=0x14311cu || !cockpit_player_car || MEM32(0x428e34u)!=6 ||
        MEM32(package+0x10)!=0x26691d4au || !MEM8(renderer+6))return;
     int ui=quest_xr_cockpit_menu_active();
-    if(quest_xr_cockpit_requested() && quest_xr_cockpit_active() && (ui==QUEST_UI_HUD || ui==QUEST_UI_REPLAY))
+    if(quest_xr_cockpit_active() && (ui==QUEST_UI_HUD || ui==QUEST_UI_REPLAY))
         MEM8(renderer+6)=0;
 }
 /* Use the same EA TRAX player as the retail jukebox (0x174A2D). Its
@@ -937,7 +944,7 @@ void sub_000A1800(void)
         if(!racing || (restored_mover && MEM32(0x003f5b74u)!=restored_mover+4))
             restored_mover=restored_car=0;
         int change=quest_rear_update(&owned_rear_camera,cockpit_ui_read,NULL,
-            cockpit_rear_camera,quest_xr_cockpit_requested());
+            cockpit_rear_camera,quest_xr_cockpit_requested() || quest_xr_cockpit_active());
         if(change)
             fprintf(stderr,"[Cockpit] rear-camera lifetime %s: manager=%08x mover=%08x\n",
                 change>0?"attached":"released",owned_rear_camera.manager,owned_rear_camera.rear_mover);
@@ -968,7 +975,7 @@ void sub_000A1800(void)
             cockpit_guest_call(sub_000BF7C0,owner,0xeeb69u,0,0,0);
         cockpit_radio(MEM32(0x00428e34u)==6 &&
                       (menu==QUEST_UI_REPLAY || (menu==QUEST_UI_HUD && !MEM8(0x0040245cu))),
-                      menu==QUEST_UI_REPLAY,quest_xr_cockpit_requested());
+                      menu==QUEST_UI_REPLAY,quest_xr_cockpit_active());
     }
     quest_xr_pause_publish(MEM32(0x00428e34u)==6 &&
                            quest_cockpit_ui_paused(cockpit_ui_read,NULL));
@@ -1076,7 +1083,7 @@ void sub_000A33F0(void)
      * The builder uses this argument for both the projection and all six
      * visibility planes, even when the mover specifies a longer distance. */
     if(MEM32(esp)==0x000aeb81u && view==0x003f5c10u && id==3 && camera==0x003efb20u &&
-       cockpit_player_car && quest_xr_cockpit_requested())
+       cockpit_player_car && quest_xr_cockpit_active())
         MEMF(esp+12)=QUEST_MIRROR_REAR_FAR;
 #ifdef NFSU2_PCVR
     if(id==1) pcvr_cull_trace_frame();

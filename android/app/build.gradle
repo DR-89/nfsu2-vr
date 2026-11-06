@@ -8,8 +8,8 @@ android {
         applicationId 'org.nfsu2.quest'
         minSdk 30
         targetSdk 32
-        versionCode 8
-        versionName '0.6.0-dev'
+        versionCode 9
+        versionName '0.6.1-dev'
         ndk { abiFilters 'arm64-v8a' }
     }
     sourceSets.main {

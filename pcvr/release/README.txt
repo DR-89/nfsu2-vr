@@ -39,6 +39,8 @@ Controls (Touch controllers):
 - Steam Link: hold Y on the left Touch controller for 0.65 seconds while
   driving to pause. Tap Y for its usual action. Gamepad Start also pauses.
 - Right stick click: cycle cameras, including entering/leaving Cockpit View.
+- You ride in the cockpit on the way to the starting line and throughout the
+  countdown with either transmission. At GO, your saved driving view takes over.
 - Left stick click: hold rear view outside the cockpit; disabled inside it.
 - Both stick clicks: recenter the view and release wheel grips.
 - A: nitro while driving. B: handbrake while driving.

@@ -151,8 +151,9 @@ button or long press. Both stick clicks recenter.
 One anthracite/blue cabin currently serves all cars. Dashboard, both door
 interiors, front seats, rear bench and floor come from one Tripo
 model, with existing trim refitted for VR. The rim and hub rotate with steering
-input. The race HUD is positioned above the dashboard. Menus and race-intro
-cameras retain their original behavior. Native geometry is bundled in the APK;
+input. The race HUD is positioned above the dashboard. The approach to the
+starting line and the countdown use the cockpit with either transmission.
+At the starting signal the race uses your last driving camera. Native geometry is bundled in the APK;
 no additional import of cockpit files is required.
 
 The wheel turns up to 180 degrees left or right (360 degrees lock to lock). The current eye is at

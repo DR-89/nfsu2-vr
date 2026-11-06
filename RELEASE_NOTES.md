@@ -1,5 +1,19 @@
 # Release notes
 
+## 0.6.1-dev · Starting-line cockpit view
+
+You now see the approach to the starting line from the driver's seat as your car rolls onto the grid. You stay in the cockpit throughout the countdown. At **GO**, the game uses your saved racing camera. If you normally drive in the cockpit, you stay there as the race begins.
+
+This works with both automatic and manual transmission on **Windows PCVR** and **Meta Quest 3 standalone**.
+
+### Downloads
+- **Windows PCVR** — Extract the [PCVR ZIP](https://github.com/DR-89/nfsu2-vr/releases/download/dev-2026-11-06-r3/NFSU2VR-PCVR-dev-2026-11-06-r3.zip) into a writable folder, keep your existing `game/` and `Music/` folders, and run `Start-PCVR.cmd`.
+- **Quest 3** — Install the [Quest APK](https://github.com/DR-89/nfsu2-vr/releases/download/dev-2026-11-06-r3/NFSU2VR-Quest3-dev-2026-11-06-r3.apk) over your existing installation. Version code 9 uses the same signing certificate as 0.6.0-dev.
+
+Both builds require your own original Xbox USA / NTSC-U game data. The camera transition was checked in an automated PCVR test with both transmissions and with cockpit and external driving views. An in-headset check of the final Quest build is still pending.
+
+---
+
 ## 0.6.0-dev · Custom radio, cockpit video and interior lighting
 
 ### Radio and video

@@ -180,7 +180,9 @@ For a standing start with manual transmission and VR controllers, the lever
 starts in neutral. Hold Grip, move it to the left rail, and push fully forward
 to engage first. You can seat the lever during the countdown.
 
-The next race restores your last camera, including Cockpit View. In the
+The approach to the starting line and the countdown use Cockpit View, with
+either transmission. At the starting signal the race uses your last driving
+camera, including Cockpit View. In the
 pause menu, press **X** to open **VR Settings**. **Mirror
 Resolution** adjusts the shared rear camera from 256×64 to 4096×1024, with
 1024×256 as the default. To move the minimap in the cockpit, reach for it with

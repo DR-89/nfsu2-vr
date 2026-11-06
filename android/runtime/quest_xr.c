@@ -503,7 +503,7 @@ void quest_xr_mirror_camera(uint32_t car,QuestMirrorCamera *camera,float view[16
 {
     uint32_t now=SDL_GetTicks();
     pthread_mutex_lock(&input_lock);
-    if(cockpit_car==car && cockpit_active && cockpit_requested) {
+    if(cockpit_car==car && cockpit_active) {
         if(car==rear_request_car && now-rear_request_tick<400) {
             float delta[3];
             for(int k=0;k<3;++k)delta[k]=rear_requested_origin[k]-camera->origin[k];
@@ -913,7 +913,7 @@ static void update_matrices(void)
         const float *seat=quest_cockpit_vehicle(mirror_vehicle)->seat;
         source[0]-=seat[1];source[1]+=seat[2];source[2]-=seat[0];
         pthread_mutex_lock(&input_lock);
-        if(cockpit_active && cockpit_requested && mirror_epoch==mirror_seen_epoch) {
+        if(cockpit_active && mirror_epoch==mirror_seen_epoch) {
             memcpy(rear_requested_origin,source,sizeof source);
             rear_request_car=cockpit_car;rear_request_tick=SDL_GetTicks();
         }
@@ -1201,7 +1201,7 @@ static void poll_wheel_grips(void)
     /* A temporary invalid head/hand pose freezes grip motion. Only an actual
      * focus/camera/recenter change resets ownership and requires a regrip. */
     int in_cabin=frame_focused && recentered && wheel_configured && !vr_menu.open &&
-                 quest_xr_cockpit_requested() && quest_xr_cockpit_active();
+                 quest_xr_cockpit_active();
     int cabin_input=in_cabin && !vr_gamepad_selected;
     int ui=quest_xr_cockpit_menu_active();
     int active=cabin_input && ui==QUEST_UI_HUD;

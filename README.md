@@ -45,14 +45,14 @@ the tree; the focus of this development publication is PCVR and Meta Quest 3.
 
 ## Development downloads
 
-The [current development release](https://github.com/DR-89/nfsu2-vr/releases/tag/dev-2026-11-06-r2)
+The [current development release](https://github.com/DR-89/nfsu2-vr/releases/tag/dev-2026-11-06-r3)
 includes:
 
-- [Meta Quest 3 APK](https://github.com/DR-89/nfsu2-vr/releases/download/dev-2026-11-06-r2/NFSU2VR-Quest3-dev-2026-11-06-r2.apk):
+- [Meta Quest 3 APK](https://github.com/DR-89/nfsu2-vr/releases/download/dev-2026-11-06-r3/NFSU2VR-Quest3-dev-2026-11-06-r3.apk):
   sideload the development APK, then use its setup panel to import your own
   supported Xbox USA ZIP, 7z or ISO/XISO.
   Follow the [Quest installation guide](#installing-on-meta-quest-3) below.
-- [Windows PCVR package](https://github.com/DR-89/nfsu2-vr/releases/download/dev-2026-11-06-r2/NFSU2VR-PCVR-dev-2026-11-06-r2.zip):
+- [Windows PCVR package](https://github.com/DR-89/nfsu2-vr/releases/download/dev-2026-11-06-r3/NFSU2VR-PCVR-dev-2026-11-06-r3.zip):
   extract the whole ZIP to a writable folder and run **Start-PCVR.cmd**.
   If game data is missing, **Game data setup** opens automatically. Select your
   Xbox USA ISO/XISO; progress and cancellation are available. All 12 required
@@ -65,6 +65,10 @@ OpenXR runtime separately. For Steam Link, connect to SteamVR and run `Start-PCV
 No Python, Java or external ISO extractor is required to run the PCVR importer.
 See the included README for system requirements. These downloads remain
 **development builds, not fully tested**, with possible bugs and performance issues.
+
+## 0.6.1-dev · Starting-line cockpit view
+
+Ride up to the starting line in the driver's seat with automatic or manual transmission. The cockpit view stays with your car through the countdown. At **GO**, your saved racing camera takes over. [Release notes](RELEASE_NOTES.md).
 
 ## 0.6.0-dev · Custom radio, cockpit video and interior lighting
 
