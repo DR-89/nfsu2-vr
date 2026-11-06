@@ -45,6 +45,13 @@ static inline void quest_shifter_knob(const QuestShifter *s,int vehicle,float p[
     p[0]+=s->x;p[2]+=s->z;
 }
 
+static inline int quest_shifter_in_reach(const QuestShifter *s,int vehicle,const float hand[3])
+{
+    float knob[3];quest_shifter_knob(s,vehicle,knob);
+    float dx=hand[0]-knob[0],dy=hand[1]-knob[1],dz=hand[2]-knob[2];
+    return dx*dx+dy*dy+dz*dz<=.065f*.065f;
+}
+
 /* Return a request only on changing detents. Moving sideways is possible in
  * the neutral crossbar. Pulling diagonally against an engaged rail stays on
  * that rail until the hand returns to (or crosses) the middle. */
@@ -105,9 +112,7 @@ static inline int quest_shifter_update(QuestShifter *s,uint32_t now,int vehicle,
         float x=pos[h][0],z=pos[h][2];
         if(!held) {
             if(s->hand || busy[h] || s->blocked[h])continue;
-            float knob[3];quest_shifter_knob(s,vehicle,knob);
-            float dx=x-knob[0],dy=pos[h][1]-knob[1],dz=z-knob[2];
-            if(!(dx*dx+dy*dy+dz*dz<=.065f*.065f))continue;
+            if(!quest_shifter_in_reach(s,vehicle,pos[h]))continue;
             s->at_lever=1;
             if(squeeze[h]<.65f)continue;
             s->hand=h+1;s->squeeze_tick=now;s->rebase=1;

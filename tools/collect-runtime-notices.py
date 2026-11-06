@@ -14,7 +14,7 @@ def main():
         ('xboxrecomp license', ROOT / 'xboxrecomp/LICENSE'),
         ('xboxrecomp third-party attribution', ROOT / 'xboxrecomp/NOTICE'),
         ('LGPL 2.1', ROOT / 'xboxrecomp/LICENSES/LGPL-2.1.txt'),
-        ('FFmpeg 7.1.5 (VP6 video decoder), https://ffmpeg.org', ROOT / 'build/deps/FFmpeg/COPYING.LGPLv2.1'),
+        ('FFmpeg 7.1.5 (video and music decoders), https://ffmpeg.org', ROOT / 'build/deps/FFmpeg/COPYING.LGPLv2.1'),
         ('SDL', ROOT / 'build/deps/SDL/LICENSE.txt'),
         ('SDL yuv2rgb', ROOT / 'build/deps/SDL/src/video/yuv2rgb/LICENSE'),
         ('SDL HIDAPI', ROOT / 'build/deps/SDL/src/hidapi/LICENSE.txt'),

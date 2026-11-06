@@ -11,8 +11,9 @@ $gitRoot=(git --exec-path) -replace '[/\\]mingw64[/\\]libexec[/\\]git-core$',''
 $usr=Join-Path $gitRoot 'usr/bin'
 $bash=Join-Path $usr 'bash.exe'
 if(!(Test-Path -LiteralPath $bash)){throw 'The VP6 build needs Git for Windows with Bash.'}
-$options=@('--disable-everything','--enable-decoder=vp6','--disable-avformat','--disable-avdevice',
-    '--disable-avfilter','--disable-swscale','--disable-swresample','--disable-programs','--disable-doc',
+$options=@('--disable-everything','--enable-decoder=vp6,h264,aac,mp3float,flac,pcm_s16le,pcm_s24le,pcm_s32le,pcm_u8,pcm_f32le',
+    '--enable-demuxer=mp3,wav,flac,mov','--enable-parser=mpegaudio,flac,h264,aac','--enable-protocol=file','--disable-avdevice',
+    '--disable-avfilter','--enable-swscale','--disable-programs','--disable-doc',
     '--disable-network','--disable-pthreads','--disable-debug','--disable-autodetect','--enable-static',
     '--disable-shared','--enable-pic')
 if($Target -eq 'pcvr'){
@@ -28,7 +29,7 @@ if($Target -eq 'pcvr'){
         '--nm=llvm-nm','--strip=llvm-strip')
 }
 $stamp=Join-Path $work 'vp6-build.txt'
-$recipe="$revision | $toolId | $($options -join ' ')"
+$recipe="2 | $revision | $toolId | $($options -join ' ')"
 
 # Both platforms use the same read-only sources and Git Bash's MSYS runtime.
 $lock=[Threading.Mutex]::new($false,'Local\NFSU2VR-VP6-Build')
@@ -40,6 +41,8 @@ try {
     try{$held=$lock.WaitOne()}catch [Threading.AbandonedMutexException]{$held=$true}
     if((Test-Path $stamp) -and (Get-Content $stamp -Raw).Trim() -eq $recipe -and
        (Test-Path "$work/libavcodec/libavcodec.a") -and (Test-Path "$work/libavutil/libavutil.a") -and
+       (Test-Path "$work/libavformat/libavformat.a") -and (Test-Path "$work/libswresample/libswresample.a") -and
+       (Test-Path "$work/libswscale/libswscale.a") -and
        (Test-Path "$work/src/libavcodec/avcodec.h")){return}
     if(Test-Path -LiteralPath $stamp){Remove-Item -LiteralPath $stamp}
     if(!(Test-Path $src)){
@@ -75,6 +78,10 @@ try {
     try {
         & $bash src/configure @options *> configure.log
         if($LASTEXITCODE){Get-Content configure.log -Tail 12;throw "VP6 configure failed. See $work/ffbuild/config.log"}
+        # MSVC's generated .d files can be empty on a localized toolchain.
+        # Rebuild the codec/format registries whenever the recipe changes.
+        & $make clean *> clean.log
+        if($LASTEXITCODE){throw "FFmpeg clean failed. See $work/clean.log"}
         & $make "-j$Jobs" *> make.log
         if($LASTEXITCODE){Get-Content make.log -Tail 15;throw "VP6 build failed. See $work/make.log"}
         Set-Content -LiteralPath $stamp -Value $recipe

@@ -1,5 +1,27 @@
 # Release notes
 
+## 0.6.0-dev · Custom radio, cockpit video and interior lighting
+
+### Radio and video
+- Put MP3, FLAC, PCM WAV or H.264 MP4 files in `Music` and restart the game. On Windows the folder is beside `nfsu2-pcvr.exe`. On Quest it is `Android/data/org.nfsu2.quest/files/Music` in shared storage. During driving and replays, the radio shuffles the files together. MP4 videos can have AAC audio or play silently.
+- The larger 16:9 screen above the radio plays video and shows a 16-band spectrum for audio-only tracks and EA TRAX. The screen and touch controls sit deeper in the center console for more clearance around the shifter.
+- **VR Settings → Radio Soundtrack** offers **Auto**, **Custom Only** and **EA TRAX Only**. Auto keeps EA TRAX in menus. Custom Only also silences the original menu music when you have playable custom files. An empty or unreadable library falls back to EA TRAX.
+
+### Cockpit, mirrors and minimap
+- The darker cabin has LED strips around the instruments, dashboard, doors, shifter and rear shelf. Pick one of eight colors. **Pulse to Music** switches between reactive and steady lighting. **Interior LED Strips** turns the strips off. The music drives both the spectrum and LED pulse at every radio volume, including mute.
+- Each car recalls its own mirror angles. In a replay, click the **right stick** to cycle through five replay cameras and the driver's seat. In the driver's seat, hold **Grip** on a mirror to adjust it as the replay runs.
+- Grab the minimap with either hand to move it. Tilt or turn your wrist for up to 45° of pitch and yaw. Release **Grip** to save the placement. Existing placements carry over. The five minimap adjustment rows have been removed from VR Settings.
+
+### Downloads
+- **Windows x64 PCVR** — Extract the [PCVR ZIP](https://github.com/DR-89/nfsu2-vr/releases/download/dev-2026-11-06-r2/NFSU2VR-PCVR-dev-2026-11-06-r2.zip) in a writable folder. Keep your existing `game/` and `Music/` folders. Launch `Start-PCVR.cmd`, or `Start-PCVR.cmd -SteamVR` for Steam Link.
+- **Meta Quest 3 standalone** — Install the [Quest APK](https://github.com/DR-89/nfsu2-vr/releases/download/dev-2026-11-06-r2/NFSU2VR-Quest3-dev-2026-11-06-r2.apk) over 0.5.0-dev to keep imported data and saves. This is version code 8, signed with the same certificate as 0.5.0-dev.
+
+Both builds require your own original Xbox USA / NTSC-U game data. Matching port and FFmpeg sources, build information and SHA-256 checksums are attached.
+
+**Verification.** All 25 Windows test executables, 32 Android importer tests and 13 Python input tests passed. Media tests covered MP3, FLAC, WAV, H.264 video with and without audio, and spectrum and LED response at full, low and muted volume. The current PCVR executable reached a focused OpenXR session. Standalone Quest headset testing of this release is still pending.
+
+---
+
 ## 0.5.0-dev · RPM-based engine rumble, replay cameras and cockpit controls
 
 Development prerelease for Windows x64 PCVR and standalone Meta Quest 3.

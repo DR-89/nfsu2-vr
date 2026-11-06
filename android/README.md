@@ -484,19 +484,18 @@ tests cover held input, entry from menus, axis noise, timers wrapping and
 Hold Grip on the center mirror or either outside mirror. Tilt your wrist or
 push the edge of the glass. The outside mirrors turn inward or outward together
 and share a vertical tilt. The center mirror adjusts independently. Releasing
-Grip saves the angles for this vehicle. Select **Reset Car Mirrors** in VR
-Settings to restore all three to their normal aim for the current seat.
+Grip saves the angles for this model. Switching back to it restores those
+angles, including after a restart. A new model starts with its mirrors aimed
+for its own glass positions and your configured seat. Select **Reset Car Mirrors**
+in VR Settings to restore that aim for all three mirrors on the current model.
 The next race restores your last driving camera, including Cockpit View.
-A car with its own mirror setup recalls it. A car without one starts with the
-last setup you used.
 
 Press **X** in the pause menu to open **VR Settings**. **Mirror Resolution**
 sets the shared rear camera to 256×64, 512×128, 1024×256 (default),
 2048×512 or 4096×1024. The smaller sizes reduce the pixel cost on standalone.
 To move the minimap while driving, reach for it with either free hand,
-hold **Grip**, and move it into place. Release Grip to save its position.
-The three minimap rows also let you fine-tune it in 2 cm steps. Press **A**
-on any minimap row to return the map to the center console.
+hold **Grip**, and move it into place. Tilt or turn your wrist to adjust pitch
+and yaw by up to 45° from the console mount. Release Grip to save the position and tilt.
 In career free roam, reach for the minimap until its rim turns blue. Tap **A**
 with the right hand or **X** with the left hand at the minimap to open the
 world map. Press **B** to return to the cockpit.
@@ -511,9 +510,36 @@ Each tap moves the seat forward, back, up or down by 1 cm and saves the position
 
 In a cockpit replay the radio remains available. Tap **B** (Circle on a
 PlayStation pad) to hide or show the replay timeline. A long press passes B
-through to the game's replay controls. Press **Grip** on either controller
-to cycle through the five replay views and the driver's seat. The chosen
-view stays active until the next press or the end of the replay.
+through to the game's replay controls. Click the **right stick** to cycle
+through the five replay views and the driver's seat. In the driver's seat,
+hold Grip on a mirror to aim it while the replay runs. Click both sticks
+together to recenter.
+
+Put your own music (MP3, FLAC or PCM WAV) and videos (H.264 MP4 with AAC
+audio or no audio) in `Android/data/org.nfsu2.quest/files/Music` on the
+headset's shared storage. The game creates this folder on launch. Restart
+after adding files. Music and videos shuffle together during driving and
+replay. The 16:9 screen above the radio fits the center console (23–30 cm
+wide, depending on the car). It plays videos and shows a 16-band spectrum
+for audio-only tracks and EA TRAX. Use the radio to pause, skip or
+adjust volume. The spectrum and LED pulse follow the playing track at every
+radio volume, including mute. Pausing playback stops both animations.
+An empty folder selects EA TRAX.
+
+In **VR Settings → Radio Soundtrack**, **Custom Only** mutes EA TRAX during
+driving, replays and menus when the player finds a playable custom track.
+Custom files play during driving and replays. An empty or unreadable library
+falls back to EA TRAX. **Auto** (default) keeps the original menu music.
+Select **EA TRAX Only** to hear the original soundtrack with files still in
+your Music folder.
+
+The interior LEDs trace the instrument hood, windshield base, dashboard, door
+trim, shifter surround and rear shelf. By default they glow cyan and pulse
+with the radio, including video audio. Pause and press **X** for **VR Settings**.
+Turn **Pulse to Music** off for steady light, or turn **Interior LED Strips**
+off to darken all the strips. **LED Color** selects one of eight colors.
+The game saves the color and pulse setting even when the strips are off.
+
 With manual transmission, a guide above
 the shifter shows the installed gear slots and a moving dot for the lever.
 In VR Settings, set **H-Pattern Guide** to **Always** (the default),

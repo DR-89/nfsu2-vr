@@ -51,6 +51,7 @@
 #include "quest_shifter.h"
 #include "quest_rear_camera.h"
 #include "vr_replay.h"
+#include "vr_music.h"
 #include <time.h>
 #endif
 
@@ -497,17 +498,15 @@ void sub_00055C80(void)
     }
     if(quest_rear_pointer(car,0x600) && quest_rear_pointer(target,64)) {
         float rotation[12], position[3], matrix[16];
-        /* Car+0x0c points at a fixed 32-byte car-type name. Cache only
-         * immutable fit metadata; never infer the active car from size. */
-        static uint32_t fitted_car,fitted_type;
+        /* Car and type addresses can be reused when changing vehicles. */
+        static char fitted_name[33];
         static int fitted_index;
-        uint32_t type=MEM32(car+0x0c),type_address=type&0x7fffffffu;
-        if(car!=fitted_car || type!=fitted_type) {
-            char name[33]={0};
-            if(type_address>=0x10000 && type_address<0x03ffffe0)
-                memcpy(name,(const void *)XBOX_PTR(type),32);
+        uint32_t type=MEM32(car+0x0c);
+        char name[33]={0};
+        if(quest_rear_pointer(type,32))memcpy(name,(const void *)XBOX_PTR(type),32);
+        if(strcmp(name,fitted_name)) {
             fitted_index=quest_cockpit_vehicle_index(name);
-            fitted_car=car;fitted_type=type;
+            memcpy(fitted_name,name,sizeof fitted_name);
             const QuestCockpitVehicle *fit=quest_cockpit_vehicle(fitted_index);
             fprintf(stderr,"[Cockpit] vehicle fit %s: seat %.3f %.3f %.3f, cabin %.3f %.3f %.3f\n",
                 fit->name,fit->seat[0],fit->seat[1],fit->seat[2],fit->near_width,fit->far_width,fit->front_depth);
@@ -783,12 +782,46 @@ static const QuestRadioSong *cockpit_radio_song(int index)
     }
     return &song;
 }
-static void cockpit_radio(int driving,int replay)
+/* Follow the EA stream's active sound handle (0x2723A7 / 0x275F86).
+ * Its channel list at +4 contains the voice IDs used by 0x27577E.
+ * The software mixer walks the corresponding 0x5C-byte records at 0x279884. */
+static void cockpit_radio_voices(uint32_t stream,uint32_t voices[2])
+{
+    uint32_t slot=MEM32(stream+0x18),state=MEM32(stream+0x10);
+    if(slot>=MEM8(0x46a346u) || !quest_rear_pointer(state,8) || MEM32(0x469ed0u+4*slot)!=state)return;
+    uint32_t handle=MEM32(state+4),id=handle&255u,table=MEM32(0x46a4d4u);
+    unsigned first=MEM8(0x46a335u),soft=MEM8(0x46a670u);
+    uint32_t base=MEM32(0x46a848u);
+    if(id>=MEM16(0x46a474u) || !quest_rear_pointer(table,(id+1)*0x90) || !soft || !quest_rear_pointer(base,soft*0x5c))return;
+    uint32_t sound=table+id*0x90;
+    unsigned channels=MEM8(sound+0x23);
+    if(MEM32(sound)!=handle || !MEM8(sound+0x6d) || !channels || channels>2)return;
+    for(unsigned ch=0;ch<channels;++ch) {
+        unsigned index=MEM16(sound+4+2*ch)-first;
+        if(index<soft)voices[ch]=base+index*0x5c;
+    }
+}
+
+/* At 0x2798D2 the mixer renders one channel into a temporary float buffer
+ * (16-bit PCM units). Its per-speaker gains are applied later at 0x279942. */
+static void cockpit_radio_channel(recomp_func_t render)
+{
+    uint32_t voice=esi,capacity=MEM32(esp+8),dest=MEM32(esp+16);
+    render();
+    uint32_t frames=eax;
+    if(frames && frames<=capacity && frames<=4096 && quest_rear_pointer(dest,frames*sizeof(float)))
+        vr_music_stock_samples(voice,(const float *)XBOX_PTR(dest),frames);
+}
+static void cockpit_radio_resampled(void) { cockpit_radio_channel(sub_0027BA23); }
+static void cockpit_radio_decoded(void) { cockpit_radio_channel(sub_0027C5EB); }
+
+static void cockpit_radio(int driving,int replay,int cockpit)
 {
     static uint32_t paused_player,owner,owner_handle;
+    static uint32_t custom_player,custom_handle,custom_voice;
     static int requested=-1,submitted,last_played=-1;
     uint32_t system=MEM32(0x391f84u),stream=MEM32(0x3e5afcu),player=0;
-    if((driving || paused_player) && quest_rear_pointer(system,0x94) && quest_rear_pointer(stream,0x1a4) &&
+    if(quest_rear_pointer(system,0x94) && quest_rear_pointer(stream,0x1a4) &&
        MEM32(system+0x38)==0x406ce8u)
         player=MEM32(system+0x90);
     int live=quest_rear_pointer(player,0xd4) && MEM32(player)==0x346744u;
@@ -801,7 +834,7 @@ static void cockpit_radio(int driving,int replay)
     /* Replay can retain the current track in retail's pause state (5).
      * +0xc4 is the previous transport state saved by 0x8ed5d. */
     unsigned previous=mode==5?MEM32(player+0xc4):0;
-    int valid=driving && race && voice && (mode==3 || mode==6 || (replay && (previous==3 || previous==6)));
+    int valid=cockpit_player_car && cockpit && driving && race && voice && (mode==3 || mode==6 || (replay && (previous==3 || previous==6)));
     int paused=voice && MEM8(voice+3);
     if(paused_player && (!race || player!=paused_player)) {
         if(live && player==paused_player && paused==1 && !MEM8(player+0xa6))
@@ -809,7 +842,33 @@ static void cockpit_radio(int driving,int replay)
         paused_player=0;
     }
     float volume=MEMF(0x406cf4u);
-    float level=volume<=QUEST_RADIO_SILENT_GAIN?0.f:volume;
+    /* Retail's options can also supply exact zero. Keep the song clock
+     * running in the cockpit with the same inaudible gain as the VR slider. */
+    if(volume==0.f && cockpit && driving && race)MEMF(0x406cf4u)=QUEST_RADIO_SILENT_GAIN;
+    float level=isfinite(volume) && volume>QUEST_RADIO_SILENT_GAIN?volume:0.f;
+    QuestRadioSong custom_song={0};
+    int custom_paused=0;
+    VrRadioPlayback playback=vr_music_update(driving && race,!voice || paused,level,&custom_song,&custom_paused);
+    int custom=playback==VR_RADIO_CUSTOM;
+    int mute_original=playback!=VR_RADIO_ORIGINAL;
+    /* Only take ownership of a playing retail music voice. Leave pauses
+     * imposed by the frontend or the player to their original owner. */
+    if(custom_player && (!mute_original || player!=custom_player || handle!=custom_handle || voice!=custom_voice)) {
+        int resume_pending=0;
+        if(live && player==custom_player && handle==custom_handle && voice==custom_voice && paused && !paused_player) {
+            if(!MEM8(player+0xa6) && MEM32(player+0xc0)!=5) {
+                cockpit_guest_call(sub_00282630,0,0x8e997u,2,handle,0);
+                paused=MEM8(voice+3)!=0;
+            }
+            /* Retry after a frontend pause or a busy sequencer. */
+            resume_pending=paused;
+        }
+        if(!resume_pending)custom_player=0;
+    }
+    if(mute_original && voice && !paused) {
+        cockpit_guest_call(sub_00282630,0,0x8e997u,2,handle,1);
+        if(MEM8(voice+3)) {custom_player=player;custom_handle=handle;custom_voice=voice;}
+    }
     if(!valid || owner!=player || owner_handle!=handle){requested=last_played=-1;submitted=0;}
     owner=valid?player:0;owner_handle=handle;
     /* The polled sample node (+0) can survive a stop. Retail tests the
@@ -817,19 +876,29 @@ static void cockpit_radio(int driving,int replay)
     int playing=-1;
     if(valid && MEM32(stream+0x178)==handle)
         playing=quest_radio_playing(MEM32(0x3e5140u),MEM32(0x3e5164u),MEM16(voice+0x36));
+    int spectrum_track=!mute_original && !paused && !paused_player?playing:-1;
+    uint32_t voices[2]={0};
+    if(spectrum_track>=0)cockpit_radio_voices(stream,voices);
+    vr_music_stock_track(spectrum_track,voices[0],voices[1]);
     if(playing>=0)last_played=playing;
     if(submitted && playing==requested){requested=-1;submitted=0;}
-    QuestRadioCommand cmd=quest_xr_radio_exchange(valid?cockpit_player_car:0,level,
-        paused_player!=0 || paused,cockpit_radio_song(playing));
-    if(!valid)return;
-    int current=requested>=0?requested:(last_played>=0?last_played:(int32_t)MEM32(player+0x14));
-    uint32_t playlist=MEM32(player+0x8c);
+    int interactive=valid || (custom && cockpit);
+    QuestRadioCommand cmd=quest_xr_radio_exchange(interactive?cockpit_player_car:0,level,
+        custom?custom_paused:(paused_player!=0 || paused),custom?&custom_song:cockpit_radio_song(playing));
+    if(!interactive)return;
     if(cmd.action==QUEST_RADIO_VOLUME) {
         if(isfinite(cmd.volume) && cmd.volume>=0 && cmd.volume<=1 && quest_radio_volume_changed(level,cmd.volume)) {
             MEMF(0x406cf4u)=quest_radio_mix_gain(cmd.volume);
             cockpit_guest_call(sub_00076A70,system,0xb4a2du,1,0x406ce8u,0);
         }
-    } else if(cmd.action==QUEST_RADIO_PREV || cmd.action==QUEST_RADIO_NEXT) {
+    }
+    if(custom) {
+        if(cmd.action && cmd.action!=QUEST_RADIO_VOLUME)vr_music_command(cmd.action);
+        return;
+    }
+    int current=requested>=0?requested:(last_played>=0?last_played:(int32_t)MEM32(player+0x14));
+    uint32_t playlist=MEM32(player+0x8c);
+    if(cmd.action==QUEST_RADIO_PREV || cmd.action==QUEST_RADIO_NEXT) {
         requested=quest_radio_track(current,playlist,cmd.action==QUEST_RADIO_NEXT?1:-1);
         submitted=0;
         if(requested>=0)paused_player=0;
@@ -897,8 +966,9 @@ void sub_000A1800(void)
         if(owner && camera_steps)cockpit_replay_camera_next(MEM32(0x449414u),camera_steps);
         if(quest_xr_take_replay_toggle(owner))
             cockpit_guest_call(sub_000BF7C0,owner,0xeeb69u,0,0,0);
-        cockpit_radio(cockpit_player_car && MEM32(0x00428e34u)==6 && quest_xr_cockpit_requested() &&
-                      (menu==QUEST_UI_REPLAY || (menu==QUEST_UI_HUD && !MEM8(0x0040245cu))),menu==QUEST_UI_REPLAY);
+        cockpit_radio(MEM32(0x00428e34u)==6 &&
+                      (menu==QUEST_UI_REPLAY || (menu==QUEST_UI_HUD && !MEM8(0x0040245cu))),
+                      menu==QUEST_UI_REPLAY,quest_xr_cockpit_requested());
     }
     quest_xr_pause_publish(MEM32(0x00428e34u)==6 &&
                            quest_cockpit_ui_paused(cockpit_ui_read,NULL));
@@ -2866,6 +2936,8 @@ recomp_func_t recomp_lookup_manual(uint32_t xbox_va)
     if(xbox_va==0x00019d30u)return cockpit_race_stage;
     if(xbox_va==0x00016c70u)return cockpit_driver_first;
     if(xbox_va==0x00129550u)return cockpit_hud_package_begin;
+    if(xbox_va==0x0027ba23u && MEM32(esp)==0x002798d4u)return cockpit_radio_resampled;
+    if(xbox_va==0x0027c5ebu && MEM32(esp)==0x002798d4u)return cockpit_radio_decoded;
 #endif
     /*
      * TODO: Add your overrides here. Examples:

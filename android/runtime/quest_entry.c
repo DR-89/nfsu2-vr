@@ -8,6 +8,8 @@
 #include <unistd.h>
 #include <string.h>
 #include "quest_xr.h"
+#include "vr_music.h"
+#include "apu_xaudio2.h"
 
 static void load_options(void)
 {
@@ -74,6 +76,8 @@ int quest_run_game(int (*entry)(void))
     /* The NV2A executor's old screen-space rejection cannot see tracked eye
      * transforms. Rejecting there would drop geometry before the VR shader. */
     if (quest_xr_enabled()) setenv("RECOMP_CULL", "0", 1);
+    vr_music_start(SDL_AndroidGetExternalStoragePath());
+    xa2_music_mix=vr_music_mix;
     struct game_start game = {entry, 1};
     pthread_attr_t attr;
     pthread_t thread;
@@ -83,6 +87,7 @@ int quest_run_game(int (*entry)(void))
     pthread_attr_destroy(&attr);
     if (err == 0) pthread_join(thread, NULL);
     else fprintf(stderr, "Cannot start game thread: %d\n", err);
+    vr_music_stop();
     quest_xr_shutdown();
     SDL_Quit();
     return game.result;

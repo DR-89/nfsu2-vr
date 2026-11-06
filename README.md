@@ -45,14 +45,14 @@ the tree; the focus of this development publication is PCVR and Meta Quest 3.
 
 ## Development downloads
 
-The [current development release](https://github.com/DR-89/nfsu2-vr/releases/tag/dev-2026-11-06)
+The [current development release](https://github.com/DR-89/nfsu2-vr/releases/tag/dev-2026-11-06-r2)
 includes:
 
-- [Meta Quest 3 APK](https://github.com/DR-89/nfsu2-vr/releases/download/dev-2026-11-06/NFSU2VR-Quest3-dev-2026-11-06.apk):
+- [Meta Quest 3 APK](https://github.com/DR-89/nfsu2-vr/releases/download/dev-2026-11-06-r2/NFSU2VR-Quest3-dev-2026-11-06-r2.apk):
   sideload the development APK, then use its setup panel to import your own
   supported Xbox USA ZIP, 7z or ISO/XISO.
   Follow the [Quest installation guide](#installing-on-meta-quest-3) below.
-- [Windows PCVR package](https://github.com/DR-89/nfsu2-vr/releases/download/dev-2026-11-06/NFSU2VR-PCVR-dev-2026-11-06.zip):
+- [Windows PCVR package](https://github.com/DR-89/nfsu2-vr/releases/download/dev-2026-11-06-r2/NFSU2VR-PCVR-dev-2026-11-06-r2.zip):
   extract the whole ZIP to a writable folder and run **Start-PCVR.cmd**.
   If game data is missing, **Game data setup** opens automatically. Select your
   Xbox USA ISO/XISO; progress and cancellation are available. All 12 required
@@ -66,11 +66,15 @@ No Python, Java or external ISO extractor is required to run the PCVR importer.
 See the included README for system requirements. These downloads remain
 **development builds, not fully tested**, with possible bugs and performance issues.
 
+## 0.6.0-dev · Custom radio, cockpit video and interior lighting
+
+Put your own music and videos in the `Music` folder to shuffle them during driving and replays. The larger screen above the radio plays videos or displays a spectrum. Choose the color of the interior LED strips and set them to pulse with the track or glow steadily. Grab the minimap to move and tilt it. During replays, click the right stick to change cameras and use Grip in the driver's seat to adjust your mirrors. [Formats, controls and update instructions](RELEASE_NOTES.md).
+
 ## November 6 update · RPM-based engine rumble and replay cameras
 
 **Feel the engine RPM through your controllers.** In **0.5.0-dev**, switch on **VR Settings → Advanced Haptics / Rumble → Engine REV Rumble** for a gentle idle vibration that builds toward your car’s redline. Applying more throttle strengthens it. With **Grip Feedback** enabled, letting go of the wheel stops engine vibration in that hand.
 
-Press either Grip to cycle replay cameras and stay in the driver's seat as the race plays back. You can also move the minimap by hand, change songs with a fingertip, adjust the seat from the door armrest, and adjust mirror resolution and master volume. [Full changes and controls](RELEASE_NOTES.md).
+Version 0.5.0-dev introduced six replay cameras, including the driver's seat. You can also move the minimap by hand, change songs with a fingertip, adjust the seat from the door armrest, and adjust mirror resolution and master volume. [Full changes and controls](RELEASE_NOTES.md).
 
 ## November 4 cockpit and cutscene update
 

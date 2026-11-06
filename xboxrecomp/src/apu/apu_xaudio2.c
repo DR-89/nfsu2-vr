@@ -27,6 +27,7 @@ static float g_xa2_volume = 0.5f;
 /* The settings thread publishes gain; the audio thread reads it once per
  * block. Unity preserves the backend's configured master volume. */
 static volatile LONG g_output_gain_q16 = 65536;
+int (*xa2_music_mix)(const int16_t *,int16_t *,int);
 
 void xa2_set_output_gain(float gain)
 {
@@ -39,6 +40,7 @@ void apu_output_safety(const int16_t *in, int16_t *out, int n)
     const float ceiling = 16384.0f;
     const float volume=g_xa2_volume*(InterlockedCompareExchange(&g_output_gain_q16,0,0)/65536.f);
     int i;
+    if(xa2_music_mix && xa2_music_mix(in,out,n))in=out;
     for (i = 0; i < n; i++)
         out[i] = (int16_t)(ceiling * tanhf((float)in[i] * volume / ceiling));
 }

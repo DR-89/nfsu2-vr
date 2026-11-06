@@ -20,7 +20,7 @@ FFmpeg, SDL, OpenXR-SDK and glslang are fetched separately at the revisions list
 [android/dependencies.json](android/dependencies.json). Android importer
 dependency notices are retained in
 [importer-third-party-notices.txt](android/app/src/main/assets/importer-third-party-notices.txt).
-The Quest and PCVR movie players use libavcodec and libavutil from FFmpeg 7.1.5 under LGPL 2.1 or later. The release includes the corresponding FFmpeg source archive. The exact configuration and rebuild steps for the VP6-only static libraries are in [the codec build script](tools/build-vr-vp6.ps1).
+The Quest and PCVR players use libavformat, libavcodec, libswresample, libswscale and libavutil from FFmpeg 7.1.5 under LGPL 2.1 or later. The release includes the corresponding FFmpeg source archive. The exact codec configuration and rebuild steps are in [the media build script](tools/build-vr-vp6.ps1).
 
 The new cabin and racing-glove assets were generated with Tripo for this VR
 port. Their source models, fitting steps and runtime formats are documented in

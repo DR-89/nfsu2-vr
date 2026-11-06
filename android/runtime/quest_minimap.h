@@ -7,9 +7,11 @@
 /* A rigid disc in cabin meters. Fit the mount and its tilt to the dash;
  * the face itself keeps its proportions and reads left to right in every car. */
 typedef struct { float center[3],up_y,up_z; } QuestMinimapMount;
+typedef struct { float offset[3],pitch,yaw; } QuestMinimapPlacement;
 typedef struct {
     int hand,armed[2],hover[2];
-    float anchor[3],start[3];
+    QuestMinimapPlacement start;
+    float wrist_forward[3],contact[3];
 } QuestMinimapGrip;
 
 /* Bits follow the hands: left X, right A. Keep a captured press until
@@ -48,6 +50,7 @@ static inline int quest_minimap_shortcut(QuestMinimapShortcut *s,uint32_t now,in
 
 #define QUEST_MINIMAP_LIMIT 2.f
 #define QUEST_MINIMAP_RADIUS .075f
+#define QUEST_MINIMAP_ANGLE_LIMIT .78539816f /* 45 degrees from the fitted mount */
 
 static inline QuestMinimapMount quest_minimap_mount(const QuestCockpitVehicle *fit)
 {
@@ -60,52 +63,77 @@ static inline QuestMinimapMount quest_minimap_mount(const QuestCockpitVehicle *f
     return mount;
 }
 
-static inline int quest_minimap_near(const QuestMinimapMount *mount,const float offset[3],const float hand[3])
+/* Column-major map-local to cabin transform, shared by drawing and grabbing. */
+static inline void quest_minimap_matrix(float m[16],const QuestMinimapMount *mount,const QuestMinimapPlacement *p)
 {
-    float x=hand[0]-offset[0]-mount->center[0];
-    float y=hand[1]-offset[1]-mount->center[1],z=hand[2]-offset[2]-mount->center[2];
-    float up=y*mount->up_y+z*mount->up_z,depth=z*mount->up_y-y*mount->up_z;
+    float cp=cosf(p->pitch),sp=sinf(p->pitch),cy=cosf(p->yaw),sy=sinf(p->yaw);
+    float up=mount->up_y*cp-mount->up_z*sp,tilt=mount->up_z*cp+mount->up_y*sp;
+    const float matrix[16]={cy,0,-sy,0, sy*tilt,up,cy*tilt,0, sy*up,-tilt,cy*up,0,
+        mount->center[0]+p->offset[0],mount->center[1]+p->offset[1],mount->center[2]+p->offset[2],1};
+    memcpy(m,matrix,sizeof matrix);
+}
+
+static inline int quest_minimap_contact(const float m[16],const float hand[3],float local[3])
+{
+    for(int k=0;k<3;++k)
+        local[k]=m[4*k]*(hand[0]-m[12])+m[4*k+1]*(hand[1]-m[13])+m[4*k+2]*(hand[2]-m[14]);
     /* The grip origin lies in the palm. Allow reach in depth and a small
      * radial tolerance at the rim without giving the disc square corners. */
-    return fabsf(depth)<=.055f && x*x+up*up<=(QUEST_MINIMAP_RADIUS+.012f)*(QUEST_MINIMAP_RADIUS+.012f);
+    return fabsf(local[2])<=.055f && hypotf(local[0],local[1])<=QUEST_MINIMAP_RADIUS+.012f;
 }
 
 /* Persist once when a changed placement ends, including interruptions. */
-static inline int quest_minimap_release(QuestMinimapGrip *g,const float offset[3])
+static inline int quest_minimap_release(QuestMinimapGrip *g,const QuestMinimapPlacement *p)
 {
-    int changed=g->hand && memcmp(g->start,offset,sizeof g->start)!=0;
+    int changed=g->hand && (fabsf(p->pitch-g->start.pitch)>.00001f || fabsf(p->yaw-g->start.yaw)>.00001f);
+    for(int k=0;g->hand && k<3;++k)changed|=fabsf(p->offset[k]-g->start.offset[k])>.00001f;
     *g=(QuestMinimapGrip){0};
     return changed;
 }
 
 static inline int quest_minimap_update(QuestMinimapGrip *g,const QuestMinimapMount *mount,
-    float offset[3],int active,const int valid[2],const float position[2][3],
+    QuestMinimapPlacement *p,int active,const int valid[2],const float pose[2][16],
     const float squeeze[2],const int busy[2])
 {
-    if(!active)return quest_minimap_release(g,offset);
+    if(!active)return quest_minimap_release(g,p);
+    float m[16];quest_minimap_matrix(m,mount,p);
     int save=0;
     if(g->hand) {
         int h=g->hand-1;
         int tracked=valid[h] && !busy[h] && isfinite(squeeze[h]);
         if(tracked) {
+            /* Rotate the cabin's original +Z by the change in wrist pose.
+             * Both hands have orthonormal axes, including the mirrored glove. */
+            float forward[3];
+            for(int k=0;k<3;++k)
+                forward[k]=pose[h][k]*g->wrist_forward[0]+pose[h][4+k]*g->wrist_forward[1]+pose[h][8+k]*g->wrist_forward[2];
+            float pitch=g->start.pitch+atan2f(-forward[1],hypotf(forward[0],forward[2]));
+            float yaw=g->start.yaw+atan2f(forward[0],forward[2]);
+            p->pitch=fmaxf(-QUEST_MINIMAP_ANGLE_LIMIT,fminf(QUEST_MINIMAP_ANGLE_LIMIT,pitch));
+            p->yaw=fmaxf(-QUEST_MINIMAP_ANGLE_LIMIT,fminf(QUEST_MINIMAP_ANGLE_LIMIT,yaw));
+            quest_minimap_matrix(m,mount,p);
             for(int k=0;k<3;++k) {
-                float delta=position[h][k]-g->anchor[k];
-                offset[k]=fmaxf(-QUEST_MINIMAP_LIMIT,fminf(QUEST_MINIMAP_LIMIT,g->start[k]+delta));
+                float arm=m[k]*g->contact[0]+m[4+k]*g->contact[1]+m[8+k]*g->contact[2];
+                float offset=pose[h][12+k]-mount->center[k]-arm;
+                p->offset[k]=fmaxf(-QUEST_MINIMAP_LIMIT,fminf(QUEST_MINIMAP_LIMIT,offset));
+                m[12+k]=mount->center[k]+p->offset[k];
             }
         }
-        if(!tracked || squeeze[h]<.15f)save=quest_minimap_release(g,offset);
+        if(!tracked || squeeze[h]<.15f)save=quest_minimap_release(g,p);
     }
     for(int h=0;h<2;++h) {
         g->hover[h]=0;
         if(!valid[h] || busy[h] || !isfinite(squeeze[h]))g->armed[h]=0;
         else {
             if(squeeze[h]<.15f)g->armed[h]=1;
-            g->hover[h]=!g->hand && g->armed[h] && quest_minimap_near(mount,offset,position[h]);
+            float local[3];
+            g->hover[h]=!g->hand && g->armed[h] && quest_minimap_contact(m,pose[h]+12,local);
             if(squeeze[h]<.65f)continue;
             if(g->hover[h]) {
                 g->hand=h+1;
-                memcpy(g->anchor,position[h],sizeof g->anchor);
-                memcpy(g->start,offset,sizeof g->start);
+                for(int k=0;k<3;++k)g->wrist_forward[k]=pose[h][4*k+2];
+                memcpy(g->contact,local,sizeof local);
+                g->start=*p;
             }
             g->armed[h]=0;
         }

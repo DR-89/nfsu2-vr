@@ -57,16 +57,29 @@ Controls (Touch controllers):
   In VR Settings, select Reset Car Mirrors to restore their normal aim.
 - Tap EA TRAX buttons with your extended index finger, or slide it along
   the volume control. This also works in a cockpit replay. Tap B (Circle)
-  to toggle the timeline. Press either Grip to cycle through six replay
-  views, including the driver's seat. The view stays selected until the
-  next press or the end of the replay. Hold B for the original replay control.
+  to toggle the timeline. Click the right stick to cycle through six replay
+  views. In the driver's seat, hold Grip on a mirror to aim it while the
+  replay runs. Both stick clicks together recenter. Hold B for the original
+  replay control.
+- Put MP3, FLAC, PCM WAV or H.264 MP4 files in Music beside the EXE.
+  MP4 videos can have AAC audio or no audio. The game creates the folder
+  on launch. Restart after adding files. Music and videos shuffle together
+  in driving and replay. Videos play on the 16:9 screen above the radio.
+  Audio-only tracks and EA TRAX show a 16-band spectrum there.
+  In VR Settings > Radio Soundtrack, Auto keeps the original menu music.
+  Custom Only mutes EA TRAX even in menus when playable custom files exist.
+  EA TRAX Only selects the original soundtrack. An empty library uses EA TRAX.
+- LED strips light the instruments, dash, doors, shifter surround and rear
+  shelf. In VR Settings, choose one of eight LED colors or switch the strips
+  off. Turn Pulse to Music off for steady lighting. The spectrum and LED pulse
+  follow the music even with the radio volume turned all the way down.
 - Tap the driver's door-armrest keys to move the seat in 1 cm steps.
 - Hold Grip on the cockpit minimap with either free hand to reposition it.
-  Release to save. In career free roam, reach for its blue rim and tap A
+  Tilt or turn your wrist for up to 45 degrees of pitch and yaw. Release
+  to save. In career free roam, reach for its blue rim and tap A
   with the right hand or X with the left to open the world map.
-  Press A on any minimap row in VR Settings to reset its position.
-- In the pause menu, press X for VR Settings. Adjust Mirror Resolution,
-  position the minimap on three axes, or set the manual H-Pattern Guide to
+- In the pause menu, press X for VR Settings. Adjust Mirror Resolution
+  or set the manual H-Pattern Guide to
   Always, Near Shifter or Off. Its dot follows the lever.
 - For RPM-based engine rumble, turn on Engine REV Rumble in VR Settings >
   Advanced Haptics / Rumble. Feel a gentle vibration at idle that builds

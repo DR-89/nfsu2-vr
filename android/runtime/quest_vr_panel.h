@@ -33,13 +33,13 @@ static inline void quest_vr_panel(uint32_t *pixels,const QuestVRSettings *s,
     int haptics=m->row>=QUEST_VR_ENGINE_ROW;
     quest_vr_text(pixels,40,34,5,haptics?"ADVANCED HAPTICS / RUMBLE":"VR SETTINGS",0xffffffffu);
     static const char *const labels[]={"STEERING SENSITIVITY","WHEEL ROTATION","SEAT HEIGHT","SEAT DISTANCE","RENDER RESOLUTION","WHEEL RETURN SPEED",
-        "MIRROR RESOLUTION","H-PATTERN GUIDE","MINIMAP LEFT / RIGHT","MINIMAP DOWN / UP","MINIMAP FAR / NEAR",
-        "MASTER GAIN","ADVANCED HAPTICS / RUMBLE","RESET CAR MIRRORS","RESET DEFAULTS","SAVE AND BACK",
+        "MIRROR RESOLUTION","H-PATTERN GUIDE","INTERIOR LED STRIPS","LED COLOR","PULSE TO MUSIC",
+        "RADIO SOUNDTRACK","MASTER GAIN","ADVANCED HAPTICS / RUMBLE","RESET CAR MIRRORS","RESET DEFAULTS","SAVE AND BACK",
         "ENGINE REV RUMBLE","GRIP FEEDBACK","BACK"};
     int first=haptics?QUEST_VR_ENGINE_ROW:0,end=haptics?QUEST_VR_END:QUEST_VR_ROWS;
     for(int row=first;row<end;++row) {
-        int y=94+(row-first)*(haptics?54:34);char value[64]={0};
-        if(row==m->row)quest_vr_rect(pixels,24,y-6,976,32,0xff214171u);
+        int y=91+(row-first)*(haptics?54:32);char value[64]={0};
+        if(row==m->row)quest_vr_rect(pixels,24,y-3,976,25,0xff214171u);
         quest_vr_text(pixels,40,y,3,labels[row],0xffffffffu);
         if(row==0)snprintf(value,sizeof value,"< %d%% >",(int)lrintf(s->sensitivity*100));
         if(row==1)snprintf(value,sizeof value,"< %d DEG >",(int)lrintf(s->rotation));
@@ -58,8 +58,16 @@ static inline void quest_vr_panel(uint32_t *pixels,const QuestVRSettings *s,
             static const char *const modes[QUEST_GUIDE_MODES]={"< OFF >","< ALWAYS >","< NEAR SHIFTER >"};
             strcpy(value,modes[s->shift_guide]);
         }
-        if(row>=QUEST_VR_MAP_X && row<=QUEST_VR_MAP_Z)
-            snprintf(value,sizeof value,"< %+.0f CM >",100*s->map_offset[row-QUEST_VR_MAP_X]);
+        if(row==QUEST_VR_LED_ROW)strcpy(value,s->led_strips?"< ON >":"< OFF >");
+        if(row==QUEST_VR_LED_PULSE_ROW)strcpy(value,s->led_music_pulse?"< ON >":"< OFF >");
+        if(row==QUEST_VR_MUSIC_ROW) {
+            static const char *const modes[QUEST_MUSIC_MODES]={"< AUTO >","< CUSTOM ONLY >","< EA TRAX ONLY >"};
+            strcpy(value,modes[s->music_source]);
+        }
+        if(row==QUEST_VR_LED_COLOR_ROW) {
+            snprintf(value,sizeof value,"< %s >",quest_led_colors[s->led_color].name);
+            quest_vr_rect(pixels,576,y+3,27,15,0xff000000u|quest_led_colors[s->led_color].rgb);
+        }
         if(row==QUEST_VR_GAIN_ROW)
             snprintf(value,sizeof value,s->master_gain_db?"< %+d DB >":"< %d DB >",s->master_gain_db);
         if(row==QUEST_VR_HAPTICS_ROW)strcpy(value,"[A] OPEN");
@@ -82,8 +90,16 @@ static inline void quest_vr_panel(uint32_t *pixels,const QuestVRSettings *s,
     if(m->row==QUEST_VR_RETURN_ROW)hint="SPEED AT WHICH THE RELEASED WHEEL RETURNS TO CENTER.";
     if(m->row==QUEST_VR_MIRROR_ROW)hint="ALL THREE MIRRORS SHARE THIS IMAGE. LOWER SIZES USE FEWER PIXELS.";
     if(m->row==QUEST_VR_GUIDE_ROW)hint="NEAR SHIFTER SHOWS THE GUIDE WHEN EITHER HAND IS IN GRABBING RANGE.";
-    if(m->row>=QUEST_VR_MAP_X && m->row<=QUEST_VR_MAP_Z)hint="HOLD GRIP ON THE MAP TO MOVE IT. PRESS A HERE TO RESET ITS POSITION.";
+    if(m->row==QUEST_VR_LED_ROW)hint="LIGHT THE DASH, SHIFTER AND CABIN TRIM.";
+    if(m->row==QUEST_VR_LED_PULSE_ROW)hint="TURN OFF FOR STEADY LIGHT, EVEN WHEN THE RADIO IS SILENT.";
     if(m->row==QUEST_VR_GAIN_ROW)hint="ADJUST ALL GAME AUDIO IN 1 DB STEPS.";
+    if(m->row==QUEST_VR_MUSIC_ROW) {
+        static const char *const hints[QUEST_MUSIC_MODES]={
+            "USE CUSTOM TRACKS IN DRIVING AND REPLAYS. KEEP EA TRAX IN MENUS.",
+            "MUTE EA TRAX EVERYWHERE WHEN PLAYABLE CUSTOM TRACKS EXIST.",
+            "USE THE ORIGINAL SOUNDTRACK EVEN WHEN CUSTOM TRACKS EXIST."};
+        hint=hints[s->music_source];
+    }
     if(m->row==QUEST_VR_ENGINE_ROW)hint="VIBRATION BUILDS WITH ENGINE RPM AND THROTTLE.";
     if(m->row==QUEST_VR_GRIP_ROW)hint="ONLY HANDS HOLDING THE WHEEL FEEL ENGINE RUMBLE.";
     if(resolution_pending && m->row==QUEST_VR_SAVE_ROW)hint="RESTART THE GAME TO APPLY YOUR EYE RESOLUTION.";

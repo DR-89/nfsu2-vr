@@ -3,16 +3,13 @@
 #include <stdint.h>
 #include <string.h>
 #include "quest_cockpit_vehicle.h"
+#include "quest_radio_types.h"
 
-enum { QUEST_RADIO_NONE, QUEST_RADIO_VOLUME, QUEST_RADIO_PREV, QUEST_RADIO_PLAY, QUEST_RADIO_NEXT,
-       QUEST_SEAT_FORWARD, QUEST_SEAT_BACK, QUEST_SEAT_UP, QUEST_SEAT_DOWN };
-typedef struct { int action;float volume; } QuestRadioCommand;
 typedef struct { float u,v,depth; } QuestRadioPosition;
 typedef struct {
     int control,blocked,pointing,previous_valid;
     QuestRadioPosition previous;
 } QuestCockpitTouch;
-typedef struct { char title[64],artist[64]; } QuestRadioSong;
 /* 0x8FE16 stops the stream on exact zero. At 0x7F519 the retail mixer
  * scales this same gain by at most 32767 and converts it to an integer.
  * This positive input keeps transport running and still mixes to zero. */
@@ -25,13 +22,39 @@ static inline int quest_radio_volume_changed(float from,float to)
 {
     return from!=to && (from==0 || to==0 || to==1 || fabsf(to-from)>.0001f);
 }
-/* Shared face coordinates for both rendering and contact. U grows toward
- * the driver's right, including in the two right-hand-drive interiors. */
+#define QUEST_RADIO_FACE_WIDTH .236f
+#define QUEST_RADIO_RECESS .10f /* meters forward in the fitted cabin */
+
+/* Leave 3 mm on each side of the fitted radio face for the bezel. */
+static inline float quest_radio_screen_width(const QuestCockpitVehicle *fit)
+{
+    return QUEST_RADIO_FACE_WIDTH*fit->far_width-.006f;
+}
+
+/* The top of the 16:9 screen sits below the default minimap. Measure down
+ * the fitted console face so the screen and the 6 mm gap keep their size. */
+static inline void quest_radio_stack_point(float p[3],const QuestCockpitVehicle *fit,float down)
+{
+    const float slope=-.40f*fit->front_depth;
+    float y=-.237f-down/sqrtf(1.f+slope*slope);
+    const float local[3]={.3116f,y,-.365f-.40f*(y+.392f)};
+    quest_cockpit_fit_point(p,local,fit);
+    p[2]-=QUEST_RADIO_RECESS;
+}
+/* Rendering and fingertip contact share the same key positions. U grows
+ * toward the driver's right in both left- and right-hand-drive interiors. */
 static inline void quest_radio_point(float p[3],const QuestCockpitVehicle *fit,float u,float v)
 {
-    float y=-.307f+(.5f-v)*.053f;
-    float local[3]={.3116f+(u-.5f)*.236f*fit->side,y,-.365f-.40f*(y+.392f)};
-    quest_cockpit_fit_point(p,local,fit);
+    quest_radio_stack_point(p,fit,quest_radio_screen_width(fit)*(9.f/16.f)+.006f);
+    p[0]+=(u-.5f)*QUEST_RADIO_FACE_WIDTH*fit->far_width;
+    p[1]-=v*.053f;
+    p[2]+=v*.053f*.40f*fit->front_depth;
+}
+static inline void quest_radio_screen_point(float p[3],const QuestCockpitVehicle *fit,float u,float v)
+{
+    float width=quest_radio_screen_width(fit);
+    quest_radio_stack_point(p,fit,v*width*(9.f/16.f));
+    p[0]+=(u-.5f)*width;
 }
 /* Four keys along the raised driver's door armrest. U increases to the
  * driver's right on either side of the car. V increases toward the rear. */

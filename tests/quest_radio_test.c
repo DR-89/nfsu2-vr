@@ -1,4 +1,5 @@
 #include "../android/runtime/quest_cockpit_controls.h"
+#include "../android/runtime/quest_minimap.h"
 #include <stdio.h>
 
 #define CHECK(x) do { if(!(x)) {fprintf(stderr,"radio test failed at %d: %s\n",__LINE__,#x);return 1;} } while(0)
@@ -15,6 +16,19 @@ int main(void)
     QuestRadioFont digits;quest_radio_font_init(&digits);
     for(int vehicle=0;vehicle<QUEST_COCKPIT_VEHICLES;++vehicle)for(int hand=0;hand<2;++hand) {
         const QuestCockpitVehicle *fit=quest_cockpit_vehicle(vehicle);
+        float top[3],bottom[3],key[3],left[3],right[3];
+        quest_radio_screen_point(top,fit,0,0);
+        quest_radio_screen_point(bottom,fit,1,1);
+        quest_radio_point(key,fit,.5f,0);
+        quest_radio_point(left,fit,0,0);quest_radio_point(right,fit,1,0);
+        QuestMinimapMount map=quest_minimap_mount(fit);
+        float width=bottom[0]-top[0];
+        CHECK(width>.229f && fabsf(top[0]-left[0]-.003f)<1.e-5f && fabsf(right[0]-bottom[0]-.003f)<1.e-5f);
+        CHECK(fabsf((top[0]+bottom[0])*.5f-key[0])<1.e-5f);
+        CHECK(fabsf(hypotf(top[1]-bottom[1],top[2]-bottom[2])-width*9.f/16.f)<1.e-5f);
+        CHECK(bottom[1]>key[1] && fabsf(hypotf(bottom[1]-key[1],bottom[2]-key[2])-.006f)<1.e-5f);
+        CHECK(top[1]+.008f<map.center[1]-QUEST_MINIMAP_RADIUS*map.up_y);
+        CHECK(!quest_radio_hit(quest_radio_position(bottom,fit)).control);
         QuestCockpitTouch touch={0};float pose[16]={0};
         for(int id=QUEST_RADIO_VOLUME;id<=QUEST_SEAT_DOWN;++id) {
             int radio=id<=QUEST_RADIO_NEXT;
@@ -76,6 +90,14 @@ int main(void)
         for(int gears=4;gears<=6;++gears) {
             QuestGhostVertex overlay[QUEST_CONTROL_VERTICES];
             float x=.013f,z=-.008f,center[3];QuestShifter lever={0};
+            /* The full H-pattern must leave room for an extended index finger
+             * between the knob and the nearest point on the radio key plane. */
+            for(int gear=0;gear<=gears+1;++gear) {
+                quest_shifter_detent(&lever,gear,gears);
+                quest_shifter_knob(&lever,vehicle,center);
+                CHECK(quest_radio_position(center,fit).depth>.17f);
+            }
+            quest_shifter_detent(&lever,QUEST_SHIFT_N,gears);
             quest_shifter_knob(&lever,vehicle,center);
             unsigned count=quest_cockpit_controls(overlay,vehicle,&digits,0,gears,x,z);
             CHECK(count<=QUEST_CONTROL_VERTICES && overlay[count-1].normal[0]==QUEST_GATE_CURSOR);

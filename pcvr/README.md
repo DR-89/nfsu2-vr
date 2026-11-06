@@ -168,7 +168,9 @@ user-confirmed on native Quest. PCVR headset validation remains pending.
 
 Hold Grip on the center mirror and tilt your wrist or push one edge of the
 glass. Either outside mirror adjusts both together, inward/outward and up/down.
-Release Grip to save the angles for this vehicle. Leaning changes the reflected
+Release Grip to save the angles for this model. Switching back to it restores
+those angles, including after a restart. A new model starts with its mirrors
+aimed for its own glass positions and your configured seat. Leaning changes the reflected
 view in each eye. Mirror optics use 70% of head translation around your configured
 seat, preserving eye separation. Select **Reset Car Mirrors** in VR Settings to
 restore the center and both outside mirrors for this vehicle. The cockpit rear
@@ -178,15 +180,14 @@ For a standing start with manual transmission and VR controllers, the lever
 starts in neutral. Hold Grip, move it to the left rail, and push fully forward
 to engage first. You can seat the lever during the countdown.
 
-The next race restores your last camera, including Cockpit View. Each car
-recalls its own mirror setup, with your last setup as the starting point for
-a new car. In the pause menu, press **X** to open **VR Settings**. **Mirror
+The next race restores your last camera, including Cockpit View. In the
+pause menu, press **X** to open **VR Settings**. **Mirror
 Resolution** adjusts the shared rear camera from 256×64 to 4096×1024, with
 1024×256 as the default. To move the minimap in the cockpit, reach for it with
 either free hand, hold **Grip**, and move your hand left/right, up/down or
-closer/farther away. Release Grip to save its position. The three **Minimap**
-rows let you fine-tune the placement. Press **A** on any of them to restore
-the console mount. In career free roam, reach for the minimap until its rim
+closer/farther away. Tilt or turn your wrist to adjust pitch and yaw by up to
+45° from the console mount. Release Grip to save the position and tilt.
+In career free roam, reach for the minimap until its rim
 turns blue. Tap **A** with the right hand or **X** with the left hand at the
 minimap to open the world map. Press **B** to return to the cockpit.
 
@@ -196,9 +197,35 @@ play/pause or next, or slide your fingertip across the volume control.
 Lift before pressing again. The display shows title and artist.
 The same controls work during a cockpit replay. Tap **B** (Circle on a
 PlayStation pad) to hide or show the timeline. A long press passes B through
-to the game's replay controls. Press **Grip** on either VR controller to cycle
-through the five replay views and the driver's seat. Your selection stays
-active until you press Grip again or leave the replay, even with the timeline hidden.
+to the game's replay controls. Click the **right stick** to cycle through the
+five replay views and the driver's seat, even with the timeline hidden. In
+the driver's seat, hold Grip on a mirror to aim it while the replay runs.
+Click both sticks together to recenter.
+
+Put your own music (MP3, FLAC or PCM WAV) and videos (H.264 MP4 with AAC
+audio or no audio) in the `Music` folder beside `nfsu2-pcvr.exe`. The game
+creates the folder on launch. Restart after adding files. Music and videos
+shuffle together during driving and replay. The 16:9 screen above the radio
+fits the center console (23–30 cm wide, depending on the car). It plays
+videos and shows a 16-band spectrum for audio-only tracks and EA TRAX.
+The spectrum and LED pulse follow the playing track at every radio volume,
+including mute. Pausing playback stops both animations.
+Use the radio to pause, skip or adjust volume. The radio displays the title
+tag or filename. An empty folder selects EA TRAX.
+
+In **VR Settings → Radio Soundtrack**, **Custom Only** mutes EA TRAX during
+driving, replays and menus when the player finds a playable custom track.
+Custom files play during driving and replays. An empty or unreadable library
+falls back to EA TRAX. **Auto** (default) keeps the original menu music.
+Select **EA TRAX Only** to hear the original soundtrack with files still in
+your Music folder.
+
+The interior LEDs trace the instrument hood, windshield base, dashboard, door
+trim, shifter surround and rear shelf. By default they glow cyan and pulse
+with the radio, including video audio. Pause and press **X** for **VR Settings**.
+Turn **Pulse to Music** off for steady light, or turn **Interior LED Strips**
+off to darken all the strips. **LED Color** selects one of eight colors.
+The game saves the color and pulse setting even when the strips are off.
 
 Tap **FWD**, **BACK**, **UP** or **DOWN** on the driver's door armrest to move
 the seat by 1 cm. Manual gearboxes show a labeled H-pattern above the lever.

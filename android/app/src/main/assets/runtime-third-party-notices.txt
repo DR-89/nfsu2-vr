@@ -629,7 +629,7 @@ That's all there is to it!
 
 
 ========================================================================
-FFmpeg 7.1.5 (VP6 video decoder), https://ffmpeg.org
+FFmpeg 7.1.5 (video and music decoders), https://ffmpeg.org
 ========================================================================
                   GNU LESSER GENERAL PUBLIC LICENSE
                        Version 2.1, February 1999

@@ -40,9 +40,10 @@ QuestRadioCommand quest_xr_radio_exchange(uint32_t owner,float volume,int paused
 /* Renderer-thread controls and fitted geometry. */
 unsigned quest_xr_mirror_width(void);
 #include "quest_minimap.h"
-int quest_xr_map_drawn(int vehicle,const QuestMinimapMount *mount,float offset[3]);
+int quest_xr_map_drawn(int vehicle,const QuestMinimapMount *mount,float matrix[16]);
 void quest_xr_index_tip(const float tip[3]);
 int quest_xr_guide_gears(void);
+uint32_t quest_xr_led_color(int *pulse_to_music);
 uint32_t quest_xr_radio_display(float state[3],QuestRadioSong *song,uint32_t *pressed);
 void quest_xr_cockpit_matrix(int eye, float matrix[16]);
 void quest_xr_cockpit_steering_input(int16_t steering);

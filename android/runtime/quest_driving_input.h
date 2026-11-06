@@ -21,19 +21,17 @@ static inline int quest_replay_button(QuestReplayButton *b,int active,uint32_t n
     return 0;
 }
 
-/* Either physical grip advances one view. Overlapping grips count as a
- * single press. Each source must first report a release in this viewer. */
-typedef struct { unsigned armed,held; } QuestReplayGrip;
-static inline int quest_replay_grip(QuestReplayGrip *g,const float grip[2])
+/* A complete right-stick click advances one replay view. A source change,
+ * tracking loss, or the two-stick recenter chord requires a fresh release. */
+typedef struct { int source,armed,down; } QuestReplayClick;
+static inline int quest_replay_click(QuestReplayClick *c,int source,int left,int right)
 {
-    unsigned previous=g->held;
-    for(int hand=0;hand<2;++hand) {
-        unsigned bit=1u<<hand;
-        if(!isfinite(grip[hand])) {g->armed&=~bit;g->held&=~bit;}
-        else if(grip[hand]<=.15f) {g->armed|=bit;g->held&=~bit;}
-        else if(grip[hand]>=.65f && (g->armed&bit))g->held|=bit;
-    }
-    return !previous && g->held;
+    if(c->source!=source)*c=(QuestReplayClick){.source=source};
+    if(!source || left) {c->armed=0;c->down=0;return 0;}
+    if(right) {c->down=c->armed;return 0;}
+    int advance=c->down;
+    c->armed=1;c->down=0;
+    return advance;
 }
 
 /* Steam Link can reserve Touch Menu for the dashboard. During driving only,

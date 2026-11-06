@@ -1,6 +1,7 @@
 /* Included by quest_xr.c. All UI, settings I/O and gamepad sampling belong to
  * the OpenXR/render thread; the guest receives only locked snapshots. */
 #include "quest_vr_panel.h"
+#include "vr_music.h"
 #include "apu_xaudio2.h"
 #include "quest_gamepad.h"
 #include "quest_cockpit_fit.h"
@@ -9,6 +10,7 @@
 #endif
 static QuestVRMenu vr_menu;
 static int vr_paused,vr_save_status,vr_start_resolution;
+static uint32_t vr_save_tick;
 static char vr_settings_path[4096];
 static QuestSwapchain vr_panel_swap;
 static VkBuffer vr_panel_buffer;
@@ -26,6 +28,7 @@ static int create_swapchain(QuestSwapchain *,int64_t,uint32_t,uint32_t);
 static void vr_publish_settings(void)
 {
     xa2_set_output_gain(powf(10.f,vr_settings.master_gain_db/20.f));
+    vr_music_set_source(vr_settings.music_source);
     wheel_grip.return_speed=vr_settings.return_speed;
     float limit=vr_settings.rotation*QUEST_WHEEL_PI/360.0f;
     if(wheel_configured && (wheel_grip.limit!=limit || wheel_grip.sensitivity!=vr_settings.sensitivity)) {
@@ -52,9 +55,6 @@ static void vr_load_settings(void)
                 char name[32];float y,p,sy,sp;int choice;
                 if(sscanf(line,"race_camera=%d",&choice)==1 && choice>=0 && choice<=6)
                     camera_choice=choice;
-                if(sscanf(line,"last_mirrors=%f,%f,%f,%f",&y,&p,&sy,&sp)==4 &&
-                   isfinite(y) && isfinite(p) && isfinite(sy) && isfinite(sp))
-                    last_mirrors=(QuestMirrorSetting){quest_mirror_trim(y,p),quest_mirror_trim(sy,sp)};
                 if(sscanf(line,"mirror_%31[A-Z0-9]=%f,%f,%f,%f",name,&y,&p,&sy,&sp)==5 &&
                    isfinite(y) && isfinite(p) && isfinite(sy) && isfinite(sp)) {
                     int i=quest_cockpit_vehicle_index(name);
@@ -76,9 +76,9 @@ static void vr_save_settings(void)
 {
     char text[4096],temporary[4112];int n=quest_vr_format(&vr_settings,text,sizeof text);
     vr_save_status=-1;
+    vr_save_tick=SDL_GetTicks();
     if(!*vr_settings_path || n<=0 || n>=(int)sizeof text)return;
-    int base=snprintf(text+n,sizeof text-n,"race_camera=%d\nlast_mirrors=%.6f,%.6f,%.6f,%.6f\n",
-        quest_xr_camera_choice(),last_mirrors.inside.yaw,last_mirrors.inside.pitch,last_mirrors.outside.yaw,last_mirrors.outside.pitch);
+    int base=snprintf(text+n,sizeof text-n,"race_camera=%d\n",quest_xr_camera_choice());
     if(base<0 || base>=(int)sizeof text-n)return;
     n+=base;
     for(int i=0;i<QUEST_COCKPIT_VEHICLES;++i) {
@@ -102,6 +102,7 @@ static void vr_save_settings(void)
 #else
     vr_save_status=rename(temporary,vr_settings_path)==0?1:-1;
 #endif
+    if(vr_save_status>0)mirror_dirty=0;
     fprintf(stderr,"[VR settings] %s\n",vr_save_status>0?"saved":"save failed");
 }
 /* SDL covers Xbox, PlayStation and mapped Bluetooth/USB gamepads. Hotplug
@@ -145,7 +146,7 @@ static int vr_settings_input(uint16_t buttons,const uint8_t analog[8],const int1
     int changed=quest_vr_menu_step(&vr_menu,&vr_settings,SDL_GetTicks(),paused,keys);
     if(changed&QUEST_VR_RESET_MIRRORS) {
         pthread_mutex_lock(&input_lock);int vehicle=cockpit_vehicle_index;pthread_mutex_unlock(&input_lock);
-        mirror_settings[vehicle]=last_mirrors=(QuestMirrorSetting){0};mirror_known[vehicle]=1;
+        mirror_settings[vehicle]=(QuestMirrorSetting){0};mirror_known[vehicle]=1;mirror_dirty=1;
         quest_mirror_release(&mirror_grip);
         ++vr_panel_revision;
     }

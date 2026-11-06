@@ -119,7 +119,6 @@ static int cockpit_ready, cockpit_requested, cockpit_available, cockpit_active;
 static int cockpit_vehicle_index;
 static uint32_t cockpit_car,mirror_epoch,mirror_seen_epoch;
 static QuestMirrorSetting mirror_settings[QUEST_COCKPIT_VEHICLES];
-static QuestMirrorSetting last_mirrors;
 static unsigned char mirror_known[QUEST_COCKPIT_VEHICLES];
 static int camera_choice=-1,camera_dirty;
 static QuestCockpitTouch cabin_touch[2];
@@ -137,7 +136,7 @@ static uint32_t replay_owner;
 static int replay_open;
 static uint32_t replay_viewer;
 static unsigned replay_camera_steps;
-static QuestReplayGrip replay_grip;
+static QuestReplayClick replay_click;
 static QuestReplayButton replay_button;
 static QuestRadioCommand radio_queue[8];
 static int radio_count,radio_paused;
@@ -241,7 +240,7 @@ unsigned quest_xr_cockpit_menu_publish(int menu,uint32_t viewer)
     if(menu==QUEST_UI_MENU && cockpit_menu!=menu) { shifter_request=QUEST_SHIFT_NONE;++gearbox_epoch; }
     if(menu!=QUEST_UI_REPLAY){replay_owner=0;replay_toggle=0;}
     if(viewer!=replay_viewer || menu!=QUEST_UI_REPLAY) {
-        replay_grip=(QuestReplayGrip){0};replay_camera_steps=0;
+        replay_click=(QuestReplayClick){0};replay_camera_steps=0;
     }
     replay_viewer=viewer;
     unsigned steps=replay_camera_steps;replay_camera_steps=0;
@@ -266,21 +265,26 @@ int quest_xr_take_replay_toggle(uint32_t owner)
     return toggle;
 }
 unsigned quest_xr_mirror_width(void) {return quest_mirror_widths[vr_settings.mirror_resolution];}
-int quest_xr_map_drawn(int vehicle,const QuestMinimapMount *mount,float offset[3])
+int quest_xr_map_drawn(int vehicle,const QuestMinimapMount *mount,float matrix[16])
 {
     int hover=map_vehicle==vehicle && (map_grip.hover[0] || map_grip.hover[1]);
     map_vehicle=vehicle;map_mount=*mount;map_draw_frame=frame_number;
-    memcpy(offset,vr_settings.map_offset,sizeof vr_settings.map_offset);
+    quest_minimap_matrix(matrix,mount,&vr_settings.map);
     return hover;
 }
 static int release_map_grip(void)
 {
     map_vehicle=-1;
     map_shortcut.armed=0;map_shortcut.pulsing=0;
-    return quest_minimap_release(&map_grip,vr_settings.map_offset);
+    return quest_minimap_release(&map_grip,&vr_settings.map);
 }
 void quest_xr_index_tip(const float tip[3]) {memcpy(index_tip,tip,sizeof index_tip);}
 int quest_xr_guide_gears(void) {return guide_gears;}
+uint32_t quest_xr_led_color(int *pulse_to_music)
+{
+    *pulse_to_music=vr_settings.led_strips && vr_settings.led_music_pulse;
+    return vr_settings.led_strips?quest_led_colors[vr_settings.led_color].rgb:0;
+}
 
 static int driving_input_active(void)
 {
@@ -1020,7 +1024,7 @@ static void poll_input(void)
     frame_squeeze[0]=frame_squeeze[1]=NAN;
     if (focused) {
         int pressed[7]={0};
-        int touch_y_valid=0;
+        int touch_y_valid=0,right_click_valid=0;
         for(int i=0;synced && i<ACTION_COUNT;++i) {
             static const uint8_t hand[ACTION_COUNT]={[A]=1,[B]=1,[RCLICK]=1,[RTRIGGER]=1,[RGRIP]=1,[RSTICK]=1};
             if(replay_bare_hands&(1u<<hand[i]))continue;
@@ -1031,6 +1035,7 @@ static void poll_input(void)
                     pressed[i]=value.currentState;
                     if(i==A || i==X)frame_map_valid|=i==A?QUEST_MAP_A:QUEST_MAP_X;
                     if(i==Y)touch_y_valid=1;
+                    if(i==RCLICK)right_click_valid=1;
                 }
             } else if(i < LSTICK) {
                 XrActionStateFloat value={XR_TYPE_ACTION_STATE_FLOAT};
@@ -1077,8 +1082,17 @@ static void poll_input(void)
             memset(analog,0,8);memset(sticks,0,8);buttons=0;
             memset(pressed,0,sizeof pressed);quest_wheel_reset(&wheel_grip);
         }
+        pthread_mutex_lock(&input_lock);
+        int replay_input=viewer && viewer==replay_viewer && cockpit_menu==QUEST_UI_REPLAY;
+        int click_source=pad && vr_gamepad_selected?2:right_click_valid;
+        if(quest_replay_click(&replay_click,replay_input && !settings_consumed?click_source:0,
+                              pressed[LCLICK],pressed[RCLICK]))++replay_camera_steps;
+        pthread_mutex_unlock(&input_lock);
         quest_driving_analog(&driving_buttons,SDL_GetTicks(),pressed[LCLICK],pressed[RCLICK],
                              quest_xr_cockpit_requested(),analog);
+        if(replay_input) {
+            analog[5]=0;driving_buttons.camera.consumed=1;driving_buttons.camera.pulsing=0;
+        }
         int driving=driving_input_active() && !quest_xr_cockpit_menu_active() && !vr_menu.open;
         if(steamvr_runtime) {
             int gesture=quest_steamvr_y(&steamvr_pause,SDL_GetTicks(),touch_y_valid && !settings_consumed,
@@ -1100,11 +1114,6 @@ static void poll_input(void)
         replay_button=(QuestReplayButton){0};
         memset(&shift_input,0,sizeof shift_input);recenter_held=0;
     }
-    pthread_mutex_lock(&input_lock);
-    if(synced && viewer && viewer==replay_viewer && cockpit_menu==QUEST_UI_REPLAY && !vr_menu.open) {
-        if(quest_replay_grip(&replay_grip,frame_squeeze))++replay_camera_steps;
-    } else replay_grip=(QuestReplayGrip){0};
-    pthread_mutex_unlock(&input_lock);
     frame_buttons=buttons; memcpy(frame_analog,analog,8); memcpy(frame_sticks,sticks,sizeof sticks);
     frame_focused=focused;
 }
@@ -1209,10 +1218,6 @@ static void poll_wheel_grips(void)
         save_map=release_map_grip();
         memset(mirror_mounts,0,sizeof mirror_mounts);quest_mirror_release(&mirror_grip);
         mirror_seen_epoch=mirror_epoch;mirror_vehicle=cockpit_vehicle_index;
-        if(!mirror_known[mirror_vehicle])mirror_settings[mirror_vehicle]=last_mirrors;
-        else if(memcmp(&last_mirrors,&mirror_settings[mirror_vehicle],sizeof last_mirrors)) {
-            last_mirrors=mirror_settings[mirror_vehicle];mirror_dirty=1;
-        }
         radio_count=0;cabin_touch[0]=cabin_touch[1]=(QuestCockpitTouch){.blocked=1};
     }
     int save_camera=camera_dirty;camera_dirty=0;
@@ -1223,15 +1228,20 @@ static void poll_wheel_grips(void)
                    frame_number-map_draw_frame<=1;
     int can_open_map=map_active && frame_driving && !vr_gamepad_selected && frame_map_valid &&
                      cockpit_menu==QUEST_UI_HUD && world_map_available;
-    save_map|=quest_minimap_update(&map_grip,&map_mount,vr_settings.map_offset,map_active,
-        hand_valid,position,frame_squeeze,map_busy);
+    save_map|=quest_minimap_update(&map_grip,&map_mount,&vr_settings.map,map_active,
+        hand_valid,hand_matrix,frame_squeeze,map_busy);
     if(map_grip.hand)radio_busy[map_grip.hand-1]=1;
     int radio_active=touch_active && radio_owner==cockpit_car && radio_owner && mirror_now-radio_tick<500;
+    int manual_lever=cabin_input && ui!=QUEST_UI_REPLAY && shifter_available && cockpit_car &&
+        (grid_car==cockpit_car || (gearbox_car==cockpit_car && gearbox_manual && mirror_now-gearbox_tick<500));
     int seat=0;
     if(!radio_active)radio_count=0;
     for(int h=0;h<2;++h) {
+        /* A fingertip can reach the keys while the palm approaches or leaves
+         * the knob. Give this hand the same pickup zone as the gear lever. */
+        int at_knob=manual_lever && quest_shifter_in_reach(&shifter,mirror_vehicle,position[h]);
         QuestRadioCommand cmd=quest_touch_update(&cabin_touch[h],quest_cockpit_vehicle(mirror_vehicle),
-            touch_active && hand_valid[h] && !radio_busy[h] && !(replay_bare_hands&(1u<<h)),radio_active,hand_matrix[h],index_tip,
+            touch_active && hand_valid[h] && !radio_busy[h] && !at_knob && !(replay_bare_hands&(1u<<h)),radio_active,hand_matrix[h],index_tip,
             cabin_touch[1-h].control);
         if(cmd.action>=QUEST_SEAT_FORWARD) {
             int height=cmd.action==QUEST_SEAT_UP || cmd.action==QUEST_SEAT_DOWN;
@@ -1255,12 +1265,14 @@ static void poll_wheel_grips(void)
     QuestMirrorMount reachable[QUEST_MIRRORS];
     memcpy(reachable,mirror_mounts,sizeof reachable);
     for(int p=0;p<QUEST_MIRRORS;++p)if(mirror_now-mirror_mount_tick[p]>=500)reachable[p].valid=0;
-    if(active)quest_mirror_grip(&mirror_grip,setting,reachable,mirror_now,hand_valid,hand_matrix,frame_squeeze,busy);
+    if(active || (in_cabin && ui==QUEST_UI_REPLAY))quest_mirror_grip(&mirror_grip,setting,reachable,mirror_now,hand_valid,hand_matrix,frame_squeeze,busy);
     else quest_mirror_release(&mirror_grip);
     if(memcmp(&before,setting,sizeof before)) {
-        mirror_dirty=1;mirror_known[mirror_vehicle]=1;last_mirrors=*setting;
+        mirror_dirty=1;mirror_known[mirror_vehicle]=1;
     }
-    if((!mirror_grip.hand && mirror_dirty) || save_camera || seat || save_map) { vr_save_settings();mirror_dirty=0; }
+    int save_mirrors=mirror_dirty && !mirror_grip.hand &&
+                     (vr_save_status>=0 || mirror_now-vr_save_tick>=5000);
+    if(save_mirrors || save_camera || seat || save_map)vr_save_settings();
     for(int h=0;h<2;++h)if(cabin_touch[h].pointing) {wheel_grip.blocked[h]=1;shifter.blocked[h]=1;}
     if(mirror_grip.hand) {
         wheel_grip.blocked[mirror_grip.hand-1]=1;
@@ -1337,6 +1349,7 @@ int quest_xr_begin(void)
                 quest_mirror_release(&mirror_grip);
                 memset(&pedals,0,sizeof pedals);
                 pthread_mutex_lock(&input_lock);
+                replay_click=(QuestReplayClick){0};
                 radio_count=0;cabin_touch[0]=cabin_touch[1]=(QuestCockpitTouch){.blocked=1};
                 shifter_request=QUEST_SHIFT_NONE;
                 input_buttons=0;memset(input_analog,0,sizeof input_analog);memset(input_sticks,0,sizeof input_sticks);
@@ -1574,7 +1587,7 @@ void quest_xr_shutdown(void)
 {
     pthread_mutex_lock(&input_lock);int save_camera=camera_dirty;camera_dirty=0;pthread_mutex_unlock(&input_lock);
     int save_map=release_map_grip();
-    if(mirror_dirty || save_camera || save_map) {vr_save_settings();mirror_dirty=0;}
+    if(mirror_dirty || save_camera || save_map)vr_save_settings();
     if(session) poll_haptics(0);
     if(device) vkDeviceWaitIdle(device);
     if(begun) quest_xr_end();

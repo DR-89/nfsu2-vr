@@ -1,5 +1,7 @@
 #include <SDL.h>
 #include "quest_xr.h"
+#include "vr_music.h"
+#include "apu_xaudio2.h"
 #include "game_data.h"
 #include <stdio.h>
 #include <stdint.h>
@@ -230,7 +232,12 @@ int pcvr_run_game(int (*entry)(void))
         _putenv_s("RECOMP_CULL","0");
         fprintf(stderr,"[PCVR] legacy screen-space batch culling disabled for tracked VR\n");
     }
+    char *music_parent=SDL_GetBasePath();
+    vr_music_start(music_parent);
+    SDL_free(music_parent);
+    xa2_music_mix=vr_music_mix;
     quest_xr_game_thread();
     int result=entry();
+    vr_music_stop();
     quest_xr_shutdown(); SDL_Quit(); pcvr_service_end(); return result;
 }

@@ -78,6 +78,9 @@ add_executable(pcvr_wheel_grip_test "${NFSU2_ROOT}/tests/quest_wheel_grip_test.c
 add_executable(pcvr_shifter_test "${NFSU2_ROOT}/tests/quest_shifter_test.c")
 add_executable(pcvr_mirrors_test "${NFSU2_ROOT}/tests/quest_mirrors_test.c")
 add_executable(pcvr_radio_test "${NFSU2_ROOT}/tests/quest_radio_test.c")
+add_executable(pcvr_music_test "${NFSU2_ROOT}/tests/vr_music_test.cpp")
+target_compile_features(pcvr_music_test PRIVATE cxx_std_17)
+target_link_libraries(pcvr_music_test PRIVATE nfsu2_vr_music)
 add_executable(pcvr_haptics_test "${NFSU2_ROOT}/tests/quest_haptics_test.c")
 add_executable(pcvr_vr_settings_test "${NFSU2_ROOT}/tests/quest_vr_settings_test.c")
 add_executable(pcvr_gamepad_test "${NFSU2_ROOT}/tests/quest_gamepad_test.c")
@@ -110,6 +113,7 @@ file(GLOB pcvr_generated "${NFSU2_GEN_DIR}/*.c")
 set_source_files_properties(${pcvr_generated} DIRECTORY "${NFSU2_ROOT}" PROPERTIES COMPILE_OPTIONS "/O1;/w")
 set_source_files_properties("${NFSU2_ROOT}/src/recomp_manual.c" DIRECTORY "${NFSU2_ROOT}" PROPERTIES COMPILE_OPTIONS "/fp:strict")
 add_custom_target(pcvr_bundle
+    COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:nfsu2_recomp>/Music"
     COMMAND ${CMAKE_COMMAND} -E copy_directory "${NFSU2_ROOT}/assets/cockpits/runtime/cockpits" "$<TARGET_FILE_DIR:nfsu2_recomp>/cockpits"
     COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:SDL2>" "$<TARGET_FILE_DIR:nfsu2_recomp>"
     COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:openxr_loader>" "$<TARGET_FILE_DIR:nfsu2_recomp>"
@@ -118,7 +122,7 @@ add_dependencies(pcvr_bundle pcvr_haptics_test)
 add_dependencies(pcvr_bundle pcvr_wheel_grip_test)
 add_dependencies(pcvr_bundle pcvr_shifter_test)
 add_dependencies(pcvr_bundle pcvr_mirrors_test)
-add_dependencies(pcvr_bundle pcvr_radio_test)
+add_dependencies(pcvr_bundle pcvr_radio_test pcvr_music_test)
 add_dependencies(pcvr_bundle pcvr_vr_settings_test)
 add_dependencies(pcvr_bundle pcvr_gamepad_test)
 add_dependencies(pcvr_bundle pcvr_projection_test)

@@ -10,6 +10,7 @@ typedef struct {
     uint32_t cells[QUEST_RADIO_COLUMNS+1][4];
     float scroll[2];
     uint32_t hover_mask,pressed_mask;
+    float bands[QUEST_RADIO_BANDS];
 } QuestRadioLCD;
 typedef struct { uint32_t bits[128][2]; } QuestRadioFont;
 
