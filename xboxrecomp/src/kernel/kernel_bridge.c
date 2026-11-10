@@ -108,7 +108,7 @@ static int bridge_va_mapped(uint32_t va, uint32_t bytes)
     if (end <= mapped)
         return 1;
     return va >= XBOX_CONTIG_BASE
-        && end <= (uint64_t)XBOX_CONTIG_BASE + XBOX_CONTIG_SIZE;
+        && end <= (uint64_t)XBOX_CONTIG_BASE + g_xbox_contig_size;
 }
 
 /* STATUS_ACCESS_VIOLATION is what NT answers for a user buffer it cannot
@@ -3097,7 +3097,7 @@ static void bridge_MmClaimGpuInstanceMemory(void)
     if (padding_va) {
         BRIDGE_MEM32(padding_va) = 0;
     }
-    g_eax = XBOX_CONTIG_BASE + XBOX_CONTIG_SIZE - bytes;
+    g_eax = XBOX_CONTIG_BASE + g_xbox_contig_size - bytes;
 }
 
 /* VOID HalRegisterShutdownNotification(PHAL_SHUTDOWN_REGISTRATION, BOOLEAN)

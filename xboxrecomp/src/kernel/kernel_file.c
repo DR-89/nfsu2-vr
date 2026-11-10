@@ -18,7 +18,9 @@
 #include "kernel.h"
 #include <string.h>
 #include <stdio.h>
+#include <stdlib.h>
 void (*xbox_file_read_hook)(void *buf, size_t len, int64_t offset);
+void (*xbox_file_read_observer)(void *handle,const char *resolved_path,void *buf,size_t len,int64_t offset);
 
 #if !defined(_WIN32)
 #include <fcntl.h>
@@ -249,7 +251,7 @@ NTSTATUS __stdcall xbox_NtReadFile(
     if (!IoStatusBlock)
         return STATUS_INVALID_PARAMETER;
 
-    if(xbox_file_read_hook) {
+    if(xbox_file_read_hook || xbox_file_read_observer) {
         if(ByteOffset && ByteOffset->QuadPart>=0) hook_offset=ByteOffset->QuadPart;
         else {
             LARGE_INTEGER zero={0}, position;
@@ -266,6 +268,16 @@ NTSTATUS __stdcall xbox_NtReadFile(
     }
 
     if (result || GetLastError() == ERROR_HANDLE_EOF) {
+        if(bytes_read && xbox_file_read_observer){
+            /* Save payloads fit in64KiB. Other reads still invalidate any
+             * reused buffer without a path lookup for large archive IO. */
+            WCHAR wide[4096];char utf8[12288];const char *path=NULL;
+            if(hook_offset>=0 && hook_offset<65536 && bytes_read<=65536){
+                DWORD used=GetFinalPathNameByHandleW(FileHandle,wide,4096,FILE_NAME_NORMALIZED);
+                if(used && used<4096 && WideCharToMultiByte(CP_UTF8,WC_ERR_INVALID_CHARS,wide,-1,utf8,sizeof utf8,NULL,NULL))path=utf8;
+            }
+            xbox_file_read_observer(FileHandle,path,Buffer,bytes_read,hook_offset);
+        }
         if(bytes_read && xbox_file_read_hook) xbox_file_read_hook(Buffer,bytes_read,hook_offset);
         IoStatusBlock->Information = bytes_read;
         if (bytes_read == 0 && Length > 0) {
@@ -974,7 +986,7 @@ NTSTATUS __stdcall xbox_NtReadFile(
     if (ByteOffset && ByteOffset->QuadPart >= 0) {
         lseek(fd, (off_t)ByteOffset->QuadPart, SEEK_SET);
         pos = ByteOffset->QuadPart;
-    } else if (xbox_file_read_hook) {
+    } else if (xbox_file_read_hook || xbox_file_read_observer) {
         pos = (int64_t)lseek(fd, 0, SEEK_CUR);
     }
 
@@ -990,6 +1002,14 @@ NTSTATUS __stdcall xbox_NtReadFile(
     if (n == 0 && Length > 0) {
         IoStatusBlock->Status = STATUS_END_OF_FILE;
         return STATUS_END_OF_FILE;
+    }
+    if(xbox_file_read_observer && n>0){
+        char resolved[4096];const char *path=NULL;
+        if(pos>=0 && pos<65536 && n<=65536){
+            const char *stored=w32_handle_path(FileHandle);
+            if(stored && realpath(stored,resolved))path=resolved;
+        }
+        xbox_file_read_observer(FileHandle,path,Buffer,(size_t)n,pos);
     }
     if (xbox_file_read_hook && n > 0)
         xbox_file_read_hook(Buffer, (size_t)n, pos);

@@ -34,7 +34,7 @@ static int ui_notification_test(void)
     memcpy(pages[0].bytes+0xd08,&frontend,4);
     memcpy(pages[1].bytes+0x28,&manager,4);
     memcpy(pages[1].bytes+0x1e4,&first,4);
-    const struct { const char *name[3];int menu,pause; } cases[]={
+    const struct { const char *name[3];int menu,pause,main; } cases[]={
         {{"HUD_SingleRace.fng"},0},
         {{"HUD_SingleRace.fng","Chyron_IG.fng"},0},
         {{"Chyron_IG.fng","HUD_SingleRace.fng"},0},
@@ -56,7 +56,18 @@ static int ui_notification_test(void)
         {{"HUD_SingleRace.fng","UI_Pause.fng","GenericDialog_SMALL.fng"},1,0},
         {{"UI_Pause.fng","UI_PauseOptionsMain.fng"},1,0},
         {{"UI_Pause.fngX"},1,0},
-        {{"UI_Pause.fng "},1,0}};
+        {{"UI_Pause.fng "},1,0},
+        {{"UI_Main.fng"},1,0,1},
+        {{"GarageMain.fng","UI_Main.fng"},1,0,1},
+        {{"GarageMain.fng","UI_Main.fng","GenericDialog_SMALL.fng"},1,0,0},
+        {{"GarageMain.fng","UI_QRModeSelect.fng"},1,0,0},
+        {{"Chyron_FE.fng","ui_main.FNG","MC_Background.fng"},1,0,1},
+        {{"MC_Background.fng","MC_Main.fng"},1,0,0},
+        {{"UI_Main.fng","GenericDialog_SMALL.fng"},1,0,0},
+        {{"UI_Main.fng","UI_OptionsMain.fng"},1,0,0},
+        {{"UI_Main.fngX"},1,0,0},
+        {{"UI_Main.fng "},1,0,0},
+        {{"MC_Background.fng","Chyron_FE.fng"},1,0,0}};
     for(unsigned i=0;i<sizeof cases/sizeof cases[0];++i) {
         for(unsigned n=0;n<3;++n) {
             uint32_t fields[4]={0,0,0,0x80010400+n*128};
@@ -67,16 +78,19 @@ static int ui_notification_test(void)
         }
         CHECK(quest_cockpit_ui_menu(ui_test_read,&memory)==cases[i].menu);
         CHECK(quest_cockpit_ui_paused(ui_test_read,&memory)==cases[i].pause);
+        CHECK(quest_cockpit_ui_main(ui_test_read,&memory)==cases[i].main);
     }
     memset(pages[1].bytes+0x1e4,0,4);
     CHECK(quest_cockpit_ui_menu(ui_test_read,&memory)==QUEST_UI_NO_HUD);
+    CHECK(!quest_cockpit_ui_main(ui_test_read,&memory));
     memcpy(pages[1].bytes+0x1e4,&first,4);
     /* A cyclic/incomplete active list must not authorize settings. */
     strcpy((char *)pages[1].bytes+0x400,"UI_Pause.fng");
     memcpy(pages[1].bytes+0x304,&first,4);
     CHECK(!quest_cockpit_ui_paused(ui_test_read,&memory));
-    memory.count=1;CHECK(!quest_cockpit_ui_paused(ui_test_read,&memory));
-    puts("Cockpit UI: exact pause authorization; notifications keep instruments seated; menus, dialogs and unknown packages remain whole.");
+    strcpy((char *)pages[1].bytes+0x400,"UI_Main.fng");CHECK(!quest_cockpit_ui_main(ui_test_read,&memory));
+    memory.count=1;CHECK(!quest_cockpit_ui_paused(ui_test_read,&memory));CHECK(!quest_cockpit_ui_main(ui_test_read,&memory));
+    puts("Cockpit UI: exact pause/main authorization; notifications keep instruments seated; menus, dialogs and unknown packages remain whole.");
     return 0;
 }
 static int race_panel_test(void)

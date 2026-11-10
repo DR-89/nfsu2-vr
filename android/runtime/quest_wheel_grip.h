@@ -7,6 +7,7 @@
 typedef struct {
     float pivot[3], axis[3], right[3], up[3], radius;
     float angle, previous[2], anchor[2], limit, sensitivity;
+    float deadzone;
     float return_speed; /* physical degrees per second */
     uint32_t update_tick;
     int grabbed[2], blocked[2], latched, rebase[2];
@@ -129,6 +130,7 @@ static inline int16_t quest_wheel_input(QuestWheelGrip *w,int active,int16_t sti
     }
     if(!active || !w->latched) return stick;
     float steering=fmaxf(-1,fminf(1,w->angle/w->limit*w->sensitivity));
+    steering=copysignf(fmaxf(0,(fabsf(steering)-w->deadzone)/(1.f-w->deadzone)),steering);
     return quest_wheel_encode_steering(steering);
 }
 /* A grasped palm follows the actual rendered wheel, including its smoothing.

@@ -112,6 +112,11 @@ static inline QuestRadioCommand quest_touch_update(QuestCockpitTouch *g,const Qu
         g->previous=p;
     }
     g->previous_valid=radio;
+    if(!hit.control) {
+        QuestRadioPosition p=quest_radio_position(tip,fit);
+        if(p.u>=.05f && p.u<=.95f && p.v>=1.9f && p.v<=2.5f && p.depth<=.095f)
+            hit=(QuestButtonHit){p.u<.5f?QUEST_COCKPIT_LED:QUEST_COCKPIT_PAGE,p.depth,p.u};
+    }
     if(!hit.control)hit=quest_seat_hit(tip,fit);
     g->pointing=hit.control;
     if(!hit.control || hit.depth>.025f || hit.depth<-.035f) {

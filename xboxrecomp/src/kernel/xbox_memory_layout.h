@@ -77,6 +77,10 @@ extern size_t g_xbox_total_ram;
  * that does not ask. Set before xbox_MemoryLayoutInit(). */
 extern size_t g_xbox_map_size;
 void xbox_SetMapSize(size_t bytes);
+/* Set the independent CPU/GPU physical window to 64 or 128 MB before init.
+ * Does not change the RAM reported to the title or its low-address mirrors.
+ * Returns zero for an unsupported size or after initialization. */
+int xbox_SetContiguousSize(uint32_t bytes);
 
 /* Carve a pure address-space reservation from the mapped range above RAM.
  * Returns 0 if the mapping is no larger than RAM, or if it is exhausted.

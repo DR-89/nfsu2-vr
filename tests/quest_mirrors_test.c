@@ -1,4 +1,5 @@
 #include "../android/runtime/quest_mirrors.h"
+#include "../android/runtime/quest_cockpit_vehicle.h"
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -135,10 +136,68 @@ static void lancer_coverage_test(void)
         }
     }
 }
+static void self_capture_test(void)
+{
+    const float projection[4]={.304f,1.145f,600.f/(600.f-.18f),-600.f*.18f/(600.f-.18f)};
+    for(int model=0;model<QUEST_COCKPIT_VEHICLES;++model)for(int turn=-2;turn<=2;++turn) {
+        const float *seat=quest_cockpit_vehicle(model)->seat;
+        QuestMirrorCamera cam={.origin={.30f,.12f,-.72f}};
+        float a=turn*.15f,c=cosf(a),s=sinf(a);
+        cam.axis[0][0]=-c;cam.axis[0][2]=s;cam.axis[1][1]=-1;
+        cam.axis[2][0]=s;cam.axis[2][2]=c;
+        float capture[16];CHECK(quest_mirror_capture_matrix(capture,&cam,projection));
+        /* A point at given rear-camera X/Y/Z must produce the exact UV and
+         * depth the glass shader uses, at cabin, traffic and horizon ranges. */
+        for(int distance=0;distance<4;++distance) {
+            float z=distance==0?.18f:distance==1?1.5f:distance==2?20.f:600.f;
+            float view[3]={.1f*z,-.2f*z,z},cabin[4]={0,0,0,1},clip[4]={0};
+            for(int k=0;k<3;++k){cabin[k]=cam.origin[k];for(int j=0;j<3;++j)cabin[k]+=cam.axis[j][k]*view[j];}
+            for(int j=0;j<4;++j)for(int k=0;k<4;++k)clip[j]+=capture[4*k+j]*cabin[k];
+            CHECK(fabsf(clip[0]/clip[3]-.1f*projection[0])<.00001f);
+            CHECK(fabsf(clip[1]/clip[3]+.2f*projection[1])<.00001f);
+            CHECK(fabsf(clip[2]/clip[3]-(projection[2]+projection[3]/z))<.00001f);
+        }
+        /* Build the actual guest row-major MVP by transforming the four car
+         * basis points into cabin space, independently of the classifier. */
+        float m[16]={0},base[4]={seat[1],-seat[2],seat[0],1};
+        float car_axes[3][4]={{0,0,-1,0},{-1,0,0,0},{0,1,0,0}};
+        for(int row=0;row<4;++row)for(int col=0;col<4;++col)for(int k=0;k<4;++k)
+            m[row*4+col]+=capture[4*k+row]*(col==3?base[k]:car_axes[col][k])*(row==1?-1.f:1.f);
+        CHECK(quest_mirror_own_car(m,&cam,projection,seat));
+        float other[16];memcpy(other,m,sizeof other);other[15]+=.10f;
+        CHECK(!quest_mirror_own_car(other,&cam,projection,seat));
+        memcpy(other,m,sizeof other);other[0]+=.02f;
+        CHECK(!quest_mirror_own_car(other,&cam,projection,seat));
+        memcpy(other,m,sizeof other);other[7]=NAN;
+        CHECK(!quest_mirror_own_car(other,&cam,projection,seat));
+    }
+    QuestMirrorCamera bad={0};bad.origin[0]=NAN;float out[16];
+    CHECK(!quest_mirror_capture_matrix(out,&bad,projection));
+}
+static void capture_near_test(void)
+{
+    QuestMirrorMount mounts[3]={{{.3f,.1f,-.4f},{.12f,.04f,.02f},1}};
+    QuestMirrorCamera cam={.axis={{-1,0,0},{0,-1,0},{0,0,1}},.origin={.3f,.1f,-1.f}};
+    CHECK(fabsf(quest_mirror_capture_near(&cam,mounts)-.66f)<1e-6f);
+    /* The housing is beyond the old 18 cm plane but in front of this plane;
+     * a rear seat one metre behind the glass must remain visible. */
+    CHECK(.62f> .18f && .62f<quest_mirror_capture_near(&cam,mounts));
+    CHECK(1.6f>quest_mirror_capture_near(&cam,mounts));
+    for(int turn=-3;turn<=3;++turn) {
+        float a=turn*.1f;cam.axis[2][0]=sinf(a);cam.axis[2][2]=cosf(a);
+        float near_z=quest_mirror_capture_near(&cam,mounts);
+        for(int corner=0;corner<8;++corner) {
+            float p[3];for(int k=0;k<3;++k)p[k]=mounts[0].center[k]-cam.origin[k]+(corner&(1<<k)?1.f:-1.f)*mounts[0].half[k];
+            CHECK(quest_mirror_dot(p,cam.axis[2])+.039f<near_z);
+        }
+    }
+    mounts[0].valid=0;CHECK(quest_mirror_capture_near(&cam,mounts)==.18f);
+    mounts[0].valid=1;mounts[0].center[2]=NAN;CHECK(quest_mirror_capture_near(&cam,mounts)==.18f);
+}
 int main(void)
 {
     for(int h=0;h<2;++h)for(int p=0;p<3;++p)grab_test(h,p);
-    optics_test();lancer_coverage_test();
-    puts("Mirror grab, paired adjustment, seat calibration, damped eyes and Lancer rear-camera coverage passed.");
+    optics_test();lancer_coverage_test();self_capture_test();capture_near_test();
+    puts("Mirror controls/coverage and all-car rear capture projection, depth and own-body isolation passed.");
     return 0;
 }

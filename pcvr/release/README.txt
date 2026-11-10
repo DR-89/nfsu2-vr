@@ -86,8 +86,9 @@ Controls (Touch controllers):
 - For RPM-based engine rumble, turn on Engine REV Rumble in VR Settings >
   Advanced Haptics / Rumble. Feel a gentle vibration at idle that builds
   toward your car's redline and eases when the revs drop. More throttle
-  strengthens the rumble. Grip Feedback stops it in a hand that lets go
-  of the wheel. Road and collision feedback still reach both hands.
+  strengthens the rumble. Grip Feedback limits engine rumble to hands holding
+  the wheel or inside the shifter zone. Road and collision feedback still
+  reach both hands.
 - Master Gain adjusts all game audio.
 - Right and left trigger travel animates the accelerator and brake. Manual
   shifts depress the clutch pedal and it returns as the shift completes.
@@ -108,9 +109,13 @@ Keep the entire bundled cockpits/ folder, including the racing gloves.
 The cabin now has base seat/body fitting for all 29 stock cars. Miata and 350Z
 omit the rear bench. Original driver-proxy cards and the player's window glass
 are hidden only in Cockpit View; exterior tint, body and mirrors are retained.
-The dashboard speed display, console map and recent mirror/tint corrections
-were accepted on native Quest. PCVR shares this code but has not had a fresh
-headset acceptance test for this release. Every tuning combination is not tested.
+Mirrors show the road and traffic behind you; your own cabin and car are
+excluded from the rear capture. The old 2D mirror mask is filtered out to
+remove its black bar. Aiming the center mirror leaves the outside views alone.
+The movable dash screen now uses cockpit depth correctly in front of or
+behind the wheel, including at partial opacity.
+Automated mirror and screen-depth checks pass. Final in-headset acceptance
+of all changes on both platforms and every tuning combination is pending.
 
 VR Settings:
 - Pause during a race, then press X. The entry is available only at the root
@@ -143,3 +148,17 @@ with tools/build-pcvr.ps1. The repository retains original license notices.
 Microsoft Visual C++ runtime DLLs are Microsoft redistributable components
 and remain under Microsoft's terms, not the port/toolkit licenses.
 This unofficial fan project is not endorsed by EA, Meta or Microsoft.
+
+Cockpit Controls (VR Settings):
+- Choose H-pattern or sequential I-pattern, with reversible push/pull shifts.
+- Optional no-grip flick shifting: Single Both or Double Down. Adjust direction,
+  axis, active zone, movement/wrist deadzones and flick speed.
+- Engine rumble follows the hand into the shifter zone. Shift clicks, optional
+  sound, green zone LEDs, red upshift and blue downshift flashes are configurable.
+- LED and PAGE > buttons below the stereo cycle ambient color and the monitor's
+  video/music or live RPM, acceleration and brake graphs.
+- Wheel Deadzone adjusts the tracked steering wheel's center dead travel.
+- Enable Grab Dash Screen to move/tilt it with Grip. Right stick up/down while
+  holding resizes it; Screen Opacity and Reset Screen are in the same settings.
+- Gestures and screen grabbing default to Off. These controls still need a
+  headset playtest for feel and final visual placement.

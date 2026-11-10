@@ -19,9 +19,24 @@ static int cockpit_windows_test(const char *fixture)
     memcpy(pages[1].bytes+0x224,&entries[0][1],4);
     memcpy(pages[1].bytes+0x26c,&texture,4);
     memcpy(pages[1].bytes+0x270,&pixels,4);
+    uint32_t masks[2],mask_info[2]={texture,0};
+    quest_cockpit_mirror_masks(ui_test_read,&memory,mask_info,masks,0x84000000u);
+    CHECK(masks[0]==pixels && !masks[1]);
+    uint32_t stale=texture+4;memcpy(pages[1].bytes+0x26c,&stale,4);
+    quest_cockpit_mirror_masks(ui_test_read,&memory,mask_info,masks,0x84000000u);
+    CHECK(!masks[0] && !masks[1]);
+    memcpy(pages[1].bytes+0x26c,&texture,4);
     uint32_t windows[7],r[0x2000/4]={0};
     quest_cockpit_window_textures(ui_test_read,&memory,0x80010000,windows);
     for(int i=0;i<7;++i)CHECK(windows[i]==pixels);
+    uint32_t high_pixels=0x85010000;
+    memcpy(pages[1].bytes+0x270,&high_pixels,4);
+    quest_cockpit_window_textures(ui_test_read,&memory,0x80010000,windows);
+    for(int i=0;i<7;++i)CHECK(!windows[i]);
+    quest_cockpit_window_textures_range(ui_test_read,&memory,0x80010000,windows,0x88000000u);
+    for(int i=0;i<7;++i)CHECK(windows[i]==high_pixels);
+    memcpy(pages[1].bytes+0x270,&pixels,4);
+    quest_cockpit_window_textures(ui_test_read,&memory,0x80010000,windows);
     r[0x30c/4]=r[0x304/4]=1;r[0x344/4]=0x302;r[0x348/4]=0x303;r[0x1b0c/4]=0x40000000;
     CHECK(quest_cockpit_window_draw(windows,pixels,r,1));
     CHECK(!quest_cockpit_window_draw(windows,pixels,r,0)); /* exterior/other car/reflection */

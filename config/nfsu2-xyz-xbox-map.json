@@ -1,0 +1,1989 @@
+{
+  "schema": 1,
+  "status": "static_mapping_with_partial_isolated_runtime_verification",
+  "pc_sha256": "f9dd86c054878ce6276beb07c1fd61874f7a1e4bf1f241b084c65b73e24168a7",
+  "xbox_sha256": "c8cab1bfe7cf26553e84eb4ef2a26d16f6b06260f7494c583802bc00fd81dd31",
+  "functions": {
+    "create_car": {
+      "pc": "0x00606480",
+      "xbox": "0x001f6650",
+      "xbox_end": "0x001f677b",
+      "xbox_code_sha256": "86252139eec6c535db25c65d9b13378dea870f7992055b034afe3ff3261155b2",
+      "evidence": "Matched constructor call chain, 0x9e0 allocation, driver/physics calls and world insertion. ECX=grid, EDX=record, two caller-popped stack args. EAX is NOT a car pointer; find it by record on the world list.",
+      "runtime_verified": true,
+      "runtime_evidence": "2026-11-08 isolated PCVR Xbox execution: exact 882-byte ride rebuild, owned unindexed clone load/create/remove. Vehicle appearance subsequently confirmed by user in both PCVR and standalone Quest headsets; peer-driven multiplayer remains unverified."
+    },
+    "set_driver": {
+      "pc": "0x005eba30",
+      "xbox": "0x001dbe60",
+      "xbox_end": "0x001dbfe5",
+      "xbox_code_sha256": "21bdbb1eced1101feba179393115aacf911c95dd7fd1270a04d862961bce3974",
+      "evidence": "Matched 0..5 switch, driver fields +0x24/+0x2c and case allocations.",
+      "runtime_verified": true,
+      "runtime_evidence": "2026-11-08 isolated Xbox owned clone: creation (driver/physics mode zero), loading and applying PEUGOT 882-byte configuration (exact re-encode), then destruction. Vehicle appearance subsequently confirmed on PCVR and standalone Quest; other driver/physics modes remain unverified."
+    },
+    "set_physics": {
+      "pc": "0x005f46a0",
+      "xbox": "0x001e4a70",
+      "xbox_end": "0x001e4cd8",
+      "xbox_code_sha256": "46b778bea11d0eb275ddc8ef9458764b34b5475192bb814f2a0d3d58ee8939c0",
+      "evidence": "Matched calls from both CreateCar implementations; mode argument and physics ownership still need runtime checks.",
+      "runtime_verified": true,
+      "runtime_evidence": "2026-11-08 isolated Xbox owned clone: creation (driver/physics mode zero), loading and applying PEUGOT 882-byte configuration (exact re-encode), then destruction. Vehicle appearance subsequently confirmed on PCVR and standalone Quest; other driver/physics modes remain unverified."
+    },
+    "deactivate_car": {
+      "pc": "0x005f6e20",
+      "xbox": "0x001e6c10",
+      "xbox_end": "0x001e6c56",
+      "xbox_code_sha256": "ca870751f7cdc60af0313e6376fcff5e4418f351e2bb15a05367968cd5f2318d",
+      "evidence": "Matched CreateCar call and complete normalized instruction sequence.",
+      "runtime_verified": false
+    },
+    "set_ride": {
+      "pc": "0x00601110",
+      "xbox": "0x001f10c0",
+      "xbox_end": "0x001f125b",
+      "xbox_code_sha256": "6160e0c09b93777451a76221014300eb46602047688a35bcab28c0e7c199ce8e",
+      "evidence": "Matched loader, physics and car-type table call chain; car type stride 0x890.",
+      "runtime_verified": true,
+      "runtime_evidence": "2026-11-08 isolated Xbox owned clone: creation (driver/physics mode zero), loading and applying PEUGOT 882-byte configuration (exact re-encode), then destruction. Vehicle appearance subsequently confirmed on PCVR and standalone Quest; other driver/physics modes remain unverified."
+    },
+    "type_by_hash": {
+      "pc": "0x00610130",
+      "xbox": "0x001ff570",
+      "xbox_end": "0x001ff5a5",
+      "xbox_code_sha256": "f4c7fef198646ef51d34d26e5910ceebb40d223271d954e555b32082e4084794",
+      "evidence": "Explicit search of 46 entries, type hash +0xd0, stride 0x890, zero on miss.",
+      "runtime_verified": true,
+      "runtime_evidence": "2026-11-08 isolated PCVR Xbox execution: exact 882-byte ride rebuild, owned unindexed clone load/create/remove. Vehicle appearance subsequently confirmed by user in both PCVR and standalone Quest headsets; peer-driven multiplayer remains unverified."
+    },
+    "ride_init": {
+      "pc": "0x00610270",
+      "xbox": "0x001ff6b0",
+      "xbox_end": "0x001ff724",
+      "xbox_code_sha256": "b3c97844cf59d1e2c0e7d4b20bfc3bd63b672ea1ed0f457bbba97ba791dc9e83",
+      "evidence": "Matched type/flags, 170 part pointers at +0x590, enabled parts at +0x838, physics initialization; ret 0x10.",
+      "runtime_verified": true,
+      "runtime_evidence": "2026-11-08 isolated PCVR Xbox execution: exact 882-byte ride rebuild, owned unindexed clone load/create/remove. Vehicle appearance subsequently confirmed by user in both PCVR and standalone Quest headsets; peer-driven multiplayer remains unverified."
+    },
+    "index_cars": {
+      "pc": "0x005f0d20",
+      "xbox": "0x001e0f40",
+      "xbox_end": "0x001e1045",
+      "xbox_code_sha256": "e895a5fd02067fdf186cae69afa2da27a284a8cfc5a0589128d37111fc1cf1be",
+      "evidence": "Matched three passes by record kind 1/2/3 and world index +0x1c. Xbox additionally writes six global arrays of 22 elements; never allow index overflow.",
+      "runtime_verified": false
+    },
+    "get_car_part": {
+      "pc": "0x0061b980",
+      "xbox": "0x00206d00",
+      "xbox_end": "0x00206d9f",
+      "xbox_code_sha256": "321eec77a2c053ad74c6fe1dca38356a44d4942f4f1174378b6e5b1e9e0d5a71",
+      "evidence": "Matched five stack args, slot-kind table, owner table indexed by part byte +7, keyed part iterator; ret 0x14.",
+      "runtime_verified": true,
+      "runtime_evidence": "2026-11-08 isolated PCVR Xbox execution: exact 882-byte ride rebuild, owned unindexed clone load/create/remove. Vehicle appearance subsequently confirmed by user in both PCVR and standalone Quest headsets; peer-driven multiplayer remains unverified."
+    },
+    "frame_update": {
+      "pc": "0x0060aee0",
+      "xbox": "0x001faed0",
+      "xbox_end": "0x001fb34c",
+      "xbox_code_sha256": "4cea282fb53b508f2fe948da148a97a0203ba4ffa3c216dcb1f7ecd6688823eb",
+      "evidence": "Main loop calls at PC 0x581484 and Xbox 0x18ab7a follow the two no-ops after WorldDoTimestep. Adapter runs before this body only for return 0x18ab7f; frontend and world branches both converge here.",
+      "runtime_verified": true,
+      "runtime_evidence": "2026-11-08: main-loop sampling verified through frontend/loading/race transitions and real free roam (track 4000/race type 0). Both native game logs show real-service CONNECTED, generation 1, local ready, no peers. User confirms CONNECTED on PCVR and standalone Quest. This does not establish peer-driven gameplay."
+    },
+    "lan_car_encode": {
+      "pc": "0x005f0320",
+      "xbox": "0x001e0450",
+      "xbox_end": "0x001e0643",
+      "xbox_code_sha256": "cefd7be38a7bca4d020fb7b958fc5ae50aba85c2fc0e0e8959c1a155522d4be6",
+      "evidence": "Original LAN description reads ten flags at ride+0x318, 41 tuning bytes at +0x398, 170 part slots; performance helper 0x1a4040 reads 68 flags at (ride+0x2f0)+0x50 = +0x340.",
+      "runtime_verified": false
+    },
+    "lan_car_decode": {
+      "pc": "0x005f04d0",
+      "xbox": "0x001e0650",
+      "xbox_end": "0x001e0838",
+      "xbox_code_sha256": "b90a3dca2bf211158279deb0131b7dacbc789ea76927a206d0e044b8a5ecceae",
+      "evidence": "Matched bit-reader, RideInit, PerformanceSet, stock-parts and SetPart call chains. Does not establish raw LAN packet compatibility.",
+      "runtime_verified": false
+    },
+    "ride_stock": {
+      "pc": "0x00637040",
+      "xbox": "0x00216350",
+      "xbox_end": "0x00216490",
+      "xbox_code_sha256": "973486753a0ad7e3ca763e8e0b303cc26ffe0ee982126607701746d1432c68b8",
+      "evidence": "170-slot stock-part assignment; calls GetCarPart and UpdatePartsEnabled; ECX=ride, one argument, ret 4.",
+      "runtime_verified": true,
+      "runtime_evidence": "2026-11-08 isolated PCVR Xbox execution: exact 882-byte ride rebuild, owned unindexed clone load/create/remove. Vehicle appearance subsequently confirmed by user in both PCVR and standalone Quest headsets; peer-driven multiplayer remains unverified."
+    },
+    "ride_parts_enabled": {
+      "pc": "0x0061bcd0",
+      "xbox": "0x00207020",
+      "xbox_end": "0x00207612",
+      "xbox_code_sha256": "ad5b0de611b5c678f0c245a9cf4083bc580d8dd4771813c4fc5d38f416a2e8c4",
+      "evidence": "Matched ride-enabled slots and conditional body/hydraulics flags; ECX=ride, no stack arguments.",
+      "runtime_verified": true,
+      "runtime_evidence": "2026-11-08 isolated PCVR Xbox execution: exact 882-byte ride rebuild, owned unindexed clone load/create/remove. Vehicle appearance subsequently confirmed by user in both PCVR and standalone Quest headsets; peer-driven multiplayer remains unverified."
+    },
+    "ride_skins": {
+      "pc": "0x0061c280",
+      "xbox": "0x00207620",
+      "xbox_end": "0x002076bd",
+      "xbox_code_sha256": "4b882d6b63cc3034ba68651fc9782ebbc9c17e0380b9ac02e35d0cc2c0484a55",
+      "evidence": "Formats DUMMY_SKIN/WHEEL/SPINNER names with skin number and hashes them into ride+0x584/588/58c; ECX=ride, ret 4.",
+      "runtime_verified": true,
+      "runtime_evidence": "2026-11-08 isolated PCVR Xbox execution: exact 882-byte ride rebuild, owned unindexed clone load/create/remove. Vehicle appearance subsequently confirmed by user in both PCVR and standalone Quest headsets; peer-driven multiplayer remains unverified."
+    },
+    "performance_set": {
+      "pc": "0x005ac4b0",
+      "xbox": "0x001b6d90",
+      "xbox_end": "0x001b6dcf",
+      "xbox_code_sha256": "8996bba78c64d8b0571ab830b7e6ed3c1c968937f84b57b4f61676e50c374d94",
+      "evidence": "Resets installed performance state, reads 68 bits from input+5 and writes self+0x50; self=ride+0x2f0, ret 4.",
+      "runtime_verified": true,
+      "runtime_evidence": "2026-11-08 isolated PCVR Xbox execution: exact 882-byte ride rebuild, owned unindexed clone load/create/remove. Vehicle appearance subsequently confirmed by user in both PCVR and standalone Quest headsets; peer-driven multiplayer remains unverified."
+    },
+    "loader_load": {
+      "pc": "0x0063bc70",
+      "xbox": "0x0021ac20",
+      "xbox_end": "0x0021ac82",
+      "xbox_code_sha256": "da2685cfec4271d01ac68a0331605fdb50cacf3e3d69696718b42c1d49d207fb",
+      "evidence": "Matched CarLoader::Load three arguments, creates/finds loader entry and handle, ret 12.",
+      "runtime_verified": true,
+      "runtime_evidence": "2026-11-08 isolated PCVR Xbox execution: exact 882-byte ride rebuild, owned unindexed clone load/create/remove. Vehicle appearance subsequently confirmed by user in both PCVR and standalone Quest headsets; peer-driven multiplayer remains unverified."
+    },
+    "loader_service": {
+      "pc": "0x0063bcd0",
+      "xbox": "0x0021ac90",
+      "xbox_end": "0x0021acc7",
+      "xbox_code_sha256": "4d8d2d454c578c286a49b25b935f212b60ccb6d57a492947ad74e34c2fbec2e2",
+      "evidence": "Checks loader+0x14 busy state, records clock and calls load step; two arguments, ret 8.",
+      "runtime_verified": true,
+      "runtime_evidence": "2026-11-08 isolated PCVR Xbox execution: exact 882-byte ride rebuild, owned unindexed clone load/create/remove. Vehicle appearance subsequently confirmed by user in both PCVR and standalone Quest headsets; peer-driven multiplayer remains unverified."
+    },
+    "loader_loaded": {
+      "pc": "0x00610910",
+      "xbox": "0x001ffda0",
+      "xbox_end": "0x001ffe09",
+      "xbox_code_sha256": "3a5ab5d7ddcb0e9c8487e6ee695ff9a7a4d7a052baed130f26804caa90527d14",
+      "evidence": "Checks loader entry texture/model state at +0x954/958 and component states; entry argument, ret 4.",
+      "runtime_verified": true,
+      "runtime_evidence": "2026-11-08 isolated PCVR Xbox execution: exact 882-byte ride rebuild, owned unindexed clone load/create/remove. Vehicle appearance subsequently confirmed by user in both PCVR and standalone Quest headsets; peer-driven multiplayer remains unverified."
+    },
+    "loader_wait": {
+      "pc": "0x0061ca50",
+      "xbox": "0x00207e00",
+      "xbox_end": "0x00207e91",
+      "xbox_code_sha256": "d718b92474559ac0de2a9f2b01ef7957984d1f480f9142552cb33b33f60546ab",
+      "evidence": "Searches loader+0x58 list by entry+0x123c handle, tests Loaded while pumping streaming. Call only after Loaded succeeds; ret 4.",
+      "runtime_verified": true,
+      "runtime_evidence": "2026-11-08 isolated PCVR Xbox execution: exact 882-byte ride rebuild, owned unindexed clone load/create/remove. Vehicle appearance subsequently confirmed by user in both PCVR and standalone Quest headsets; peer-driven multiplayer remains unverified."
+    },
+    "loader_unload": {
+      "pc": "0x0063ae00",
+      "xbox": "0x0021a120",
+      "xbox_end": "0x0021a18f",
+      "xbox_code_sha256": "ad7413a1c3c0f7adc4a12a480b16b26be50ad1fcf676824333dc3484a9256310",
+      "evidence": "Searches entry handle at +0x123c, decrements reference and frees an unused entry via 0x219310; ret 4.",
+      "runtime_verified": true,
+      "runtime_evidence": "2026-11-08 isolated PCVR Xbox execution: exact 882-byte ride rebuild, owned unindexed clone load/create/remove. Vehicle appearance subsequently confirmed by user in both PCVR and standalone Quest headsets; peer-driven multiplayer remains unverified."
+    },
+    "car_destroy": {
+      "xbox": "0x001e48b0",
+      "xbox_end": "0x001e4a1f",
+      "xbox_code_sha256": "cc692cffd50cefd1226af34ef4b1101ce83e89823691040ceab71d6bc8ee70de",
+      "evidence": "Called by world destruction (0x1ef650 and 0x1ef310), after unlink and before free. Tested on our own unindexed clone only.",
+      "runtime_verified": true
+    },
+    "guest_allocate": {
+      "xbox": "0x0003ed50",
+      "xbox_end": "0x0003ed63",
+      "xbox_code_sha256": "9de2e90f7176405b8977fe9c8a45192e771db05d74289c5628bebdb4bc7add0d",
+      "evidence": "CreateCar allocates 0x9e0 through this cdecl allocator. Used for owned stable records and ride buffers.",
+      "runtime_verified": true,
+      "pc": "0x00575620"
+    },
+    "guest_free": {
+      "xbox": "0x0018e780",
+      "xbox_end": "0x0018e789",
+      "xbox_code_sha256": "53c9b12e5ca78e8bca66587560865505fe59de28a9afbc5ab7c8a9410458bf6d",
+      "evidence": "World destruction frees the already destructed car with this cdecl call. Tested on our own unindexed clone only.",
+      "runtime_verified": true
+    },
+    "body_disable": {
+      "xbox": "0x0019e1c0",
+      "xbox_end": "0x0019e1c4",
+      "xbox_code_sha256": "229800ba33d9f037cdb764fc42754402aec7735cb415f4a182d9d1db199ce394",
+      "evidence": "Four bytes: increments byte [ecx+0x17], ret; directly read/write the owned collision-body counter.",
+      "runtime_verified": false,
+      "pc": "0x005930f0"
+    },
+    "car_body_position": {
+      "xbox": "0x001e50c0",
+      "xbox_end": "0x001e5156",
+      "xbox_code_sha256": "f2e2063143511a92b55bed8d7f6abb816c410fe69b7384b78fa32fbd4eaa449d",
+      "evidence": "Car COM at +0x60 minus physics offset becomes origin +0x50; updates render transform through 0x19d430.",
+      "runtime_verified": true,
+      "runtime_evidence": "2026-11-08 isolated Xbox owned clone: creation (driver/physics mode zero), loading and applying PEUGOT 882-byte configuration (exact re-encode), then destruction. Vehicle appearance subsequently confirmed on PCVR and standalone Quest; other driver/physics modes remain unverified.",
+      "pc": "0x005f5010"
+    },
+    "activate_car": {
+      "pc": "0x005f6d50",
+      "xbox": "0x001e6b40",
+      "xbox_end": "0x001e6c0b",
+      "xbox_code_sha256": "70be4475d2753c6fb8240f0bdffb242d17da0618a65c51a98cf6be86d2e4a50f",
+      "evidence": "Sets car active +0x550 and clears blink +0x998, selects driver/physics and enables its body. Call inert afterward and preserve index-zero debug arrays.",
+      "runtime_verified": true,
+      "runtime_evidence": "Isolated PCVR Xbox run: 271 applied circular-motion frames, 30 hidden frames, zero failures; position error 0.00000000, quaternion-dot error 0.00000012. Headset appearance pending."
+    },
+    "car_section": {
+      "pc": "0x005f6cd0",
+      "xbox": "0x001e6ac0",
+      "xbox_end": "0x001e6b3c",
+      "xbox_code_sha256": "7ed3c7871132dc807fa3ffaf33271c23f48bfbb8d21eab45e5c0207ce0838879",
+      "evidence": "Track section lookup through car+0x5c4; calls BodyPos on re-entry, which can snap both COM height and all three orientation axes to the ground. Restore received COM/basis afterward.",
+      "runtime_verified": true,
+      "runtime_evidence": "Isolated PCVR Xbox run: 271 applied circular-motion frames, 30 hidden frames, zero failures; position error 0.00000000, quaternion-dot error 0.00000012. Headset appearance pending."
+    },
+    "road_tracker": {
+      "pc": "0x005da330",
+      "xbox": "0x001ca7e0",
+      "xbox_end": "0x001ca817",
+      "xbox_code_sha256": "076aedc314058e6673e82b14018495fc76c7bd5387636257d798c536d9c5d80f",
+      "evidence": "Thiscall car+0x8d8, position-pointer stack argument, ret 4; distance threshold triggers tracker search via 0x1ca180 with Xbox tracker 0x448608.",
+      "runtime_verified": true,
+      "runtime_evidence": "Isolated PCVR Xbox run: 271 applied circular-motion frames, 30 hidden frames, zero failures; position error 0.00000000, quaternion-dot error 0.00000012. Headset appearance pending."
+    },
+    "wheel_matrix": {
+      "pc": "0x005921b0",
+      "xbox": "0x0019d270",
+      "xbox_end": "0x0019d39c",
+      "xbox_code_sha256": "29e251e88084e48a1d153858209a5848800557a8fa8a80a8f3b925e7218173bc",
+      "evidence": "ECX car+0x40: physics pointer at +0, wheel position physics+0x10+0x30*k, radius +0x20; wheel/brake matrices car+0x130/+0x230+0x40*k, suspension car+0x380 and front steering car+0x40e.",
+      "runtime_verified": false
+    },
+    "physics_zero_update": {
+      "pc": "0x005eb920",
+      "xbox": "0x001dbd20",
+      "xbox_end": "0x001dbd32",
+      "xbox_code_sha256": "ac2f98c9489034ccef8d9b60ae87b2eb810cc7f51050e19d36cdf1d3cc83014c",
+      "evidence": "Mode-zero update calls 0x19d3a0 with physics->carState at +8; this loops four wheel matrix builds 0x19d270.",
+      "runtime_verified": false
+    },
+    "pack_load": {
+      "pc": "0x004941c0",
+      "xbox": "0x000af510",
+      "xbox_end": "0x000af535",
+      "xbox_code_sha256": "d3a6ddd9ce247f7f05bb18bcbba692505cb23223e6b3afde31b9cf2b67624d41",
+      "evidence": "Geometry wrapper uses streamer 0x3ea794; four caller-popped arguments. Distinct from 0xaf540, which uses another streamer.",
+      "runtime_verified": true,
+      "runtime_evidence": "2026-11-08 isolated actual Xbox race: native catalogue enumerated 11 shared packs and 24 rim packs, added exactly one header reference to each, and reached ready. Read-only process capture verified all 35 present, references >=2, none busy. This does not verify duplicate-model transfer or a garage transition."
+    },
+    "pack_find": {
+      "pc": "0x0048ce80",
+      "xbox": "0x0009e180",
+      "xbox_end": "0x0009e1d2",
+      "xbox_code_sha256": "67e8ccedd1bc4d7661a4a1789b39fcbbf61cd1c517eb4b27e25c9f595487899d",
+      "evidence": "ECX streamer, one callee-popped filename. Mutates LRU order; native adapter instead uses a bounded read-only list walk.",
+      "runtime_verified": false
+    },
+    "pack_unload": {
+      "pc": "0x004941f0",
+      "xbox": "0x000ac200",
+      "xbox_end": "0x000ac21b",
+      "xbox_code_sha256": "2573cdd7dd00e7da9195dd228273a433bc4d59c22da03cff562e9321f8ddca5d",
+      "evidence": "Three caller-popped arguments; geometry streamer 0x3ea794.",
+      "runtime_verified": false
+    },
+    "pack_wait": {
+      "pc": "0x0048d9d0",
+      "xbox": "0x0009f040",
+      "xbox_end": "0x0009f06d",
+      "xbox_code_sha256": "ab6df6f7831c469d0e3cfd2db6795d04afb5f2a366695a211e23203caa2d901d",
+      "evidence": "One caller-popped filename; waits through streamer 0x9e710 and game pump 0x1894f0.",
+      "runtime_verified": false
+    },
+    "pack_wake": {
+      "pc": "0x0048dc60",
+      "xbox": "0x0009f2e0",
+      "xbox_end": "0x0009f542",
+      "xbox_code_sha256": "10ac7d82bdfd7a9a7302fd3b905210270de085971a44ad9597e106780c158659",
+      "evidence": "One caller-popped filename; copies HIBERNATING entries and solid pairs into destination pack, then compacts HIBERNATING. Duplicate model references need repair around the original function.",
+      "runtime_verified": false
+    },
+    "model_free": {
+      "pc": "0x00488d60",
+      "xbox": "0x00096e60",
+      "xbox_end": "0x00096ed3",
+      "xbox_code_sha256": "57c23d94d79d8eb37348b0d510b4ae61009fc7cf33284b26b2efcafaf7f97a00",
+      "evidence": "ECX streamer, pack and model entry, ret 8; streamer callback transfers users of the old solid before freeing model data.",
+      "runtime_verified": false
+    },
+    "part_next": {
+      "pc": "0x0061b670",
+      "xbox": "0x00206b00",
+      "xbox_end": "0x00206cfa",
+      "xbox_code_sha256": "cd3f856d3026bb0170a510d4d1f47d1c7584e8c661bfca7c7029e51722346559",
+      "evidence": "ECX part DB 0x45be28; hash, slot, 0, previous, -1; ret 20. Frontend enumerates rim brands hash 0xa6e1b733 slot 0x43.",
+      "runtime_verified": true,
+      "runtime_evidence": "2026-11-08 isolated actual Xbox race: native catalogue enumerated 11 shared packs and 24 rim packs, added exactly one header reference to each, and reached ready. Read-only process capture verified all 35 present, references >=2, none busy. This does not verify duplicate-model transfer or a garage transition."
+    },
+    "part_name": {
+      "pc": "0x00610000",
+      "xbox": "0x001ff430",
+      "xbox_end": "0x001ff43e",
+      "xbox_code_sha256": "5f1eac3012590f9fdb56b2e73b680198f96251610b2aaa550a64c9c163337767",
+      "evidence": "ECX part; returns name base 0x45af6c plus four times uint16(part+8).",
+      "runtime_verified": true,
+      "runtime_evidence": "2026-11-08 isolated actual Xbox race: native catalogue enumerated 11 shared packs and 24 rim packs, added exactly one header reference to each, and reached ready. Read-only process capture verified all 35 present, references >=2, none busy. This does not verify duplicate-model transfer or a garage transition."
+    },
+    "frontend_packs": {
+      "pc": "0x0057f030",
+      "xbox": "0x0018aca0",
+      "xbox_end": "0x0018ae94",
+      "xbox_code_sha256": "ae085a8d12d497d71c5a6a590e61721593376799a073f5a99efc16a6a37bc703",
+      "evidence": "Matched 11 shared path table and rim enumeration; modes 1 load, 2 unload, 3 hibernate, 4 wake.",
+      "runtime_verified": false
+    },
+    "pack_hibernate": {
+      "pc": "0x0048dae0",
+      "xbox": "0x0009f150",
+      "xbox_end": "0x0009f2de",
+      "xbox_code_sha256": "9737171e7358e585cb32ea375ed8c399df5a7e8ec32be39912a7bb7c6c34b00a",
+      "evidence": "Moves loaded models into HIBERNATING with capacity 256; mode 3 of frontend_packs.",
+      "runtime_verified": false
+    },
+    "pack_busy": {
+      "pc": "0x0048d3c0",
+      "xbox": "0x0009e710",
+      "xbox_end": "0x0009e767",
+      "xbox_code_sha256": "64459b1c4c6fa4aa0a766bbb86941c4c1b6e6a3745a19a2a7ec1bf00091a801f",
+      "evidence": "ECX streamer, filename; checks header +0x90 and active request count +0xa8.",
+      "runtime_verified": false
+    },
+    "visual_rating": {
+      "pc": "0x005234c0",
+      "xbox": "0x00130300",
+      "xbox_end": "0x00130437",
+      "xbox_code_sha256": "87382c7a86183a734fee9d65fd53708093a9cc8990561c4f98f8c4d1d68de62f",
+      "evidence": "Matched override float branch, -1 sentinel, stock-part loop and x87 return. Wrapper temporarily supplies stage rating and restores the original sentinel after the original function returns.",
+      "runtime_verified": true,
+      "runtime_evidence": "2026-11-08 isolated actual Xbox race, opt-in diagnostic called the wrapped original with the real local ride/current stage. Stage 0 returned x87 0.0, expected 0.0; original override was preserved. Other stage values pass portable checks; actual career unlock/reward effects and rating-box suppression remain unverified."
+    },
+    "visual_rating_box": {
+      "pc": "0x00557ec0",
+      "xbox": "0x00162420",
+      "xbox_end": "0x00162472",
+      "xbox_code_sha256": "950d5d33ed83a84bb74b1d8e8841318ac812db89fe28f17c16edcb605e66fa5a",
+      "evidence": "Complete normalized instruction match. Exact UI_Menu_Asset_Reputation.fng literal at 0x353de0; package query returns to 0x16242d, test al at 0x162430 precedes the only push of this box.",
+      "runtime_verified": false
+    },
+    "frontend_package_exists": {
+      "pc": "0x0052cf60",
+      "xbox": "0x0013a2a0",
+      "xbox_end": "0x0013a2fb",
+      "xbox_code_sha256": "325d86ffd9813880721e8bc21a27c88ae6d49c57a0eb64ea1fb9976863c2e73b",
+      "evidence": "Matched frontend singleton traversal and package lookup. Wrapper changes AL only for the verified rating-box call and exact package pointer, preserving other queries.",
+      "runtime_verified": false
+    },
+    "lobby_join": {
+      "pc": "0x0058d6b0",
+      "xbox": "0x001985d0",
+      "xbox_end": "0x00198731",
+      "xbox_code_sha256": "a7fe4fc4cad9ccea18ac6d76939137c21951f22e4223572b8485c22f39c48bbd",
+      "evidence": "Static semantic comparison: ECX lobby client; four callee-popped arguments name, password, callback, context. Same active-link +0x48 and joined-game +0x1c checks, pending gjoi/gcre requests, 96-byte payload with identical NAME/PASS keys, request code 0x676a6f69 and request-sender call chain. Xbox callers also use a lobby accessor 0x19a7d0; do not assume the PC global lobby address. Raw transport, login and race interoperability remain unverified.",
+      "runtime_verified": false
+    },
+    "lobby_ready": {
+      "pc": "0x0058ad20",
+      "xbox": "0x00196120",
+      "xbox_end": "0x0019625f",
+      "xbox_code_sha256": "5a39694c10878648f566386bb4bc3fb0a7399d5a3091439c33fb98b00cecbc34",
+      "evidence": "Static semantic comparison: ECX lobby client, one callee-popped argument. Same player count +0x1d8, 0x64 row stride, flags +0x218, ready bit 0x08000000, NAME/USERFLAGS keys and gset request 0x67736574. Reads the local name through Xbox network settings 0x41c340 / getter 0x113ec0. This is not a runtime or whole-structure mapping.",
+      "runtime_verified": false
+    },
+    "frontend_send_message": {
+      "pc": "0x0055dda0",
+      "xbox": "0x00166470",
+      "xbox_end": "0x001664a5",
+      "xbox_code_sha256": "1bd3d6e0939100357c8ffc3ff8a3b2bc6ce5309b93c40b0311714f13efac4296",
+      "evidence": "Static semantic comparison: cdecl(message, package name); resolves package through Xbox 0x406c60 / 0x128a00, checks package +0x18 and +0x14, then invokes handler 0x164be0 with (message,0,0,object). Complete operation matches PC implementation; frame-pointer prologue differs. Not yet invoked by the race adapter.",
+      "runtime_verified": false
+    },
+    "login_set_stage": {
+      "pc": "0x005031b0",
+      "xbox": "0x00113e80",
+      "xbox_end": "0x00113e97",
+      "xbox_code_sha256": "46d3a100641bac11225d150eb4aa0342be3e9e98af2b55833413339872506fb1",
+      "evidence": "Complete static semantic match: ECX profile, one callee-popped stage argument; copies old stage +0x50 into +0x54, clears error byte +0x4c, writes new stage +0x50, ret 4. Xbox uses an EBP frame. This does not establish login, authentication or screen-flow compatibility.",
+      "runtime_verified": false
+    },
+    "loader_purge": {
+      "pc": "0x0063a1b0",
+      "xbox": "0x002194b0",
+      "xbox_end": "0x0021957e",
+      "xbox_code_sha256": "c4d1493953b8bd9cb8527cc083fa7ae0d6d9d6fba236920b7038df28a6576b42",
+      "evidence": "Phase 0 frees only unreferenced entries. Phase 1 can unload textures from referenced rides and rebuild their type render information. ECX loader, ret 4.",
+      "runtime_verified": false
+    },
+    "loader_release_extra": {
+      "pc": "0x0063a6f0",
+      "xbox": "0x002199c0",
+      "xbox_end": "0x00219a21",
+      "xbox_code_sha256": "dde39c9d4e596a450ddbbbe93c5d136f3d276edcee56f76209f3644efeebf057",
+      "evidence": "Loader +6c/+70 are the track extension. Frees unused rides, calls exact-block removal then bFree regardless of removal success. No stack arguments.",
+      "runtime_verified": false
+    },
+    "loader_grow": {
+      "pc": "0x00610750",
+      "xbox": "0x001ffbc0",
+      "xbox_end": "0x001ffbf2",
+      "xbox_code_sha256": "a7adedff0397aae064dfe96eb8055c189f09e0a45b9df853c01dbb9f6994c318",
+      "evidence": "Adds requested size minus loader+68. Allocates with bMalloc(flags 0x2000), saves +6c/+70 and adds to Cars pool 4. ECX loader, ret 4.",
+      "runtime_verified": false
+    },
+    "pool_add": {
+      "pc": "0x00440090",
+      "xbox": "0x0004f340",
+      "xbox_end": "0x0004f35f",
+      "xbox_code_sha256": "0741a05b83fa7202a098f3bc8c3bbe98440bfc6d5c72996217683d9df286d938",
+      "evidence": "Cdecl(pool number, address, size). Adds size at pool+1c and inserts/coalesces the free block through 0x4ed90.",
+      "runtime_verified": true,
+      "runtime_evidence": "PCVR original Xbox execution: 64 ride slots; 16 MB attached to Cars with validated free-list accounting, two cars and eight models loaded/changed/retired. build/xyz-session-qa/pool-validation.json."
+    },
+    "pool_remove": {
+      "pc": "0x0043f9e0",
+      "xbox": "0x0004ed20",
+      "xbox_end": "0x0004ed8a",
+      "xbox_code_sha256": "b3755876f48709696e1bbe62fa38c72bdf799697deda5dd153dd718357be713c",
+      "evidence": "ECX pool; ret 8. Removes only a free block with exact starting address AND size; silently does nothing otherwise.",
+      "runtime_verified": false
+    },
+    "slot_pool_create": {
+      "pc": "0x00440df0",
+      "xbox": "0x00050070",
+      "xbox_end": "0x000500b8",
+      "xbox_code_sha256": "b48887e5583484bc435fa7278b8bb04e241499b02895c923978114642ef1d27e",
+      "evidence": "Cdecl(item bytes, count, name, flags). CarLoadedRideInfoSlotPool named at 0x360b4c is created by 0x207aa0 with 22 entries of 0x1240 bytes.",
+      "runtime_verified": true,
+      "runtime_evidence": "PCVR original Xbox execution: 64 ride slots; 16 MB attached to Cars with validated free-list accounting, two cars and eight models loaded/changed/retired. build/xyz-session-qa/pool-validation.json."
+    },
+    "track_stream_step": {
+      "pc": "0x005e6a70",
+      "xbox": "0x001d7020",
+      "xbox_end": "0x001d71bb",
+      "xbox_code_sha256": "a1e76304cad327e4dfb356b4e4d2bbfbf63cb2b0a94b9c41d31e5ee49e91fbfa",
+      "evidence": "ECX track streamer; phase +0x168 states 0..6; returns at 0x1d705c when global Cars loader 0x45c4b4 is busy. Read-only gate; no original stream state writes.",
+      "runtime_verified": false
+    },
+    "track_stream_service": {
+      "pc": "0x005e86e0",
+      "xbox": "0x001d8c90",
+      "xbox_end": "0x001d8cdf",
+      "xbox_code_sha256": "87ae895afef2dc874e87d80cfbfa352cd4ad6b6266e0c584842172abbbc3aa33",
+      "evidence": "Callers 0x1f39cf and 0x1fa3c8 set ECX=0x4419e0; calls 0x1d71c0, which calls track step 0x1d7020.",
+      "runtime_verified": false
+    },
+    "texture_lookup": {
+      "xbox": "0x000a1580",
+      "xbox_end": "0x000a1673",
+      "xbox_code_sha256": "4d84dff94d224f203012846df1672f1d2dc7c571f5dca84020ed45356413e040",
+      "evidence": "cdecl(hash,default,search-unloaded); searches FTexturePack at 0x3f6460 then fallbacks. Loaded texture +0x70 pixels, +0x74 palette; +0x53 usage byte. Private texture override returns only its exact owned hashes.",
+      "runtime_verified": true,
+      "runtime_evidence": "PCVR original Xbox execution: private paint slots 7 and 8 prepared, loaded, changed through models and retired; 1635 two-car ready frames, zero failures. build/xyz-session-qa/skin-two-runtime.log. Headset appearance pending.",
+      "pc": "0x004901d0"
+    },
+    "texture_header_init": {
+      "xbox": "0x0009c860",
+      "xbox_end": "0x0009c8c4",
+      "xbox_code_sha256": "8ba5504a7b70c5e156590f8696b9f53a3b28c08e69664aac694deaaa5c1d813a",
+      "evidence": "ECX=TextureInfo, no arguments. Embedded Xbox headers are platform+0x10 texture and +0x24 palette. Calls XGSetTextureHeader 0x2fa205 and XGSetPaletteHeader 0x2fa271 with RAM-alias pixel/palette addresses masked by 0x7fffffff. No host D3D object allocation.",
+      "runtime_verified": true,
+      "runtime_evidence": "Original guest function initialized six private headers for slots 7 and 8; validated type and physical pointers, then actual car loading/model changes succeeded. build/xyz-session-qa/skin-two-runtime.log."
+    }
+  },
+  "globals": {
+    "world": {
+      "pc": "0x00890080",
+      "xbox": "0x004493e0",
+      "evidence": "CreateCar and world index callers"
+    },
+    "player1": {
+      "xbox": "0x0044940c",
+      "evidence": "Existing native cockpit_local_car: player +4 is car, +0x10 is player index."
+    },
+    "car_types": {
+      "pc": "0x008a1ccc",
+      "xbox": "0x0045af88",
+      "evidence": "TypeByHash and SetRide"
+    },
+    "part_owners": {
+      "pc": "0x008a1cb8",
+      "xbox": "0x0045af74",
+      "evidence": "GetCarPart: owner table indexed by part byte +7"
+    },
+    "car_loader": {
+      "pc": "0x008a3288",
+      "xbox": "0x0045c4a0",
+      "evidence": "Seven immediate-ECX call sites each for LoaderLoad 0x21ac20 and LoaderService 0x21ac90"
+    },
+    "car_part_db": {
+      "pc": "0x008a2b68",
+      "xbox": "0x0045be28",
+      "evidence": "53 immediate-ECX call sites for GetCarPart"
+    },
+    "slot_kind": {
+      "pc": "0x00802960",
+      "xbox": "0x003cc890",
+      "evidence": "GetCarPart slot index *4 lookup"
+    },
+    "flow": {
+      "pc": "0x008654a4",
+      "xbox": "0x00428e34",
+      "evidence": "Existing native driving/camera hooks"
+    },
+    "track": {
+      "pc": "0x0089e7a0",
+      "xbox": "0x003cc460",
+      "evidence": "Existing cockpit_last_slot track selection"
+    },
+    "race_type": {
+      "pc": "0x0089e7b0",
+      "xbox": "0x003cc470",
+      "evidence": "CreateCar and race setup. This is a race TYPE integer, NOT a coordinator pointer."
+    },
+    "geometry_streamer": {
+      "pc": "0x0082dbc8",
+      "xbox": "0x003ea794",
+      "evidence": "List head +0x18; pack next/prev +0/+4, path +8[128], header +0x90, models +0xa0, count +0xa4, active +0xa8, header refs +0xb4, SolidPack +0xb8."
+    },
+    "shared_part_paths": {
+      "pc": "0x0086658c",
+      "xbox": "0x0042a2ac",
+      "evidence": "11 paths referenced by matched frontend_packs; remaining paths come from game-owned rim brand names."
+    },
+    "hibernating_solids": {
+      "pc": "0x00830c78",
+      "xbox": "0x003f07a0",
+      "evidence": "Count +0xc, pairs +0x74, models +0x78. Model entry 24 bytes: name +0, size +8, flags +0x11, references uint16 +0x12, data +0x14."
+    },
+    "visual_rating_override": {
+      "pc": "0x007fa290",
+      "xbox": "0x003a37f8",
+      "evidence": "Exact -1.f retail sentinel; first branch in matched visual_rating returns this float when set."
+    },
+    "career_stage": {
+      "pc": "0x00862838",
+      "xbox": "0x00405d28",
+      "evidence": "Career singleton +0x7af8 on both versions; Xbox absolute reads accompany career calls and clamp to 0..6 (e.g. 0x2bd49)."
+    },
+    "career_singleton": {
+      "pc": "0x0085ad40",
+      "xbox": "0x003fe230",
+      "evidence": "Repeated ECX immediate for career methods, including game-world setup and static construction at 0x2e2d90."
+    }
+  },
+  "vehicle_layout": {
+    "status": "Owned unindexed creation, exact equipment, motion, hide and retirement verified in isolated PCVR; local diagnostic appearance confirmed on PCVR/Quest. Real-service connection and local free-roam sampling confirmed on both. Standalone Quest then rendered a moving live-service QA peer, user-confirmed with peers=1, visible=1, no failures/fallback/missing parts; PCVR equivalent test explicitly skipped. Browser-player interoperability, garage/world transitions and additional pools remain pending.",
+    "car_size": "0x9e0",
+    "ride_size": "0x8f0",
+    "record_size": "0x940",
+    "world_list": "head and tail at world+0/+4; next/prev at car+0/+4",
+    "world_index_capacity": 22,
+    "type_count": 46,
+    "type_stride": "0x890",
+    "part_slots": 170,
+    "position": "car+0x60 center of mass; car+0x50 is render origin",
+    "axes": [
+      "car+0x90",
+      "car+0xa0",
+      "car+0xb0"
+    ],
+    "velocity": "car+0x70",
+    "angular_velocity": "car+0x110",
+    "ride": "car+0x10",
+    "record": "car+0x14",
+    "controls": "car+0x30",
+    "performance": [
+      "ride+0x318 (10 dwords)",
+      "ride+0x340 (68 bytes)",
+      "ride+0x398 (41 bytes)"
+    ],
+    "parts": "ride+0x590 (170 pointers); key=part[0..3], owner=owners[part[7]]",
+    "unindexed_record_kind": 4,
+    "debug_arrays": "Six arrays, 22 entries each at 0x456048 through 0x456200; preserved around owned-car calls. Never enlarge IndexCars.",
+    "body_disable_count": "car body +0x17, byte; stock disable function 0x19e1c0",
+    "wheel_matrices": "car+0x130+0x40*k; brake/caliper car+0x230+0x40*k; source wheel position physicsInfo+0x10+0x30*k, radius +0x20",
+    "wheel_state": "turning speed car+0x330, suspension car+0x380, steering u16 car+0x40e; slip car+0x3b4, ground bytes car+0x390, surfaces car+0x394"
+  },
+  "socket_boundary": {
+    "calling_convention": "stdcall; guest ESP advances by 4 + 4*argument_count",
+    "evidence": "XNET entry thunks load the context at 0x46d500 then tail-jump to the implementation; return byte counts were checked at those implementation addresses. WSAGetLastError tail-jumps to guest TLS GetLastError and is intercepted separately; generic GetLastError is unchanged.",
+    "thunks": {
+      "socket": {
+        "xbox": "0x002fa815",
+        "xbox_end": "0x002fa820",
+        "xbox_code_sha256": "cfc6f67ed0f991a63755c6e128e0cdaedb2bbebd092037fc11f8164d74104972",
+        "implementation": "0x00309e08",
+        "argument_count": 3
+      },
+      "close": {
+        "xbox": "0x002fa820",
+        "xbox_end": "0x002fa82b",
+        "xbox_code_sha256": "694831e6dd4f92a307028f9c66766e564142288c294d4a258fa6c28a1013806b",
+        "implementation": "0x00309cb2",
+        "argument_count": 1
+      },
+      "shutdown": {
+        "xbox": "0x002fa82b",
+        "xbox_end": "0x002fa836",
+        "xbox_code_sha256": "8af5282b667ab64fcbfd218dd8764b34d5ae1652875acb6c3bb2c4a97e8dd8e2",
+        "implementation": "0x00307e2b",
+        "argument_count": 2
+      },
+      "ioctl": {
+        "xbox": "0x002fa836",
+        "xbox_end": "0x002fa841",
+        "xbox_code_sha256": "4ff82117059f3898b927c948c5b00e60cde380f47ab34574c3e25680b1acf464",
+        "implementation": "0x00307ec8",
+        "argument_count": 3
+      },
+      "setsockopt": {
+        "xbox": "0x002fa841",
+        "xbox_end": "0x002fa850",
+        "xbox_code_sha256": "1b5afa34506cb60984957464b565d37e79e554f9a7812bf5307664539e977150",
+        "implementation": "0x003088d8",
+        "argument_count": 5
+      },
+      "getsockname": {
+        "xbox": "0x002fa850",
+        "xbox_end": "0x002fa85b",
+        "xbox_code_sha256": "9959b7f95b33d09e485b2e24011148be45f8d3de43dd0502702ca1ec0dfcd3ff",
+        "implementation": "0x00307fed",
+        "argument_count": 3
+      },
+      "getpeername": {
+        "xbox": "0x002fa85b",
+        "xbox_end": "0x002fa866",
+        "xbox_code_sha256": "b985afc49623b6edb907d4b3018143b06f78a9cffc9b1c8b06b23d69559c05b4",
+        "implementation": "0x00308064",
+        "argument_count": 3
+      },
+      "bind": {
+        "xbox": "0x002fa866",
+        "xbox_end": "0x002fa871",
+        "xbox_code_sha256": "d3a12fd575d58b6245ec831c9314d70e663ce1145bb27a6fe960b863134e4b8e",
+        "implementation": "0x00308b13",
+        "argument_count": 3
+      },
+      "connect": {
+        "xbox": "0x002fa871",
+        "xbox_end": "0x002fa87c",
+        "xbox_code_sha256": "297c637f7d81b86b97586671abcd0917995ed9fbe049d87c2877ce9dbe96e861",
+        "implementation": "0x00308b97",
+        "argument_count": 3
+      },
+      "listen": {
+        "xbox": "0x002fa87c",
+        "xbox_end": "0x002fa887",
+        "xbox_code_sha256": "e63daaf67c14ac2468e34833255917ada543ab102be3d5da997ee2adc7e16c72",
+        "implementation": "0x003081f5",
+        "argument_count": 2
+      },
+      "accept": {
+        "xbox": "0x002fa887",
+        "xbox_end": "0x002fa892",
+        "xbox_code_sha256": "9a0fc0a8a5df3409eddfea2b288b3327a9cf459eb91134c59c7460bac9b472e0",
+        "implementation": "0x00308c92",
+        "argument_count": 3
+      },
+      "select": {
+        "xbox": "0x002fa892",
+        "xbox_end": "0x002fa8a1",
+        "xbox_code_sha256": "9397d9cd7e3a69b0e8e7036990be5b5941853d10c111882b97a0045a25b380f0",
+        "implementation": "0x00308da5",
+        "argument_count": 5
+      },
+      "recv": {
+        "xbox": "0x002fa8bb",
+        "xbox_end": "0x002fa8c6",
+        "xbox_code_sha256": "577706f1538700937b3e129391b34423e8e1946b6ee9d81235f0e4de4e1a2104",
+        "implementation": "0x00309662",
+        "argument_count": 4
+      },
+      "recvfrom": {
+        "xbox": "0x002fa8d5",
+        "xbox_end": "0x002fa8e4",
+        "xbox_code_sha256": "3853907dd7decbb1c98986d1c36f5f2072a54f8aba93e756a998deec5ee6dc0d",
+        "implementation": "0x00309d43",
+        "argument_count": 6
+      },
+      "send": {
+        "xbox": "0x002fa8e4",
+        "xbox_end": "0x002fa8ef",
+        "xbox_code_sha256": "df0cbeace68b7f76f65aebf7cd895ad16ae98ee66bca12166f8cbfb87f7a7f5e",
+        "implementation": "0x0030984e",
+        "argument_count": 4
+      },
+      "sendto": {
+        "xbox": "0x002fa8fe",
+        "xbox_end": "0x002fa90d",
+        "xbox_code_sha256": "a1f17358aebe99d8f50dbe8d1f9be16d8f17b3a206837aef7ce4875f3c1dfc60",
+        "implementation": "0x00309d84",
+        "argument_count": 6
+      },
+      "WSAGetLastError": {
+        "xbox": "0x00307cc9",
+        "xbox_end": "0x00307cce",
+        "xbox_code_sha256": "379140b2dd09939eb8e9acae6abf9de6d277680829bf4ab1f0297f9cc973cbd2",
+        "implementation": "0x0021af1e",
+        "argument_count": 0
+      }
+    },
+    "original_ea_routines": {
+      "SocketOpen": {
+        "xbox": "0x00293380",
+        "xbox_end": "0x00293428",
+        "xbox_code_sha256": "ccbc43dbb6492d115d062f2b12688a63ef2d9dcaab244c7ba4f10452ae28b394"
+      },
+      "SocketClose": {
+        "xbox": "0x00293430",
+        "xbox_end": "0x002934b5",
+        "xbox_code_sha256": "78bf871fbe3ae788749facfbbb2f90303b8c9c65cf38abc1ec0a73774291f791"
+      },
+      "SocketBind": {
+        "xbox": "0x002934e0",
+        "xbox_end": "0x002935d7",
+        "xbox_code_sha256": "55f1cffa42c5a1ca7d4972965d83ac0ccbc35c147df82067f9cdf0c9296500b9"
+      },
+      "SocketConnect": {
+        "xbox": "0x002935e0",
+        "xbox_end": "0x00293662",
+        "xbox_code_sha256": "a7f97724c53d3774d006e76ee1a1d2fa99f2cb3bf4fb3edc4691423dceab5fdf"
+      },
+      "SocketListen": {
+        "xbox": "0x00293670",
+        "xbox_end": "0x002936cd",
+        "xbox_code_sha256": "b7e0d8677de1d7c3081c973561068730ac2cd1687fd1c63ffcf8183bdd3ca6d2"
+      },
+      "SocketAccept": {
+        "xbox": "0x002936d0",
+        "xbox_end": "0x00293782",
+        "xbox_code_sha256": "6138286fae9cce99a112111e9005bfd5d854287845c2efe1b0e82abecec961d4"
+      },
+      "SocketSendto": {
+        "xbox": "0x00293790",
+        "xbox_end": "0x00293861",
+        "xbox_code_sha256": "7b85c6f713769f9f32fe210a2ede17b02c5ab2cca6e0f1633b3bee8dbc408f6f"
+      },
+      "SocketRecvfrom": {
+        "xbox": "0x00293870",
+        "xbox_end": "0x002939e4",
+        "xbox_code_sha256": "d05c7e2d7785d10c1461144de0da6ab608cc8c71b8711be2d5be069881ae4f1f"
+      },
+      "SocketInfo": {
+        "xbox": "0x002939f0",
+        "xbox_end": "0x00293b8e",
+        "xbox_code_sha256": "aa83535acbb978104c2363636857ed833916f6162a8c26c62ede2e1f25d6a052"
+      }
+    },
+    "object_layout": {
+      "size": 80,
+      "family": 8,
+      "type": 12,
+      "protocol": 16,
+      "connected": 20,
+      "xnet_handle": 24
+    },
+    "udp_adaptation": "Original SocketBind reopens datagram ports below 8000 with protocol 254. Original Sendto adds two zero bytes and Recvfrom removes them. The native boundary strips/reinserts that prefix so PC/browser datagrams retain their payload.",
+    "runtime_verification": {
+      "platform": "PCVR desktop diagnostic",
+      "date": "2026-11-08",
+      "scope": "Actual lifted EA routines: two TCP endpoints, connect readiness, accept, exact 16-byte send/receive; two UDP endpoints switched by original Bind to protocol 254, exact send/receive and source port, original Close. Only an isolated local endpoint; no live service or lobby.",
+      "evidence": "build/xyz-lan-qa/pcvr-guest-xnet.log",
+      "standalone_quest_guest_execution": false,
+      "default_enabled": false
+    }
+  },
+  "lobby_boundary": {
+    "status": "regular_lobby_transport_start_and_two_player_registration_verified_pcvr_quest",
+    "original_routines": {
+      "Create": {
+        "xbox": "0x00290040",
+        "xbox_end": "0x0029014d",
+        "xbox_code_sha256": "884c19b0764f75e6ff7ba1522135b2aefe7a7227702ec9fe3f355dd09d850148",
+        "argument_count": 3,
+        "calling_convention": "cdecl",
+        "evidence": "Allocates and zeros 0x1988, creates ProtoAries stream and callback/list tables; args config TagField, context, formatter callback."
+      },
+      "Connect": {
+        "xbox": "0x002901b0",
+        "xbox_end": "0x00290261",
+        "xbox_code_sha256": "c9e339741e9aa9d889f7ec8354b8ed1a492b1e3255e2ba9c16339ee412cef95a",
+        "argument_count": 6,
+        "calling_convention": "cdecl",
+        "evidence": "args lobby, host, redirector port, callback, context, timeout; copies bounded host at +0x1948 and sets init state. Only retail caller is Xbox authentication task 0x28cb20, not the PC frontend LobbyConnect flow."
+      },
+      "Update": {
+        "xbox": "0x002905c0",
+        "xbox_end": "0x00292267",
+        "xbox_code_sha256": "949dc4dfa98fcdbe47882d38c02b616d909197c9d16dd335bdbb81d427b66c1f",
+        "argument_count": 1,
+        "calling_convention": "cdecl",
+        "evidence": "Processes redirector @dir, skey, news, auth, pers, lobby lists and notifications. State +8; auth reply +0x140, persona reply +0x340, each 512 bytes; selected persona +0xd60, 16 bytes."
+      },
+      "Request": {
+        "xbox": "0x0028f750",
+        "xbox_end": "0x0028fa4c",
+        "xbox_code_sha256": "741a4a75c21a25acfbce3a34a8e5a887e1ab8374872bf49087716f8fdc84b79c",
+        "argument_count": 5,
+        "calling_convention": "cdecl",
+        "evidence": "args lobby, kind fourcc, TagField body, callback, context; allocates pending request and forwards through ProtoAries Send. Permits idle/auth/acct/skey states."
+      },
+      "Destroy": {
+        "xbox": "0x00290150",
+        "xbox_end": "0x002901ac",
+        "xbox_code_sha256": "a1bb4cf275df06b737122bcf52340d32e6e93a353d4a01cfc67f31e301d82e08",
+        "argument_count": 1,
+        "calling_convention": "cdecl",
+        "evidence": "Disconnects, frees owned lists, buffers, ProtoAries and lobby object."
+      },
+      "ListSubscribe": {
+        "xbox": "0x0028f550",
+        "xbox_end": "0x0028f5c0",
+        "xbox_code_sha256": "3c845987003ae24125a635c28c1610535799fce17eb80c94106a9c96d63161e4",
+        "argument_count": 4,
+        "calling_convention": "cdecl",
+        "evidence": "args lobby, list index 0..35, callback, context; index 4 contains game records, allocates original list and hash table."
+      },
+      "EventSubscribe": {
+        "xbox": "0x0028f4a0",
+        "xbox_end": "0x0028f4f2",
+        "xbox_code_sha256": "584d66038cbb8add0533358f7972e5a4b9da1a70689137b5f468c368f438f467",
+        "argument_count": 4,
+        "calling_convention": "cdecl",
+        "evidence": "args lobby, category, callback, context; category 4 receives asynchronous game/user/status events."
+      },
+      "GameRecord": {
+        "xbox": "0x0028fa50",
+        "xbox_end": "0x0028fec5",
+        "xbox_code_sha256": "a315500415f3af24ca19a9c5a3d71fdb8684300750278efdb6b2aaf7e383478b",
+        "argument_count": 2,
+        "calling_convention": "cdecl",
+        "evidence": "args output 0x4e0 bytes, TagField text. Players at +0x1c0, stride 0x64, room for eight; service limits games to six. Does not itself bound received COUNT; never feed arbitrary peer messages into this parser."
+      },
+      "TagFieldFind": {
+        "xbox": "0x0028af50",
+        "xbox_end": "0x0028b018",
+        "xbox_code_sha256": "01378234f774356190f250097c2581bfd45a4e3e11a7ce70d7b231585aaad3e1",
+        "argument_count": 2,
+        "calling_convention": "cdecl",
+        "evidence": "args text, key; returns pointer into the existing text, not an allocated copy."
+      }
+    },
+    "service": {
+      "virtual_host": "10.77.0.1",
+      "redirector_port": 20920,
+      "lobby_port": 20922,
+      "transport": "Verified WSS /lan virtual stream; numeric host needs no retail DNS or Xbox Live identity."
+    },
+    "limitations": "Original lobby, reliable transport, Start/play, two-player registration, loading, common network start barrier and original frontend return verified on PCVR and Quest with unchanged session generation. Driving synchronization, results, browser race compatibility and player-facing lobby UI remain under validation.",
+    "runtime_verification": {
+      "date": "2026-11-08",
+      "platform": "PCVR desktop diagnostic",
+      "evidence": "build/xyz-lan-qa/pcvr-retail-lobby-session.log",
+      "scope": "Two owned original Xbox lobby objects over one real TLS/LAN session and VIP. Redirect/login/persona, 20 original game list records, private/password-protected create/join, async readiness and departure at host, leave/delete, original destruction. No race start, result, chat, room or persisted profile.",
+      "standalone_quest_execution": false,
+      "normal_frontend_integration": false,
+      "default_enabled": false
+    },
+    "manager_routines": {
+      "Manager": {
+        "xbox": "0x001953c0",
+        "xbox_end": "0x0019541e",
+        "xbox_code_sha256": "b27a6e34a2a3785ebec7e4c985c90fbdd264764302aa018a26dd9d6b4e7bc46e",
+        "argument_count": 0,
+        "calling_convention": "cdecl",
+        "evidence": "Returns lazy normal manager at 0x42e270; protocol +0x44, active +0x48, pending request +0x4c."
+      },
+      "Initialize": {
+        "xbox": "0x0019c0b0",
+        "xbox_end": "0x0019c107",
+        "xbox_code_sha256": "909c722386cb93ac2187f4a2392f9f7efdeddc53d431fe9464b1b46fb14a2776",
+        "argument_count": 0,
+        "calling_convention": "cdecl",
+        "evidence": "Initializes normal lobby, games, buddy and auxiliary managers with original callbacks."
+      },
+      "Drop": {
+        "xbox": "0x0019aea0",
+        "xbox_end": "0x0019b047",
+        "xbox_code_sha256": "59009cf511f7861eeabc6652f9475d94761a33020defa3ae8d63c78aba1581ee",
+        "argument_count": 1,
+        "calling_convention": "cdecl",
+        "evidence": "Argument zero; original teardown of requests, games, auxiliary managers and protocol."
+      },
+      "Update": {
+        "xbox": "0x001924f0",
+        "xbox_end": "0x001925cd",
+        "xbox_code_sha256": "a2e4ecabcdfa1464e7e4a21f4b07073b3860957236a8548b6e78a28086be4ef1",
+        "argument_count": 0,
+        "calling_convention": "thiscall",
+        "evidence": "ECX normal manager; original idle/update, request queue, ping and auxiliary service work."
+      },
+      "Games": {
+        "xbox": "0x0019a7d0",
+        "xbox_end": "0x0019a851",
+        "xbox_code_sha256": "99cf56c899dd6bf3a20dd1f6603a1f00ce7e2b8719849bed84bdb579ee69aaaa",
+        "argument_count": 1,
+        "calling_convention": "cdecl",
+        "evidence": "Argument zero; normal game manager 0x42e740, list +8, record +0x1c."
+      },
+      "Join": {
+        "xbox": "0x001985d0",
+        "xbox_end": "0x00198731",
+        "xbox_code_sha256": "a7fe4fc4cad9ccea18ac6d76939137c21951f22e4223572b8485c22f39c48bbd",
+        "argument_count": 4,
+        "calling_convention": "thiscall",
+        "evidence": "ECX games, args name/password/callback/context; 96-byte TagField buffer, original callback 0x196410."
+      },
+      "Ready": {
+        "xbox": "0x00196120",
+        "xbox_end": "0x0019625f",
+        "xbox_code_sha256": "5a39694c10878648f566386bb4bc3fb0a7399d5a3091439c33fb98b00cecbc34",
+        "argument_count": 1,
+        "calling_convention": "thiscall",
+        "evidence": "ECX games, ready boolean; local persona determines row, USERFLAGS bit 0x08000000."
+      },
+      "Leave": {
+        "xbox": "0x00198740",
+        "xbox_end": "0x001988ab",
+        "xbox_code_sha256": "9841b6b987b9b793443706660d7b4e111db72991033f2fcdc90a2828da984695",
+        "argument_count": 2,
+        "calling_convention": "thiscall",
+        "evidence": "ECX games, callback/context; glea for guest or gdel for host, callback 0x196610."
+      },
+      "JoinCallback": {
+        "xbox": "0x00196410",
+        "xbox_end": "0x0019660c",
+        "xbox_code_sha256": "2d540e0c71ea3105501bb59629e02d38b8b3005ba5d31b224ae386cadb6485a2",
+        "argument_count": 3,
+        "calling_convention": "cdecl",
+        "evidence": "Args protocol/message/games; parses original game record and network options, completes queued request."
+      },
+      "GameCallback": {
+        "xbox": "0x00198a40",
+        "xbox_end": "0x00198fa2",
+        "xbox_code_sha256": "813e289562880cb22511adc53d24146ed97a24da017262bb69168932ed5f0842",
+        "argument_count": 3,
+        "calling_convention": "cdecl",
+        "evidence": "Args protocol/message/games; game/play events. Play copies each MADDR text string to 0x42ce98 + i*20, host opens peer connections with it."
+      },
+      "TagFieldString": {
+        "xbox": "0x0028bcd0",
+        "xbox_end": "0x0028be5c",
+        "xbox_code_sha256": "e81944df92850625309217869e1ecdb1c6b33d1178fd5f1273ab98115339a7b2",
+        "argument_count": 4,
+        "calling_convention": "cdecl",
+        "evidence": "Args value/output/capacity/default; used for assigned persona and bounded service IPv4 fields."
+      },
+      "ParseAddress": {
+        "xbox": "0x002967f0",
+        "xbox_end": "0x002968d0",
+        "xbox_code_sha256": "b0a2b2966c69a8239534b328696f348f00c118a6184a719f499ceed3fc071880",
+        "argument_count": 4,
+        "calling_convention": "cdecl",
+        "evidence": "Args IPv4 output/local port output/remote port output/text; accepts dotted IPv4 and :local:remote ports."
+      },
+      "OpenPeer": {
+        "xbox": "0x0018e5a0",
+        "xbox_end": "0x0018e66e",
+        "xbox_code_sha256": "8c837fb6a49c2c5f05cc709a331acc3c2ad79bbfe5e322d3b4ed43f7e283adbe",
+        "argument_count": 3,
+        "calling_convention": "cdecl",
+        "evidence": "Address text, port, listen boolean: 1 -> 0x101 listen, 0 -> 0x102 connect. Original mwid=100, out=32/16. Real separate-session PCVR/Quest CommUDP handshake and reliable payload verified."
+      },
+      "Create": {
+        "xbox": "0x00198230",
+        "xbox_end": "0x001985cc",
+        "xbox_code_sha256": "98c3ae656b143dbd4ee40ac32edc21f8dd8b3ceea858010bb556dba986fb5c63",
+        "argument_count": 5,
+        "calling_convention": "thiscall",
+        "evidence": "ECX games; persona, profile settings, class 0..3, callback, context. Verified normal-manager private create on PCVR and Quest peer pair."
+      },
+      "Start": {
+        "xbox": "0x00195b20",
+        "xbox_end": "0x00195d8d",
+        "xbox_code_sha256": "e9c8d7b798794365fbe46704f7a83e67f33671644c5cc63d235a6d87a5641e30",
+        "argument_count": 3,
+        "calling_convention": "thiscall",
+        "evidence": "ECX games; callback, context, kick-unready. Adapter always zero. Original host request, play callback, and two-player coordinator registration verified in the private PCVR/Quest test."
+      },
+      "RequestCallback": {
+        "xbox": "0x0018f530",
+        "xbox_end": "0x0018f575",
+        "xbox_code_sha256": "83f9ae6b9efd056049c3505c0e4d13b6e8f393cd04f4d124408a9d3fd66eb9ff",
+        "argument_count": 3,
+        "calling_convention": "cdecl",
+        "evidence": "Protocol, message, manager. Owned interception records response before original completion/disposal of request."
+      },
+      "SocketIdle": {
+        "xbox": "0x002932b0",
+        "xbox_end": "0x00293348",
+        "xbox_code_sha256": "544f0f126b25c817f090febf2532016988345ce9fa419fc5760233c8613a57a9",
+        "argument_count": 1,
+        "calling_convention": "cdecl",
+        "evidence": "Pointer to global socket list at 0x46d6d0. Original timed callbacks and deferred frees; pump from guest thread when bypassing legacy Xbox Live startup."
+      }
+    },
+    "manager_layout": {
+      "profile": "0x41c340",
+      "name_offsets": [
+        "0x58",
+        "0x6c",
+        "0x94",
+        "0xa8"
+      ],
+      "name_bytes": 16,
+      "game_record_offset": "0x1c",
+      "player_count_offset": "0x1d8",
+      "player_name_offset": "0x1e0",
+      "player_flag_offset": "0x218",
+      "player_stride": "0x64"
+    },
+    "play_address_adapter": {
+      "service": "ADDRi dotted virtual IPv4, MADDRi empty",
+      "xbox": "MADDR is text, not a binary XNADDR. GameRecord stores it at record+0x1dc+i*0x64. The play handler copies 20 bytes and OpenPeer formats it as an address string.",
+      "implementation": "Owned callback copies bounded play notification, prepends 2..6 validated virtual-IPv4 MADDR fields, leaves original event and other fields intact. Defers rejection until dispatcher returns.",
+      "validation": "Real service roster through adapter and original GameRecord/IPv4 parser on PCVR and Quest. No play event dispatched."
+    },
+    "manager_runtime_verification": {
+      "date": "2026-11-08",
+      "platforms": [
+        "PCVR desktop runtime",
+        "standalone Quest 3 full game"
+      ],
+      "evidence": "build/xyz-lan-qa/lobby-engine-validation.json",
+      "scope": "Original regular manager login/list/join/ready/leave. Private host diagnostic creates/deletes. Wrong password then successful retry, roster/readiness notifications, names restored and protocol ownership cleared. Both games continue.",
+      "default_enabled": false,
+      "player_facing_ui": false,
+      "race_start_tested": false
+    },
+    "race_transport_routines": {
+      "Complete": {
+        "xbox": "0x0018e670",
+        "xbox_end": "0x0018e6ca",
+        "xbox_code_sha256": "192738987d622fd8024582e11817e5467c3601aefdf1617bb1e45e1f508cd28e",
+        "argument_count": 1,
+        "calling_convention": "cdecl",
+        "evidence": "Utility -> link (call until nonzero only). Original CommUDP completion and NetGameLink creation."
+      },
+      "Send": {
+        "xbox": "0x0018e710",
+        "xbox_end": "0x0018e779",
+        "xbox_code_sha256": "c259dc34761963189650187e368ea6c8315cf1fd0760bbc6c81d8e8c654b0ebf",
+        "argument_count": 4,
+        "calling_convention": "cdecl",
+        "evidence": "Link, payload, length, reliable boolean. Packet +4 length, +6 kind 5/6, +8 payload. Original utility uses 100-byte maximum."
+      },
+      "Receive": {
+        "xbox": "0x0018e6d0",
+        "xbox_end": "0x0018e709",
+        "xbox_code_sha256": "5d50879900d1ae2582e276d3faee051b76122c736b3ca29e8ce00095f0ea39d0",
+        "argument_count": 3,
+        "calling_convention": "cdecl",
+        "evidence": "Link, packet output, reliable output. AL true indicates one packet; type 5 reliable."
+      },
+      "DestroyLink": {
+        "xbox": "0x00294b10",
+        "xbox_end": "0x00294b53",
+        "xbox_code_sha256": "47dec33fe5d402f655fc1ecf81cdb786466c2e8c7f5cd472642fcc1f9c12a458",
+        "argument_count": 1,
+        "calling_convention": "cdecl",
+        "evidence": "Link. Clears CommUDP callback and releases link, not underlying utility/CommUDP."
+      },
+      "DestroyUtility": {
+        "xbox": "0x00294400",
+        "xbox_end": "0x00294416",
+        "xbox_code_sha256": "9e73fd1617356c8febc96a9839e9cd210993fe62032f96d5f106bf23029a295a",
+        "argument_count": 1,
+        "calling_convention": "cdecl",
+        "evidence": "Utility. Destroys owned CommUDP and utility."
+      }
+    },
+    "race_transport_runtime_verification": {
+      "date": "2026-11-08",
+      "evidence": "build/xyz-lan-qa/race-link-validation.json",
+      "platforms": [
+        "PCVR desktop host",
+        "standalone Quest 3 guest"
+      ],
+      "independent_sessions_and_vips": true,
+      "payload_bytes": 100,
+      "reliable_bidirectional": true,
+      "original_lobby_leave_delete": true,
+      "race_start_tested": false,
+      "browser_interop_tested": false
+    },
+    "race_coordinator_routines": {
+      "EnterLobby": {
+        "xbox": "0x001e0270",
+        "xbox_end": "0x001e027c",
+        "xbox_code_sha256": "4a1e756c1d23d2c69ed2fdf438818f77b645817392a00fed0d48a2ed0434a0b5",
+        "argument_count": 0,
+        "calling_convention": "thiscall",
+        "evidence": "ECX NetGame 0x456290. Original frontend transition 0 -> 1; callers include network car selection and lobby screen."
+      },
+      "Start": {
+        "xbox": "0x001f1b80",
+        "xbox_end": "0x001f1c02",
+        "xbox_code_sha256": "ebc102284c01229eca1b2761aeae644f23b6eb111f9e883dc9252ad62e304c66",
+        "argument_count": 0,
+        "calling_convention": "thiscall",
+        "evidence": "ECX NetGame. Online requires state 1, creates local player and initializes host/client coordinator; sets state 2. Does not load the world itself."
+      },
+      "Stop": {
+        "xbox": "0x001f9890",
+        "xbox_end": "0x001f9907",
+        "xbox_code_sha256": "add253d10a913a493c158219f92e72970de2fca4ce467dcd9ce5d1c8775c8abf",
+        "argument_count": 0,
+        "calling_convention": "thiscall",
+        "evidence": "ECX NetGame. Original host/client network stop and player state cleanup."
+      },
+      "Reset": {
+        "xbox": "0x001ee130",
+        "xbox_end": "0x001ee1a7",
+        "xbox_code_sha256": "5fd4255c9a485d54255aff11ae49a1a50804beb5fafd670b181d449cdfaeaf4c",
+        "argument_count": 1,
+        "calling_convention": "thiscall",
+        "evidence": "ECX NetGame, force-reset boolean. Original frontend reset and disposal of inactive players."
+      },
+      "QueueAddress": {
+        "xbox": "0x0018cf80",
+        "xbox_end": "0x0018cffd",
+        "xbox_code_sha256": "ebc276ffd905e4eee857a6e47b7460d10b8a44d0b7eb6d592596ce4f7fff3ee3",
+        "argument_count": 3,
+        "calling_convention": "thiscall",
+        "evidence": "ECX resolver, slot/text/port. Stores text at +4+slot*32, sets pending byte +0x18, port +0x20. Client resolver 0x42cd78, slot 0."
+      },
+      "ResolveUpdate": {
+        "xbox": "0x0018fc80",
+        "xbox_end": "0x0018fd0b",
+        "xbox_code_sha256": "226a020bc903f122a4f5e8f4cc599ba211c0fa81dd198c5e369fd34a9b5bbe2d",
+        "argument_count": 0,
+        "calling_convention": "thiscall",
+        "evidence": "ECX resolver. Legacy Xbox Live machine lookup; completion writes IPv4 +0x1c and clears pending +0x18. Virtual-LAN adapter validates exact host roster IPv4/port and supplies these fields before the next original tick."
+      }
+    },
+    "race_coordinator_runtime_status": "Original private Start/play, two-player registration, world load, common network start, bounded bidirectional original driving, frontend return/disconnect passed on PCVR desktop and standalone Quest. Selected car/grid customization, complete races/results, reconnect, browser interoperability, headset appearance and player-facing lobby controls remain open.",
+    "race_coordinator_runtime_verification": {
+      "date": "2026-11-08",
+      "evidence": "build/xyz-lan-qa/race-start-validation.json",
+      "platforms": [
+        "PCVR desktop host",
+        "standalone Quest 3 guest"
+      ],
+      "original_start_and_play": true,
+      "two_players_registered": true,
+      "network_cleanup": true,
+      "world_loaded": false,
+      "race_result_submitted": false,
+      "remaining": "Fixture track 1001 requests absent L1 assets; loading frontend flow 4 on both. Previously verified offline circuit is 4014. Integrate valid track/car/grid setup, loading, race lifecycle and full frontend return."
+    },
+    "race_world_runtime_verification": {
+      "date": "2026-11-08",
+      "evidence": "build/xyz-lan-qa/race-world-idle-validation.json",
+      "world_loaded": true,
+      "track": 4014,
+      "status": "Both devices loaded Circuit with valid local cars and returned through the original frontend flow; the loader idle pump preserved generation 1 across the PCVR 16.680-second frame gap.",
+      "quest_world_loaded": true,
+      "quest_frontend_return": true,
+      "pcvr_world_created_after_session_failure": true,
+      "handoff_evidence": [
+        "build/xyz-lan-qa/quest-race-world-release.log",
+        "build/xyz-lan-qa/pcvr-race-world-overflow.log",
+        "build/xyz-lan-qa/pcvr-race-world-release-final-state.json"
+      ],
+      "pcvr_world_loaded": true,
+      "pcvr_frontend_return": true,
+      "session_generation_unchanged": true,
+      "loading_idle_verified": true,
+      "countdown_verified": false,
+      "driving_verified": false,
+      "results_verified": false,
+      "headset_sight_test": false
+    },
+    "frontend_entry_gates": {
+      "movie_object": "0x003fbbf4",
+      "movie_active": "0x003fbbfc",
+      "pending_flow": "0x00428e14",
+      "required": "all readable zero; normal frontend flow 3",
+      "evidence": "0x16cd70 initializes movie object/flag; instructions 0x16cf19 and 0x16cf5d clear them on close; 0x18a8c0 dispatches pending flow"
+    },
+    "race_handoff": {
+      "sequence": "Original frontend event 0x37c873af in 0xf8880, instructions 0xf94e6..0xf950e; started server races survive lobby socket closure. Copy roster/seed before release, preserve assigned persona until race teardown.",
+      "ServerRaceConfig": {
+        "xbox": "0x001dffc0",
+        "xbox_end": "0x001e01f7",
+        "xbox_code_sha256": "5b546bf800c6d7e77161d9b80552bd6d640a9ee292f4a12b850ec9b2628993f9",
+        "argument_count": 1,
+        "calling_convention": "thiscall",
+        "evidence": "ECX NetGame, arg player count. Consumes optional lobby configuration before original Drop."
+      },
+      "ProfileState": {
+        "xbox": "0x00113e80",
+        "xbox_end": "0x00113e97",
+        "xbox_code_sha256": "46d3a100641bac11225d150eb4aa0342be3e9e98af2b55833413339872506fb1",
+        "argument_count": 1,
+        "calling_convention": "thiscall",
+        "evidence": "ECX profile 0x41c340, arg 3. Stores old +0x50 in +0x54, clears +0x4c and sets +0x50=3; distinct from global frontend mode 8."
+      },
+      "LoaderPump": {
+        "xbox": "0x001894f0",
+        "xbox_end": "0x00189582",
+        "xbox_code_sha256": "a3ad6d61f255aee5e200520f22017019bdf512a6272e158c50c0e22e866d28ec",
+        "argument_count": 0,
+        "calling_convention": "cdecl",
+        "evidence": "Original asset/loading pump; wrapper may only idle owned race sockets on the initiating guest thread, loading/unloading flow 4/5/7/8, no gameplay/probe transitions."
+      }
+    },
+    "race_countdown_runtime_verification": {
+      "date": "2026-11-08",
+      "evidence": "build/xyz-lan-qa/race-countdown-validation.json",
+      "platforms": [
+        "PCVR desktop host",
+        "standalone Quest 3 guest"
+      ],
+      "original_running_state": 5,
+      "both_player_states": 2,
+      "shared_start_clock_bits": "0x40b9d2f2",
+      "frontend_return": true,
+      "session_generation_unchanged": true,
+      "driving_verified": false,
+      "results_verified": false,
+      "headset_sight_test": false,
+      "scope": "Original readiness/start protocol, unchanged connection generation, and return. No forced readiness, start clock, positions or results."
+    },
+    "controller_selection": {
+      "frontend_controller": "0x00406c98",
+      "race_controller": "0x003cc4a8",
+      "local_player_offset": "0x8",
+      "human_driver_offset": "0x2ac",
+      "valid_ports": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "ready_mask_to_port": {
+        "xbox": "0x00119700",
+        "xbox_end": "0x119730",
+        "xbox_code_sha256": "6bf00649d552dabfe9c9048857d7be86c3e93568aa70f7b9b997cc57a3e94400",
+        "argument_count": 1,
+        "calling_convention": "cdecl"
+      },
+      "evidence": "Retail Ready blocks 0xf9296 and 0xf92ef save the accepting logical pad. Circuit setup 0x132cf0 copies it into race settings; constructor 0x1e18d0 supplies the local player. First motion fixture lacked selection. Selecting logical zero reached the player but original controller handling paused with reason 7: its device mapping was disconnected (255), while logical index two mapped to device 65. Selection now rejects disconnected mappings using the original 0x17b0e0 rule. Probe chooses a connected index; no forced driver binding or pause dismissal. Windows 19/19 checks and native Quest lobby checks pass; corrected paired driving run passed: logical index 2/device 65 selected on both platforms; normal input binds the human driver and both local/remote cars move. Original return/disconnect and controller restoration passed.",
+      "first_failure_evidence": "build/xyz-lan-qa/race-motion-validation-unassigned-input.json",
+      "runtime_verified": true,
+      "logical_device_map": "0x00427ff8",
+      "disconnected_device": 255,
+      "is_connected": {
+        "xbox": "0x17b0e0",
+        "xbox_end": "0x17b0f6",
+        "xbox_code_sha256": "53aa8144cc94d7e1155de2f974e956038cd68b349c2f572d539ee8134c184f18",
+        "argument_count": 1,
+        "calling_convention": "cdecl"
+      },
+      "disconnected_failure_evidence": [
+        "build/xyz-lan-qa/pcvr-race-motion-input-map.json",
+        "build/xyz-lan-qa/race-motion-validation-disconnected-logical-pad.json"
+      ],
+      "runtime_evidence": "build/xyz-lan-qa/race-motion-validation.json"
+    },
+    "race_motion_runtime_verification": {
+      "date": "2026-11-08T19:12:46Z",
+      "pcvr_desktop": true,
+      "quest_arm64": true,
+      "original_pad_input_only": true,
+      "same_session_generation": true,
+      "return_and_disconnect": true,
+      "controller_restored": true,
+      "career_unchanged": true,
+      "quest_environment_restored": true,
+      "exe_sha256": "c46e9ce8dd378bee175655f94c589d9c1548c8bc085b651ed9f690e5aad5d3eb",
+      "apk_sha256": "d5fb0440b7130ec47ed1ec3c30a3d720c46afd0cfbae39b3baa9f1b032f1e9bd",
+      "quest_lib_sha256": "cb9b34827433d49f6a612ecacc40aca7e0829891c0fdb263e052833270222070",
+      "comparison": {
+        "source": "Original cars sampled independently; throttle via USB pad script only",
+        "time_tolerance_ticks": 500,
+        "required_moving_samples": 30,
+        "maximum_median_error_m": 2,
+        "maximum_p95_error_m": 8,
+        "directions": {
+          "pcvr_to_quest": {
+            "slot": 1,
+            "local_samples": 552,
+            "remote_samples": 597,
+            "moving_matches": 110,
+            "local_displacement_m": 251.00196918948666,
+            "remote_displacement_m": 251.09198353591458,
+            "median_error_m": 0.40283619499740736,
+            "p95_error_m": 1.5149501641968208,
+            "passed": true
+          },
+          "quest_to_pcvr": {
+            "slot": 3,
+            "local_samples": 597,
+            "remote_samples": 552,
+            "moving_matches": 117,
+            "local_displacement_m": 226.31742407733438,
+            "remote_displacement_m": 226.4177036916504,
+            "median_error_m": 0.4766854308661,
+            "p95_error_m": 1.2233499090611561,
+            "passed": true
+          }
+        },
+        "passed": true
+      },
+      "evidence": [
+        "build/xyz-lan-qa/race-motion-validation.json",
+        "build/xyz-lan-qa/race-motion-comparison.json",
+        "build/xyz-lan-qa/pcvr-race-motion-snapshots.json"
+      ],
+      "complete_race_verified": false,
+      "results_verified": false,
+      "browser_interoperability_verified": false,
+      "headset_sight_test": false
+    },
+    "browser_rows": {
+      "original_index_accessor": {
+        "xbox": "0x2872b0",
+        "xbox_end": "0x2872d1",
+        "xbox_code_sha256": "c6415d9d923cc605052b3f0830033ed403ce273146b09664d94e863a20b659ac"
+      },
+      "original_record_parser": {
+        "xbox": "0x28fa50",
+        "xbox_end": "0x28fec5",
+        "xbox_code_sha256": "a315500415f3af24ca19a9c5a3d71fdb8684300750278efdb6b2aaf7e383478b"
+      },
+      "list_layout": {
+        "displayed_count": "0x14",
+        "stored_count": "0x18",
+        "index_table": "0x40",
+        "element": "index_table[index] -> node -> GameRecord"
+      },
+      "record_layout": {
+        "id": "0x0",
+        "name": "0x4",
+        "host": "0x38",
+        "params": "0x8c",
+        "custom_flags": "0x110",
+        "system_flags": "0x114",
+        "min_players": "0x118",
+        "max_players": "0x11c",
+        "seed": "0x120",
+        "players": "0x1bc"
+      },
+      "bounds": {
+        "max_stored": 4096,
+        "max_players": 8,
+        "name_bytes": 36,
+        "host_bytes": 16,
+        "params_bytes": 132
+      },
+      "scope": "Read-only copied row while owned lobby is READY. No guest pointers or AUTH. Does not join, create or start. Indices are unstable. Production read-only VR browser now uses browser_search; see player_browser. Joining/hosting controls remain open.",
+      "unit_verified": [
+        "Windows",
+        "Quest ARM64 hardware"
+      ],
+      "runtime_verified": true,
+      "runtime_verification": {
+        "date": "2026-11-08T19:20:10Z",
+        "pcvr_rows": 20,
+        "quest_rows": 20,
+        "exe_sha256": "7e9307988720aabd274618808281c50022fd240d2217557dd0d71c1d40b577c5",
+        "apk_sha256": "0b32fcf2def0932fc2b9601959826e472f69ddcf58fcf82c97c009b18f801a5e",
+        "quest_lib_sha256": "a2068314de8d9c8d110372de60203a9a72f793c488329e7380d60759e71b71d8",
+        "private_lobby_cleanup_passed": true,
+        "career_unchanged": true,
+        "quest_environment_restored": true,
+        "evidence": "build/xyz-lan-qa/lobby-browser-validation.json"
+      }
+    },
+    "browser_search": {
+      "original_search": {
+        "xbox": "0x19b560",
+        "xbox_end": "0x19b87a",
+        "xbox_code_sha256": "954361eb8b186db4553839a72a925a00575c33a8290e16d2125e7b79ca2b9dbc"
+      },
+      "original_reply": {
+        "xbox": "0x196680",
+        "xbox_end": "0x1966e3",
+        "xbox_code_sha256": "46df2e0b3fda16f1ef7afdb2b4329faec065437c240a34eb186436bf953a1cde"
+      },
+      "settings": {
+        "start": "0x0",
+        "count": "0x4",
+        "any_performance": "0x8 byte = 1",
+        "race_type": "0xc = 0xffffffff",
+        "quick_search": "0x14 byte = 0"
+      },
+      "completion": "Owned gsea reply with valid COUNT <= requested limit, all rows installed and original manager request completed. Page size 1..200. SEARCHING disallows reads/joins. Timeout or malformed reply closes session.",
+      "selected_join": "Re-read selected index, require matching ID/name, 2..6 player limits, occupied but non-full game and no ACTIVE flag. Confirm returned ID before IN_GAME; close session on mismatch.",
+      "unit_verified": [
+        "Windows",
+        "Quest ARM64 hardware"
+      ],
+      "runtime_verified": true,
+      "runtime_verification": {
+        "date": "2026-11-08T19:26:05Z",
+        "platforms": [
+          "PCVR",
+          "Quest ARM64"
+        ],
+        "pages": [
+          {
+            "start": 0,
+            "limit": 20,
+            "rows": 20
+          },
+          {
+            "start": 20,
+            "limit": 20,
+            "rows": 20
+          },
+          {
+            "start": 2147483627,
+            "limit": 20,
+            "rows": 0
+          },
+          {
+            "start": 0,
+            "limit": 5,
+            "rows": 5
+          }
+        ],
+        "exe_sha256": "031d2bdc0431c8e4d65ebae3a47607caa8dcb2d719dfe881e96e8969bca7d85c",
+        "apk_sha256": "1699bc620fb41646226017dbf68cb7414c3cd2dfb2c7433ea9fa8fb90ed4a87f",
+        "quest_lib_sha256": "fb67a0327d20f62586f0c37051efd2d350f0a3bc8d9a37f1013156433052b643",
+        "private_lobby_cleanup_passed": true,
+        "career_unchanged": true,
+        "quest_environment_restored": true,
+        "evidence": "build/xyz-lan-qa/lobby-pagination-validation.json"
+      },
+      "limits": "Selected-row join guards tested with fixtures only; live tests join owned private games by name. Public joining, VR browser UI and full race lifecycle remain unverified."
+    },
+    "shared_race_handoff": {
+      "implementation": "src/community/xyz_xbox_race.c",
+      "operations": {
+        "roster": {
+          "xbox": "0x1e08e0",
+          "xbox_end": "0x1e0908",
+          "xbox_code_sha256": "1c887a641226c8e836b04d66c5a5a6045516ceeb32d0ee2548caf7836b4666cc"
+        },
+        "begin": {
+          "xbox": "0x1e0270",
+          "xbox_end": "0x1e027c",
+          "xbox_code_sha256": "4a1e756c1d23d2c69ed2fdf438818f77b645817392a00fed0d48a2ed0434a0b5"
+        },
+        "configure": {
+          "xbox": "0x1dffc0",
+          "xbox_end": "0x1e01f7",
+          "xbox_code_sha256": "5b546bf800c6d7e77161d9b80552bd6d640a9ee292f4a12b850ec9b2628993f9"
+        },
+        "profile_state": {
+          "xbox": "0x113e80",
+          "xbox_end": "0x113e97",
+          "xbox_code_sha256": "46d3a100641bac11225d150eb4aa0342be3e9e98af2b55833413339872506fb1"
+        },
+        "initialize": {
+          "xbox": "0x1f1b80",
+          "xbox_end": "0x1f1c02",
+          "xbox_code_sha256": "ebc102284c01229eca1b2761aeae644f23b6eb111f9e883dc9252ad62e304c66"
+        },
+        "stop": {
+          "xbox": "0x1f9890",
+          "xbox_end": "0x1f9907",
+          "xbox_code_sha256": "add253d10a913a493c158219f92e72970de2fca4ce467dcd9ce5d1c8775c8abf"
+        },
+        "reset": {
+          "xbox": "0x1ee130",
+          "xbox_end": "0x1ee1a7",
+          "xbox_code_sha256": "5fd4255c9a485d54255aff11ae49a1a50804beb5fafd670b181d449cdfaeaf4c"
+        },
+        "return": {
+          "xbox": "0x18b1f0",
+          "xbox_end": "0x18b213",
+          "xbox_code_sha256": "893657ba0bf81e0926752d26c6ab6348ebaec125788543aaa1dd2f0dc820ae95"
+        },
+        "release_play": {
+          "xbox": "0x191280",
+          "xbox_end": "0x191325",
+          "xbox_code_sha256": "23c77f99b83851e4f779938566f0bd04b3c14bce00cc9fbbf98306e57c932e60"
+        }
+      },
+      "entry": "Stable frontend, empty NetGame, owned PLAY_READY roster with 2..6 players, unique names/local player, matching original peer count and host role, connected selected logical pad.",
+      "return": "Queue original 0x18b1f0 only when no unrelated transition is pending; wait for stable frontend and no world/local player before stopping/resetting. Verify player disposal before restoring the previous empty NetGame. Conditional profile-state rollback.",
+      "play_lifetime": "Owned lobby disposes original PLAY connections if closed before handoff. After successful lobby release the race owns their cleanup, including failed initialization.",
+      "unit_verified": [
+        "Windows",
+        "Quest ARM64 hardware"
+      ],
+      "runtime_verified": true,
+      "runtime_verification": {
+        "date": "2026-11-08T19:38:34Z",
+        "exe_sha256": "c622fb9a2c79f786daf511e839c7ab7e500771293723f7a5437ef94a0c9cde9e",
+        "apk_sha256": "3aa4262a7f9704dfaadc74b6fc2832c7b0d107ad05ca30a6eddc01f5e86f74a1",
+        "quest_lib_sha256": "c5f1d0ba0adb2101e170dee84520448767bcc21a327b75d341e6232f5b30d6fa",
+        "platforms": [
+          "PCVR",
+          "Quest ARM64"
+        ],
+        "players": 2,
+        "track": 4014,
+        "shared_start_clock": "0x413d0938",
+        "motion": {
+          "pcvr_to_quest": {
+            "slot": 5,
+            "local_samples": 552,
+            "remote_samples": 590,
+            "moving_matches": 114,
+            "local_displacement_m": 254.406292632474,
+            "remote_displacement_m": 254.5162019793632,
+            "median_error_m": 0.4748536616685083,
+            "p95_error_m": 1.2495891324751414,
+            "passed": true
+          },
+          "quest_to_pcvr": {
+            "slot": 0,
+            "local_samples": 590,
+            "remote_samples": 552,
+            "moving_matches": 117,
+            "local_displacement_m": 237.8280597511572,
+            "remote_displacement_m": 237.9182323278315,
+            "median_error_m": 0.4075794401095679,
+            "p95_error_m": 1.3606417603469272,
+            "passed": true
+          }
+        },
+        "session_generation": 1,
+        "return_and_cleanup": true,
+        "controller_restored": true,
+        "career_unchanged": true,
+        "quest_environment_restored": true,
+        "evidence": "build/xyz-lan-qa/race-handoff-motion-validation.json"
+      },
+      "limits": "Bounded driving/return only. Six-player behavior, full race finish/results, browser interoperability, player-facing menu and headset race sight test remain unverified."
+    },
+    "player_browser": {
+      "sources": [
+        "src/community/xyz_races_api.cpp",
+        "src/community/xyz_races_bridge.inl",
+        "android/runtime/quest_xyz_races.h",
+        "android/runtime/quest_cockpit_ui.h"
+      ],
+      "entry": "Root main menu: X, VR Settings, Online Profiles, BROWSE RACES. UI_Main.fng required in active list; GarageMain, Chyron_FE and MC_Background decorations allowed; all other packages, cycles and unreadable lists denied.",
+      "operations": [
+        "open explicit LAN session",
+        "search 20-row pages through retail search",
+        "copied row details",
+        "disconnect",
+        "reopen"
+      ],
+      "ownership": "Copied mutex mailbox with session epochs; Close overrides pending Open/Search. Only guest main-loop calls retail code. Root menu loss closes the browser. Live queue waiting does not expire as a failed handshake.",
+      "tests": [
+        "xyz_races_api",
+        "xyz_races_bridge",
+        "xyz_races_ui",
+        "xyz_profiles_ui",
+        "pcvr_cockpit_test"
+      ],
+      "native_quest_tests": [
+        "xyz_races_api",
+        "xyz_races_bridge",
+        "xyz_races_ui",
+        "xyz_profiles_ui"
+      ],
+      "runtime_verification": {
+        "date": "2026-11-08T19:53:59Z",
+        "exe_sha256": "68d1d3a24ff036e1e6acf94480fcc0994c88f365b1981d4509ea59fb06db418e",
+        "apk_sha256": "bea308accfbf98b1106c5dff8dabf539f457e8cebfb58e58a52c4f30119e142e",
+        "quest_lib_sha256": "ba30d3c984225f12bb915f2a525c1a65012f0d534da9979859b465c735d0219e",
+        "pcvr_pages": [
+          [
+            1,
+            0,
+            20
+          ],
+          [
+            2,
+            20,
+            20
+          ],
+          [
+            3,
+            0,
+            20
+          ]
+        ],
+        "quest_pages": [
+          [
+            1,
+            0,
+            20
+          ],
+          [
+            2,
+            20,
+            20
+          ],
+          [
+            3,
+            0,
+            20
+          ]
+        ],
+        "close_and_reopen": true,
+        "career_unchanged": true,
+        "quest_environment_restored": true,
+        "evidence": "build/xyz-lan-qa/production-race-browser-validation.json"
+      },
+      "review_build": {
+        "date": "2026-11-08T19:56:24Z",
+        "exe_sha256": "361dac709707cb073261eaa86a624456f6f47724048a7406ffa157fbf656b178",
+        "apk_sha256": "0dac112e3e3db1d942b740dd406befa3a2dde49e33c077cfeadd7f4fff208693",
+        "lib_sha256": "b9b468a35028647d19f8d757e50a2b9a0c45cdacbfea4db6b615963a586834df",
+        "installed": true,
+        "quest_environment_restored": true,
+        "change_after_runtime_validation": "Keep a live server queue waiting past handshake timeout. Targeted controller tests pass on Windows and Quest ARM64.",
+        "runtime_validation": "production-race-browser-validation.json",
+        "headset_menu_test": "pending",
+        "evidence": "build/xyz-lan-qa/race-browser-review-build.json"
+      },
+      "limits": "Read-only race browser. Headset panel/input acceptance pending. Create/join/ready/start, complete results and browser-game race interoperability remain open."
+    }
+  },
+  "network_track_catalog": {
+    "status": "Read-only catalog helper and rule bounds tested on Windows and ARM64; production creation UI and settings ownership remain pending.",
+    "pointer": "0x0043d110",
+    "count": "0x0043d114",
+    "chunk": "0x00034201",
+    "record_bytes": 296,
+    "stock_records": 131,
+    "fixture_sha256": "13570a399d741d2ce04dc84d88bad1bcf863f650892c1237fe4e386216afc6f2",
+    "eligible_by_mode": {
+      "circuit": 31,
+      "sprint": 23,
+      "drag": 10,
+      "drift": 17,
+      "url": 11,
+      "street_x": 8
+    },
+    "functions": [
+      {
+        "address": "0x1c40b0",
+        "end": "0x1c40da",
+        "role": "index lookup",
+        "sha256": "ff2cc64dd4cb350e8d103cb77dc61db3a45180a3ae650ac38692c648af2597be"
+      },
+      {
+        "address": "0x1c4070",
+        "end": "0x1c40ab",
+        "role": "ID lookup",
+        "sha256": "a22021c99bd1a41acc544fd931441e4a0143967a3aabc4e1557b5cf04b8731db"
+      },
+      {
+        "address": "0x1c40e0",
+        "end": "0x1c411b",
+        "role": "chunk loader",
+        "sha256": "ef97ce77b5a61908c7e24045879f7198b79279ecd2ede63d0fe914dbae25c2b6"
+      },
+      {
+        "address": "0x1c4120",
+        "end": "0x1c4143",
+        "role": "chunk unloader",
+        "sha256": "08a2fe745b6353776cc7ef2e56cd46040f5225270b3d726666aa413363ba2d7f"
+      },
+      {
+        "address": "0xb2810",
+        "end": "0xb28dc",
+        "role": "network mode filter",
+        "sha256": "c1d1c35295f864c03e63352b25ef2406624c7b96288b8a25a8efcb784ceb7530"
+      },
+      {
+        "address": "0xcc710",
+        "end": "0xcccda",
+        "role": "race option constructor",
+        "sha256": "f020adc440fd1c8d6d5b128780e599b4ef260fc56c31f0cc4800beacf146a3d1"
+      },
+      {
+        "address": "0xcc390",
+        "end": "0xcc45c",
+        "role": "lap option bounds",
+        "sha256": "0e573d7652ac0516d103be969ecb267aeb96d9cd76e41b0d5aa778be1997f4a3"
+      },
+      {
+        "address": "0x198230",
+        "end": "0x1985cc",
+        "role": "online create request",
+        "sha256": "98c3ae656b143dbd4ee40ac32edc21f8dd8b3ceea858010bb556dba986fb5c63"
+      }
+    ],
+    "rules": "All network tracks independent of career unlocks; six players except drag (four, or three on 4402). Sprint/drag/downhill drift one lap; circuit/URL/other drift 2..10; Street X 4..10. Data labels remain debug-only, not localized UI names."
+  },
+  "vehicle_memory": {
+    "status": "Default-enabled on PCVR/Quest: 128 MB independent physical window, bounded 16..48 MB Cars extension, 64 rides. Local two-car churn passed. User confirms Quest local body retained; persistent city Loading screen reported. Missing regional assets and track-stream scheduling addressed in follow-up, live result pending.",
+    "cars_pool_pointer": "0x003e3fec",
+    "pool_fields": {
+      "size": "0x1c",
+      "used": "0x20",
+      "free_cached": "0x28",
+      "free_head": "0x04"
+    },
+    "free_block": {
+      "next": "0x00",
+      "previous": "0x04",
+      "size": "0x08",
+      "cookie": "0x0c = 0x44443333"
+    },
+    "ride_pool_pointer": "0x0045afbc",
+    "ride_pool_fields": {
+      "used": "0x18",
+      "capacity": "0x2c"
+    },
+    "bounded_extra": "Up to three 16 MB physical blocks, held for process lifetime; no destructive phase-1 fallback after activation."
+  },
+  "track_streaming": {
+    "base": "0x004419e0",
+    "phase_offset": "0x168",
+    "car_loader_busy": "0x0045c4b4",
+    "policy": "New remote constructors and look loads wait for both original systems to be idle. Existing loads, poses and retirements continue. No timeout overrides the track state.",
+    "status": "Original code compared; scheduling tests passed Windows and ARM64; live verification pending."
+  },
+  "vehicle_files": {
+    "directory": "NFSUNDER/ZDIR.BIN",
+    "record_size": 24,
+    "fields": {
+      "name_hash": 0,
+      "archive_index": 4,
+      "archive_sector": 8,
+      "size": 16
+    },
+    "hash": "Unsigned 32-bit multiply by 33 plus uppercase path byte; initial 0xffffffff; CARS\\TYPE\\FILE.BIN",
+    "bounds": "At most 65536 sorted records, archive indices 0..9, sector*2048+bytes within existing ZZDATA file. Geometry, textures and vinyls required; corresponding nonempty loose files accepted.",
+    "evidence": "Owned US Xbox archive has 1362 records, all ranges valid. PEUGOT/COROLLA/SKYLINE available; PEUGOT106 and CORSA absent despite type-table records. Two actual Quest runs request absent PEUGOT106 files and then stop loading remote cars.",
+    "limitation": "Presence check does not convert or validate arbitrary mod formats. Regional cars use an explicit stock fallback pending compatible native assets."
+  },
+  "private_paint_layout": {
+    "texture_info_bytes": 124,
+    "platform_bytes": 60,
+    "name_offset": 12,
+    "hash_offset": 36,
+    "pack_owner_offset": 104,
+    "resolved_texture_offset": 108,
+    "pixels_offset": 112,
+    "palette_offset": 116,
+    "supported_template": "US Xbox one-mip P8; palette 1024 bytes; copied independent pixels/palette; original sources unchanged",
+    "slots": "7..12, bounded process-lifetime storage; prepare all three before publication; 18 owned contiguous physical allocations independent of the small general game heap",
+    "evidence": "build/xyz-session-qa/skin-lookup-compositor.txt; skin-platform-init.txt; live-skin-headers.json; xyz_skins_test",
+    "runtime_status": "General-heap variant withheld after repeat allocation failures. Dedicated physical storage passed six-car/eight-native-model run: 1542 six-car ready frames. Final repeat with bounded P8 Vulkan hashing passed 1568 six-car ready frames, zero failures, retirement and player's 26 textures retained. Evidence: build/xyz-session-qa/skin-bounded-validation.json. PCVR installed/restarted 23:02:45 after user closed the previous session; public acceptance pending. Quest deferred by user."
+  },
+  "race_settings_boundary": {
+    "status": "Windows unit tests and real-service original-engine create/read/leave for all six native race types passed; exact 0x4c profile restored. Quest source builds; hardware deferred.",
+    "profile": "0x0041c340",
+    "owned_region_bytes": 76,
+    "fields": {
+      "max_players": 0,
+      "min_players": 1,
+      "join": 4,
+      "mode": 8,
+      "unrestricted": 12,
+      "ranked": 24,
+      "catchup": 25,
+      "collision": 26,
+      "password_enabled": 27,
+      "password": 28,
+      "password_confirmation": 41,
+      "track_u16": 56,
+      "laps_u16": 58,
+      "reverse_u32": 60,
+      "private_game": 72
+    },
+    "password_field_bytes": 13,
+    "evidence": "Original 0x164be0 reads a 13-byte password and copies it to both 0x41c35c and 0x41c369; 0x103c70 independently writes/compares those fields. Create 0x198230 consumes the same settings. Per-field conditional restoration preserves unrelated or subsequently changed profile values.",
+    "functions": [
+      {
+        "address": "0x198230",
+        "end": "0x001985cc",
+        "role": "Create and PARAMS format",
+        "sha256": "98c3ae656b143dbd4ee40ac32edc21f8dd8b3ceea858010bb556dba986fb5c63"
+      },
+      {
+        "address": "0x102d10",
+        "end": "0x0010307e",
+        "role": "Password comparison",
+        "sha256": "3b96253cec4aac5e46651665255fdb77f8f3121387505cce35e1f77279357d8b"
+      },
+      {
+        "address": "0x103c70",
+        "end": "0x00103e61",
+        "role": "Password entry",
+        "sha256": "a598c5915b34daea723bdd48c386ccfa3809bd3f0d40da1fa61278552d53fffb"
+      },
+      {
+        "address": "0x164be0",
+        "end": "0x0016524a",
+        "role": "Bounded password and confirmation copy",
+        "sha256": "c2e3e1347c969c7f65a7dd183559b84981e4233bbfcfb183eeabf541d1e4eaf7"
+      }
+    ],
+    "native": [
+      "src/community/xyz_xbox_race_settings.c",
+      "tests/xyz_xbox_race_settings_test.cpp"
+    ],
+    "runtime_evidence": "build/xyz-session-qa/race-settings-paced-runtime.log"
+  },
+  "track_name_boundary": {
+    "status": "Windows fixtures and actual loaded Xbox language labels for all six real-service race types passed, including reverse labels; headset UI check pending.",
+    "globals": {
+      "count": "0x003fbc20",
+      "pool": "0x003fbc24",
+      "table": "0x003fbc28",
+      "conversion": "0x003fbc2c"
+    },
+    "keys": [
+      "TRACK_NAME_%d",
+      "REVERSE_TRACK_NAME_%d"
+    ],
+    "table": "Sorted unsigned 32-bit hash, relocated guest string pointer; 8 bytes per entry. Original loader adds pool base to each string offset.",
+    "functions": [
+      {
+        "address": "0x122cf0",
+        "end": "0x00122d3a",
+        "role": "Track label key",
+        "sha256": "75fac0aea73ac4290ad21440eea2d87fdd2f705ae104eb547a861f939f9a3518"
+      },
+      {
+        "address": "0x118230",
+        "end": "0x00118270",
+        "role": "Formatted key hash",
+        "sha256": "8bdcfda75ffef427e837714165b2b01804c81a783bd4c096acab28246f995641"
+      },
+      {
+        "address": "0x11ed10",
+        "end": "0x0011ed7b",
+        "role": "Language chunk loader/relocation",
+        "sha256": "79927afd1ac0c7423a75e2ee55a062d1c8fff54a4d60a6e8e0ae81f2193f175e"
+      },
+      {
+        "address": "0x1106e0",
+        "end": "0x0011070d",
+        "role": "Language chunk unload",
+        "sha256": "3d3a01aba3f3847faa3d9c2c6918ea6349d36e98f35f5ff754bfb391b3f5c568"
+      }
+    ],
+    "native": [
+      "src/community/xyz_xbox_tracks.c",
+      "src/community/xyz_race_info.c",
+      "tests/xyz_race_info_test.cpp"
+    ],
+    "runtime_evidence": "build/xyz-session-qa/race-settings-paced-runtime.log"
+  },
+  "career_browser_boundary": {
+    "status": "Original pause/unload/browser/Explore handoff implemented and exercised with copied careers; original position, profile and TLS survive return. See the integration guide for full-race and headset validation.",
+    "frontend_first_package": "0x003fbd0c",
+    "mode": "0x0041c338",
+    "race_coordinator": "0x00449438",
+    "career": "0x003fe230",
+    "package_strings": {
+      "main": "0x0034c7a0",
+      "start_career": "0x0034c7f8",
+      "career_crib": "0x0034c80c",
+      "pause": "0x0034d94c"
+    },
+    "quit_message": "0x30ed2368",
+    "explore_message": "0x9a3b571d",
+    "cinematic_guard": {
+      "director": "0x0038dba0",
+      "active_handles": ["0x0038dbb0", "0x0038dbc8", "0x0038dbe0"],
+      "pending_loads": ["0x0038dba4", "0x0038dbbc", "0x0038dbd4", "0x003e3ab0"],
+      "reason": "Wait for intro/outro/story sequences before accepting or draining a paused career transfer. A prematurely forced Pause left a career NIS repositioning the following race car through 3FC30 -> 1AE8C0 -> 1EC770 -> 1E5370.",
+      "retail_checks": [
+        {"address":"0x3f540", "sha256":"1fbbd0c35a4e3bdeebd1941aa37c9df99e57ca94e913a3c673a8ecac20d026c5"},
+        {"address":"0x3f620", "sha256":"b131d79d081215e3ee93ec98144b3d46bee614463d964e333e6844df922aef3d"},
+        {"address":"0x3f760", "sha256":"fd5fb3fa8973e8de0382a60a173a6c783e3196cd1bd712e4664fa1bed70929fb"}
+      ],
+      "evidence": "build/xyz-lan-qa/career-watch-write.log; career-grid-nis-active-audit.txt"
+    },
+    "position_preservation": "Original 0xc1b20 calls 0x120260 when mode=1; if race_type=0 it copies local car chassis position +0x60/64/68 into career +0x8750/54/58, heading +0x40c to career +0x8760, sets career +0x8744. No file save call in that path.",
+    "controller": "Original 0x119700 maps input bits 1/2/4/8 to logical controllers 0/1/2/3. Resume 0xafbd0 and explore handler 0xc7760 consume that bit mask. A zero-mask generic dispatch is insufficient for explore.",
+    "functions": [
+      {
+        "address": "0xd9a40",
+        "end": "0x000d9d8e",
+        "role": "Pause event handler",
+        "sha256": "188be6f192a1d11ff9328a96f59a0d0b4e37fbff09ec88532433c288e62a4508"
+      },
+      {
+        "address": "0xc1b20",
+        "end": "0x000c1b65",
+        "role": "Original Pause Quit",
+        "sha256": "44603f7c8be61b668c1d6788c36fbda824d905e586a25b74c5aae80a534bc843"
+      },
+      {
+        "address": "0x120260",
+        "end": "0x001202e1",
+        "role": "Preserve career location",
+        "sha256": "5f4b7fbf6103985569374b18cd63c7ba998f17e7e64fae19e15bb7997cf9818d"
+      },
+      {
+        "address": "0x113cb0",
+        "end": "0x00113d01",
+        "role": "Choose frontend first package",
+        "sha256": "3211236f2f5d305fbfe0264f0fe619a12af75e62ccc1a9d93d3fb431514eef62"
+      },
+      {
+        "address": "0x118be0",
+        "end": "0x00118bed",
+        "role": "Set frontend first package",
+        "sha256": "974785d83af20c150e945bbecf74e76a55bbdbd5d4bae689e7e8238e8e165498"
+      },
+      {
+        "address": "0x166470",
+        "end": "0x001664a5",
+        "role": "Package event dispatch with zero input mask",
+        "sha256": "1bd3d6e0939100357c8ffc3ff8a3b2bc6ce5309b93c40b0311714f13efac4296"
+      },
+      {
+        "address": "0xafbd0",
+        "end": "0x000afc81",
+        "role": "Resume career control",
+        "sha256": "3f3e8256fcafae210a72a2d79a69c03f7ea460ee86154b3e5142de68b36f4b71"
+      },
+      {
+        "address": "0xc7760",
+        "end": "0x000c79c1",
+        "role": "Career crib events",
+        "sha256": "495b64be8d62f016925b58ddaf642d275dc3107aa14bd897d691027b1d958357"
+      },
+      {
+        "address": "0xc76d0",
+        "end": "0x000c7755",
+        "role": "Explore via original autosave comparison",
+        "sha256": "7f0f15ee282d4972d4c0836a6b6b53bab2dead14368b07ef2e04fdc5cc462dea"
+      },
+      {
+        "address": "0x119700",
+        "end": "0x00119730",
+        "role": "Input mask to logical controller",
+        "sha256": "6bf00649d552dabfe9c9048857d7be86c3e93568aa70f7b9b997cc57a3e94400"
+      }
+    ],
+    "evidence": [
+      "build/xyz-lan-qa/career-pause-messages.txt",
+      "build/xyz-lan-qa/career-quit-chain.txt",
+      "build/xyz-lan-qa/career-resume-mapping.txt",
+      "build/xyz-lan-qa/career-resume-controls.txt"
+    ]
+  }
+}

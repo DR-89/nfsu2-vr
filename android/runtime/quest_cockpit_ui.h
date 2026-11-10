@@ -7,8 +7,8 @@
 typedef int (*QuestUiRead)(void *context,uint32_t address,void *out,size_t size);
 
 /* Authorization is deliberately separate from whole-plane UI rendering.
- * Only the active root pause package allows X; a dialog/options package on
- * top blocks it. Missing/corrupt state must never expose the settings entry. */
+ * The root pause package allows X during a race; a dialog/options package on
+ * top blocks it. Root main-menu authorization is checked separately below. Missing/corrupt state must never expose the settings entry. */
 static inline int quest_cockpit_ui_paused(QuestUiRead read,void *context)
 {
     uint32_t frontend,manager,node;
@@ -55,6 +55,26 @@ static inline int quest_ui_package(QuestUiRead read,void *context,uint32_t addre
     if(n>=sizeof name || !read(context,address,name,n+1) || name[n])return 0;
     for(size_t i=0;i<n;++i)if((name[i]|32)!=(expected[i]|32))return 0;
     return 1;
+}
+/* Root main-menu access. Decorations are allowed, but startup/save screens,
+ * dialogs and every other active menu block the VR entry. */
+static inline int quest_cockpit_ui_main(QuestUiRead read,void *context)
+{
+    uint32_t frontend,manager,node;
+    if(!read(context,0x003fbd08u,&frontend,4) || !frontend ||
+       !read(context,frontend+8,&manager,4) || !manager ||
+       !read(context,manager+0xe4,&node,4) || !node)return 0;
+    int main=0;
+    for(unsigned count=0;node && count<32;++count){
+        uint32_t fields[4];
+        if(!read(context,node,fields,sizeof fields) || !fields[3])return 0;
+        if(quest_ui_package(read,context,fields[3],"UI_Main.fng"))main=1;
+        else if(!quest_ui_package(read,context,fields[3],"Chyron_FE.fng") &&
+                !quest_ui_package(read,context,fields[3],"GarageMain.fng") &&
+                !quest_ui_package(read,context,fields[3],"MC_Background.fng"))return 0;
+        node=fields[1];if(!node)return main;
+    }
+    return 0;
 }
 static inline int quest_cockpit_ui_menu(QuestUiRead read,void *context)
 {

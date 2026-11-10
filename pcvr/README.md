@@ -10,6 +10,26 @@ fetches FFmpeg 7.1.5 and GNU Make for Git Bash. Subsequent builds reuse the
 compiled decoder. Set `NFSU2_NATIVE_VP6=2` for a timed frame comparison
 against the original decoder.
 
+## Community mods (development)
+
+**VR Settings → Online Profiles** creates and manages up to eight local
+connection profiles with a controller keyboard. Select, rename, edit the room,
+or delete a profile there; each successful change is saved immediately beside
+`vr-settings.ini` in `xyz-profiles.json`. Game careers stay separate. This does
+not reserve a website name by itself. Use **LINK KEYPHRASE** for an existing
+reserved name, or **RESERVE / MANAGE NAME** for the website guide. Experimental
+Free Roam and race browsing/joining/hosting are now wired to the native game.
+Final gameplay with browser players and both headsets still needs acceptance.
+
+Pause, press **X** for **VR Settings**, then open **Community Mods**.
+**Show Hidden Races** reveals the career's 33 hidden races on the map. It is off
+by default; save and restart after changing it. The implementation changes only
+loaded stock career tables. Completing races still saves normal career progress.
+Windows tests on both retail data copies and an isolated game boot pass; headset
+gameplay validation is pending. [nfsu2.xyz integration status](../docs/nfsu2-xyz-integration.md)
+records the mod inventory, runtime evidence and remaining multiplayer checks.
+Optional artwork, audio and conversion packs are not bundled in the release.
+
 ## VR settings and controller update (2026-10-17, testing)
 
 For Steam Link, start SteamVR and run `tools/start-pcvr.ps1 -SteamVR`.
@@ -29,8 +49,8 @@ open it. Holding X before pausing requires release and a new press.
   and enable **Engine REV Rumble**. Vibration starts gently at idle, builds
   toward each car’s rev limit and eases as RPM drops after an upshift.
   More throttle makes it stronger at the same RPM. **Grip Feedback**
-  starts on and limits engine vibration to each hand holding the wheel. Release
-  one hand to feel the difference. Road and collision effects still reach both
+  starts on and limits engine vibration to hands holding the wheel or inside
+  the shifter zone. Road and collision effects still reach both
   hands. A mapped gamepad uses engine rumble independently of wheel grip.
 - **Master Gain** adjusts all game audio immediately in 1 dB steps from −12 to
   +12 dB. The default is 0 dB. **B** returns from the haptics submenu, and
@@ -53,6 +73,57 @@ Settings persist in `vr-settings.ini` in the app's private files directory on
 Quest, or `%APPDATA%\OpenSourceDevDirk\NFSU2VR` on Windows. Game data and saved
 profiles are separate. Changing the wheel ratio resets the current grab;
 release Grip and grasp the rim again.
+
+
+### Shifting, cockpit feedback and dash screen
+
+Open **VR Settings > Cockpit Controls** to choose **H-pattern** or
+**I-pattern**. Sequential mode defaults to pull back to upshift and push
+forward to downshift; reverse it and adjust lever travel there. Select Manual
+transmission in the game. Return the lever to center before another shift.
+
+Optional **No-grip Gestures** activate inside the fitted shifter zone without
+pressing a button. Choose **Single Both** (one flick for either direction) or
+**Double Down** (one upshift flick, two downshift flicks within 550 ms).
+Direction, forward/back versus up/down motion, zone radius, movement deadzone,
+wrist-angle deadzone and minimum speed are adjustable. The default gesture
+upshift is forward; select **Back / Up** for pull-back upshifts on the
+forward/back axis. Hold the hand briefly in the zone to establish its resting
+position, then flick and return to that position. Leaving the zone, losing
+tracking, pausing, using another cockpit control or switching cars cancels a
+pending gesture. Gestures default to Off.
+
+With **Engine Rev Rumble** enabled, a free hand in the shifter zone receives
+engine feedback even when **Grip Feedback** is enabled. Gear detents produce
+a short haptic click; an optional short sound is available separately.
+**Shift LED Cues** turn the cabin strips green while a hand is in the zone,
+then flash red for an upshift or blue for a downshift. The normal color and
+music pulse resume afterward. The physical **LED** button below the stereo
+cycles the eight ambient colors. LED cues respect the Interior LED Strips
+switch.
+
+**Wheel Deadzone** adds 0–25% center dead travel to the tracked wheel. The
+remaining range still reaches full lock; the existing stick filter is unchanged.
+
+Press **PAGE >** below the stereo to switch the dash monitor between the
+existing video/music display and six seconds of live RPM, acceleration and
+braking graphs. Acceleration is derived from the local car's signed speed;
+the graph uses a +/-12 m/s² range. Stale or unavailable samples show **No Live
+Data**. This page does not interrupt music playback.
+
+Enable **Grab Dash Screen**, then hold Grip with either free hand on the
+screen to move it. Wrist movement adjusts pitch/yaw up to 45 degrees each.
+While holding the screen, right-stick up/down resizes it from 50–300%; that
+stick remains reserved until it returns to center after release. **Screen
+Opacity** ranges from 5–100%. Placement saves on release or interruption;
+**Reset Screen** restores the fitted mount and screen defaults. The minimap
+retains its independent placement.
+
+Validation: the PCVR interaction, settings, H-pattern, wheel, haptics, radio
+and music regressions pass. The shared XR/Vulkan code and interaction tests
+compile for Android ARM64; mono and multiview screen/control shaders compile.
+Controller feel, timing and the final cockpit appearance still require a
+headset playtest.
 
 Mapped SDL USB/Bluetooth gamepads feed the same driving controls as Touch.
 The active input device is selected by use; a held VR wheel has priority.

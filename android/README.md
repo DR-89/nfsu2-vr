@@ -14,6 +14,25 @@ dense scenes and crashes, without new rendering regressions at the accepted
 image quality. This supersedes the earlier 120 Hz target and has not been met
 across the game yet.
 
+## Community mods (development)
+
+**VR Settings → Online Profiles** creates and manages up to eight local
+connection profiles with a controller keyboard. Select, rename, edit the room,
+or delete a profile there; each successful change is saved immediately beside
+`vr-settings.ini` in the app's private `xyz-profiles.json`. Game careers stay
+separate. This does not yet reserve a website name or enable online gameplay.
+The shared protocol and Android WebSocket bridge have local tests; Xbox
+vehicle/race integration and headset checks are ongoing.
+
+Pause, press **X** for **VR Settings**, then open **Community Mods**.
+**Show Hidden Races** reveals the career's 33 hidden races on the map. It starts
+off; save and restart after changing it. It uses the shared PCVR/Quest code and
+changes loaded stock tables in memory. Completing races still saves normal
+career progress. The ARM64 build passes; this feature still needs a Quest
+gameplay check. [nfsu2.xyz integration status](../docs/nfsu2-xyz-integration.md)
+records the remaining online-profile, multiplayer and mod work. Online play
+with the website is not available yet.
+
 ## VR settings and controller update (2026-10-17, testing)
 
 Pause during a race and press **X** on Touch or a mapped gamepad to open the

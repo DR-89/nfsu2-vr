@@ -292,6 +292,14 @@ static int exercise_video(const fs::path &parent)
 int main(int argc,char **argv)
 {
     CHECK(stock_spectrum()==0);
+    {
+        int16_t silence[1920]={0},click[1920]={0};
+        vr_music_shift_click();CHECK(vr_music_mix(silence,click,1920));
+        int peak=0;for(int i=0;i<1920;++i)peak=std::max(peak,std::abs((int)click[i]));
+        CHECK(peak>500 && peak<3000);
+        CHECK(!vr_music_mix(silence,click,1920));
+        std::puts("Shift sound: finite 20-ms click and return to silence passed.");
+    }
     if(argc==3 && std::string(argv[1])=="--video")return exercise_video(fs::u8path(argv[2]));
     /* Optional folder of three short, distinct tracks for compressed-format QA. */
     if(argc==2)return exercise(fs::u8path(argv[1]));

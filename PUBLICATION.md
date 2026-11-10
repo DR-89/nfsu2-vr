@@ -1,7 +1,7 @@
 # Development source publication
 
 This is the public development source for **DR-89/nfsu2-vr**, first published
-on October 14, 2026 and updated November 6. The project targets **Windows PCVR** and **Meta Quest 3
+on October 14, 2026 and updated November 10. The project targets **Windows PCVR** and **Meta Quest 3
 standalone** using Vulkan and OpenXR.
 
 **DEV BUILD — NOT 100% TESTED.** Bugs, crashes, freezes, rendering errors,
@@ -115,3 +115,13 @@ and stable 72 FPS across gameplay remain outstanding.
 
 Packaging now rejects invalid glove files or checksum/embedded-asset mismatches.
 The restored glove passes format, malformed-input and steering/contact tests.
+
+## November 10 release (0.7.0-dev)
+
+This release adds cockpit shift modes/gestures, LED feedback, telemetry and
+screen placement controls, the latest mirror/screen corrections and experimental
+native online/community support. Quest version code 10 preserves the previous
+signing certificate. Optional local mod assets and all original game content
+are excluded from both downloads. Disabled CopChase source is retained to
+match the runtime, but it is unsupported; its game-integration test has a known
+failure. Exact checks, limitations and hashes are in BUILD-INFO.json.

@@ -6,6 +6,11 @@ import java.io.IOException;
 import org.libsdl.app.SDLActivity;
 
 public class QuestActivity extends SDLActivity {
+    // Called through the Activity's class loader by the native network worker.
+    public XyzWebSocket createXyzSocket() { return new XyzWebSocket(); }
+    public byte[] xyzProtectCredential(String profile,byte[] input,boolean encrypt) {
+        return XyzCredentials.crypt(profile,input,encrypt);
+    }
     private GameDataImporter.Lock gameDataLock;
     @Override protected String[] getLibraries() {
         return new String[] { "SDL2", "nfsu2_quest" };

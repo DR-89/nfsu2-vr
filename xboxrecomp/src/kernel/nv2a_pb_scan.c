@@ -27,6 +27,7 @@
 #include <string.h>
 
 extern ptrdiff_t xbox_GetMemoryOffset(void);
+extern uint32_t g_xbox_contig_size;
 
 #define PB_MAX_METHODS 4096
 
@@ -185,7 +186,7 @@ void nv2a_pb_scan_report(void)
  * ponytail: if the walk desynchronises (a run of words that decode as
  * nothing), GET snaps to PUT rather than wandering through guest RAM. */
 #define PB_PHYS_MASK 0x0FFFFFFCu
-#define PB_RAM_BYTES (64u * 1024u * 1024u)   /* XBOX_CONTIG_SIZE */
+#define PB_RAM_BYTES g_xbox_contig_size
 
 /* A jump or call outside RAM means the walk is reading data as commands. */
 /* The last command headers decoded, so a desync can be traced back to the

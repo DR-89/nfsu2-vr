@@ -11,6 +11,8 @@ extern void nv2a_pb_scan(uint32_t);
 extern int nv2a_pb_scan_survey(int);
 extern void nv2a_pb_scan_bulk(int);
 static uint8_t *memory;
+/* Match the synthetic 64 MiB contiguous RAM mapping below. */
+uint32_t g_xbox_contig_size=64u<<20;
 static uint32_t got[32][3], calls;
 ptrdiff_t xbox_GetMemoryOffset(void) { return (ptrdiff_t)memory; }
 void nv2a_pb_exec_report(void) {}

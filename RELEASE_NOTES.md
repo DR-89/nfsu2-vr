@@ -1,5 +1,41 @@
 # Release notes
 
+## 0.7.0-dev · Cockpit controls, telemetry and mirror fixes
+
+Development prerelease for **Windows PCVR** and **Meta Quest 3 standalone**.
+
+### Cockpit controls
+
+- Choose **H-pattern** or sequential **I-pattern** in **VR Settings → Cockpit Controls**, with reversible push/pull direction and adjustable travel. Use Manual transmission in the game.
+- Optional **no-grip gestures** work inside the shifter zone. Choose single flicks in both directions or a double flick to downshift; adjust direction, axis, zone, movement/wrist deadzones and speed. Gestures default to Off.
+- Engine rumble continues when your hand enters the shifter zone. Shifts can produce a haptic click, an optional sound and LED cues: green for the active zone, red for upshift, blue for downshift.
+- Press **LED** below the stereo to cycle ambient colors. Press **PAGE >** to switch directly between video/visualizer and live RPM, acceleration and braking graphs without opening the VR menu.
+- **Wheel Deadzone** adjusts the tracked wheel's center dead travel. Enable **Grab Dash Screen** to move and tilt the monitor; right-stick up/down while holding it changes its size. Screen opacity and reset are in the same settings.
+
+### Mirror and screen corrections
+
+- Remove the old 2D rear-view mask that caused a black bar in the physical mirrors, with guarded texture identification and reflection-depth checks.
+- Adjusting the center mirror no longer changes the outside mirrors' source camera.
+- Mirrors show the road and traffic. The player's own interior and body are deliberately excluded from the rear capture.
+- A grabbed monitor placed in front of the wheel now renders in front of it. Depth still hides the monitor when it is behind the wheel, including at partial opacity.
+
+### Experimental online and community support
+
+The snapshot also includes **Online Profiles**, protected local credentials, native Free Roam cars, and race browsing/joining/hosting for the nfsu2.xyz service. Profiles remain separate from career saves; creating one does not reserve a service name. Community settings include GPS distance, stance, headlights, career options and optional asset-pack support. See the [integration status](https://github.com/DR-89/nfsu2-vr/blob/dev-2026-11-10/docs/nfsu2-xyz-integration.md) for implementation evidence and remaining checks.
+
+Live browser-player interoperability and full headset acceptance remain experimental. **CopChase is not a supported feature of this release**: it defaults to Off, its assets are excluded, and its experimental game-integration regression currently fails. Optional community artwork/audio packs are not bundled.
+
+### Downloads and updating
+
+- **Windows PCVR:** extract the [PCVR ZIP](https://github.com/DR-89/nfsu2-vr/releases/download/dev-2026-11-10/NFSU2VR-PCVR-dev-2026-11-10.zip) into a writable folder, preserve your `game/` and `Music/` folders, and run **Start-PCVR.cmd**. For Steam Link, use **Start-PCVR.cmd -SteamVR**.
+- **Quest 3:** install the [Quest APK](https://github.com/DR-89/nfsu2-vr/releases/download/dev-2026-11-10/NFSU2VR-Quest3-dev-2026-11-10.apk) over your existing installation. Version code **10** retains the **0.6.1-dev signing certificate**.
+
+Both require your own original **Xbox USA / NTSC-U game data**. No original game content or saves are included. Matching port/FFmpeg source archives, build information and SHA-256 checksums accompany the binaries.
+
+Automated build, regression and Vulkan depth checks are recorded in **BUILD-INFO.json**. The PCVR build has started successfully with tracked OpenXR presentation; final in-headset acceptance of every change on both platforms is still pending. This remains a development build, with no guarantee of stable frame rates or complete compatibility.
+
+---
+
 ## 0.6.1-dev · Starting-line cockpit view
 
 You now see the approach to the starting line from the driver's seat as your car rolls onto the grid. You stay in the cockpit throughout the countdown. At **GO**, the game uses your saved racing camera. If you normally drive in the cockpit, you stay there as the race begins.

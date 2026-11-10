@@ -1,0 +1,4 @@
+Visual crash damage: Crashing Foreign Cars by Chrystian Farias (FRS Mods).
+Browser adaptation: nfsu2-web, commit 16b23865f09dc41b9533635180e6d3fd34c45a6d.
+Native Xbox adaptation preserves the algorithms; guest pointers, mesh layout,
+GPU storage and audited game bindings are replaced. See LICENSE.

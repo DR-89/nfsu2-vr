@@ -345,7 +345,7 @@ void vr_music_command(int action) {
     }
 }
 
-int vr_music_mix(const int16_t *game,int16_t *out,int samples) {
+static int custom_music_mix(const int16_t *game,int16_t *out,int samples) {
     if(samples<=0 || !player.playing)return 0;
     std::unique_lock<std::mutex> lock(player.mutex,std::try_to_lock);
     if(!lock || !player.playing)return 0;
@@ -362,5 +362,37 @@ int vr_music_mix(const int16_t *game,int16_t *out,int samples) {
     if(out!=game)std::copy(game+n,game+samples,out+n);
     player.count-=n;player.played+=static_cast<int64_t>(n/2);
     lock.unlock();player.wake.notify_one();
+    return 1;
+}
+
+#include "vr_whine.h"
+#include "community/copchase_audio.h"
+static std::atomic<uint32_t> shift_click_at{0};
+void vr_music_shift_click(void) {shift_click_at.store(SDL_GetTicks()+1,std::memory_order_release);}
+int vr_music_mix(const int16_t *game,int16_t *out,int samples) {
+    if(!game || !out || samples<=0)return 0;
+    int music=custom_music_mix(game,out,samples);
+    int mixed=vr_whine_mix(music?out:game,out,samples,48000) || music;
+    for(int offset=0;offset+1<samples;){
+        float pcm[1024];int count=std::min(1024,(samples-offset)&~1);
+        const int16_t *source=mixed?out:game;
+        for(int i=0;i<count;++i)pcm[i]=source[offset+i]/32768.f;
+        if(copchase_audio_mix(pcm,(size_t)count/2)){
+            if(!mixed && out!=game)std::memcpy(out,game,(size_t)samples*sizeof *out);
+            for(int i=0;i<count;++i)out[offset+i]=(int16_t)std::clamp((int)std::lrint(pcm[i]*32768.f),-32768,32767);
+            mixed=1;
+        }
+        offset+=count;
+    }
+    static unsigned remaining=0;
+    uint32_t event=shift_click_at.exchange(0,std::memory_order_acq_rel);
+    if(event && SDL_GetTicks()-(event-1)<100)remaining=960;
+    if(!remaining)return mixed;
+    if(!mixed)std::memcpy(out,game,(size_t)samples*sizeof *out);
+    for(int i=0;i+1<samples && remaining;i+=2,--remaining) {
+        float envelope=remaining/960.f;
+        int impulse=(int)(2800*envelope*envelope*std::sin((960-remaining)*.23561945f));
+        for(int c=0;c<2;++c)out[i+c]=(int16_t)std::clamp((int)out[i+c]+impulse,-32768,32767);
+    }
     return 1;
 }

@@ -1,0 +1,10 @@
+EFF short wordlist 1
+By Joseph Bonneau and the Electronic Frontier Foundation.
+Source: https://www.eff.org/dice
+License: Creative Commons Attribution 3.0 United States
+https://creativecommons.org/licenses/by/3.0/us/
+
+Adapted by nfsu2-web: yo-yo is replaced with yolk for hyphen-separated keyphrases.
+This port converts the exact 1296-word list from vault-words.ts to a C array.
+Upstream: https://github.com/th0mk/nfsu2-web
+Commit: 304978012da55b273c143f9a8bcec7d1d298a873

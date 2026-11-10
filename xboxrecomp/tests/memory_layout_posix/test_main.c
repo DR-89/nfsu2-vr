@@ -295,6 +295,34 @@ int main(int argc, char **argv)
         unsetenv("RECOMP_TRAP_NULL");
     }
 
+    /* Online cars use independent physical pages above retail 64 MB. They
+     * must not alias low RAM, and the GPU/tiled view must see the same bytes. */
+    check(!xbox_SetContiguousSize(96u<<20), "unsupported physical size is refused", NULL);
+    check(xbox_SetContiguousSize(128u<<20), "128 MB physical window selected before init", NULL);
+    if(xbox_MemoryLayoutInit(xbe,n)) {
+        check(!xbox_SetContiguousSize(64u<<20), "live physical window cannot be resized", NULL);
+        unsigned char *mapped=(unsigned char *)xbox_GetMemoryBase();
+        unsigned char got=0;
+        int high=read_byte_in_child(mapped+0x84500000u,&got);
+        int tiled=read_byte_in_child(mapped+0xf4500000u,&got);
+        check(high && tiled,"physical and tiled addresses above 64 MB are mapped",NULL);
+        if(high && tiled) {
+            volatile unsigned char *a=mapped+0x84500000u,*b=mapped+0xf4500000u,*low=mapped+0x500000u;
+            *low=0x31;*a=0x72;
+            check(*b==0x72 && *low==0x31,"high physical bytes alias tiled, not low RAM",NULL);
+            *b=0x19;check(*a==0x19,"high tiled writes reach the physical view",NULL);
+        }
+        uint32_t allocation=xbox_ContiguousAlloc(68u<<20,4096);
+        check(allocation!=0,"physical allocator can cross the retail boundary",NULL);
+        if(allocation) {
+            uint32_t end=allocation+(68u<<20)-1;
+            check(end>=0x84000000u && xbox_ContiguousIsPhysical(end-0x80000000u),
+                  "high allocated page is recognized as a GPU physical address",NULL);
+            check(xbox_ContiguousFree(allocation),"extended physical allocation is released",NULL);
+        }
+        xbox_MemoryLayoutShutdown();
+    } else check(0,"128 MB physical init succeeds",NULL);
+    check(xbox_SetContiguousSize(64u<<20),"retail physical default restored after shutdown",NULL);
     printf("\n%d failure(s)\n", failures);
     free(xbe);
     return failures ? 1 : 0;

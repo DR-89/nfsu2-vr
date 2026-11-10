@@ -34,4 +34,12 @@ if ($LASTEXITCODE) { throw 'Vulkan import library generation failed.' }
 if ($LASTEXITCODE) { throw 'PCVR configuration failed.' }
 & cmake.exe --build $pcvrBuild --target pcvr_bundle --parallel $Jobs
 if ($LASTEXITCODE) { throw 'PCVR build failed.' }
+& "$pcvrRoot/.venv/Scripts/python.exe" "$PSScriptRoot/prepare-community-audio.py" --output "$pcvrBuild/game"
+if ($LASTEXITCODE) { throw 'Community audio preparation failed.' }
+& "$pcvrRoot/.venv/Scripts/python.exe" "$PSScriptRoot/prepare-community-textures.py" --output "$pcvrBuild/game"
+if ($LASTEXITCODE) { throw 'Community texture preparation failed.' }
+& "$pcvrRoot/.venv/Scripts/python.exe" "$PSScriptRoot/stage-community-vinyls.py" --output "$pcvrBuild/game"
+if($LASTEXITCODE -ne 0){throw 'Optional HQ vinyl staging failed'}
+& "$pcvrRoot/.venv/Scripts/python.exe" "$PSScriptRoot/stage-community-soundtrack.py" --output "$pcvrBuild/game"
+if($LASTEXITCODE -ne 0){throw 'Optional restored soundtrack staging failed'}
 Write-Output "PCVR executable: $pcvrBuild/game/nfsu2-pcvr.exe"

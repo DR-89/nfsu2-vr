@@ -133,7 +133,7 @@ static uint32_t dma_resolve(uint32_t offset)
         return XBOX_CONTIG_BASE + offset;
     if (!surface_hits_image(offset, 1))
         return offset;
-    if ((uint64_t)offset < XBOX_CONTIG_SIZE)
+    if ((uint64_t)offset < g_xbox_contig_size)
         return XBOX_CONTIG_BASE + offset;
     return offset;                         /* nothing better to offer */
 }

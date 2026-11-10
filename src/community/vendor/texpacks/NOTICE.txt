@@ -1,0 +1,5 @@
+Raw-deflate decoder copied without modification from th0mk/nfsu2-web,
+commit 16b23865f09dc41b9533635180e6d3fd34c45a6d, runtime/web/inflate.h.
+The NTXP reader implements tools/texpacks.py's version 1/2 file format.
+See LICENSE. Texture artwork is separately attributed and remains in local
+asset packs; no original game or mod texture bytes are included here.

@@ -11,6 +11,134 @@
 #define CHECK(x) do {if(!(x)){fprintf(stderr,"FAIL line %d: %s\n",__LINE__,#x);return 1;}}while(0)
 static float point_component(const float m[16],const float p[3],int row)
 { return m[row]*p[0]+m[4+row]*p[1]+m[8+row]*p[2]+m[12+row]; }
+static int copchase_menu_test(void)
+{
+    QuestVRSettings s=quest_vr_defaults(),loaded=quest_vr_defaults();
+    CHECK(!s.copchase && s.copchase_style==1 && s.copchase_heat==1 && s.copchase_aggression==100 && s.copchase_limit==10);
+    QuestVRMenu m={.open=1,.row=QUEST_VR_COPCHASE_ROW};
+    CHECK(quest_vr_menu_step(&m,&s,100,1,QUEST_VR_ACCEPT)==5 && s.copchase);
+    CHECK(quest_vr_menu_step(&m,&s,500,1,QUEST_VR_ACCEPT)==4 && s.copchase);
+    quest_vr_menu_step(&m,&s,501,1,QUEST_VR_DOWN);CHECK(m.row==QUEST_VR_COPCHASE_STYLE_ROW);
+    CHECK(quest_vr_menu_step(&m,&s,502,1,QUEST_VR_RIGHT)==5 && s.copchase_style==2);
+    for(int i=0;i<20;++i){quest_vr_adjust(&s,QUEST_VR_COPCHASE_HEAT_ROW,1);quest_vr_adjust(&s,QUEST_VR_COPCHASE_AGGRESSION_ROW,1);quest_vr_adjust(&s,QUEST_VR_COPCHASE_LIMIT_ROW,-1);}
+    CHECK(s.copchase_heat==5 && s.copchase_aggression==200 && s.copchase_limit==1);
+    char text[8192];int n=quest_vr_format(&s,text,sizeof text);CHECK(n>0 && n<sizeof text);
+    quest_vr_parse(&loaded,text);CHECK(loaded.copchase && loaded.copchase_style==2 && loaded.copchase_heat==5 && loaded.copchase_aggression==200 && loaded.copchase_limit==1);
+    quest_vr_parse(&loaded,"copchase=nan\ncopchase_style=0.5\ncopchase_heat=6\ncopchase_aggression=inf\ncopchase_limit=64\n");
+    CHECK(loaded.copchase && loaded.copchase_style==2 && loaded.copchase_heat==5 && loaded.copchase_aggression==200 && loaded.copchase_limit==1);
+    m.row=QUEST_VR_MODS_BACK;quest_vr_menu_step(&m,&s,600,1,0);
+    CHECK(quest_vr_menu_step(&m,&s,601,1,QUEST_VR_ACCEPT)==4 && m.row==QUEST_VR_MODS_ROW);
+    return 0;
+}
+static int community_menu_test(void)
+{
+    QuestVRSettings s=quest_vr_defaults(),loaded=quest_vr_defaults();
+    QuestVRMenu menu={.open=1,.row=QUEST_VR_MODS_ROW};
+    CHECK(!s.show_hidden_races && !s.visual_rep_remover);
+    CHECK(quest_vr_menu_step(&menu,&s,0,1,QUEST_VR_ACCEPT)==4);
+    CHECK(menu.row==QUEST_VR_HIDDEN_RACES_ROW);
+    quest_vr_menu_step(&menu,&s,1,1,0);
+    CHECK(quest_vr_menu_step(&menu,&s,2,1,QUEST_VR_RIGHT)==5 && s.show_hidden_races);
+    CHECK(quest_vr_menu_step(&menu,&s,1000,1,QUEST_VR_RIGHT)==4 && s.show_hidden_races);
+    quest_vr_menu_step(&menu,&s,1001,1,QUEST_VR_DOWN);
+    CHECK(menu.row==QUEST_VR_VISUAL_REP_ROW);
+    quest_vr_menu_step(&menu,&s,1002,1,QUEST_VR_DOWN);
+    CHECK(menu.row==QUEST_VR_VISUAL_REP_ROW);
+    CHECK(quest_vr_menu_step(&menu,&s,1003,1,QUEST_VR_ACCEPT)==5 && s.visual_rep_remover);
+    CHECK(quest_vr_menu_step(&menu,&s,1004,1,QUEST_VR_ACCEPT)==4 && s.visual_rep_remover);
+    quest_vr_menu_step(&menu,&s,1005,1,QUEST_VR_DOWN);CHECK(menu.row==QUEST_VR_CATCHUP_ROW);
+    CHECK(quest_vr_menu_step(&menu,&s,1006,1,QUEST_VR_ACCEPT)==5 && s.career_catchup==1);
+    quest_vr_menu_step(&menu,&s,1007,1,0);
+    CHECK(quest_vr_menu_step(&menu,&s,1008,1,QUEST_VR_RIGHT)==5 && s.career_catchup==2);
+    quest_vr_menu_step(&menu,&s,1006,1,QUEST_VR_BACK);
+    CHECK(menu.row==QUEST_VR_MODS_ROW && menu.open);
+    quest_vr_menu_step(&menu,&s,1007,1,0);
+    CHECK(quest_vr_menu_step(&menu,&s,1008,1,QUEST_VR_BACK)==6 && !menu.open);
+    char text[4096];CHECK(quest_vr_format(&s,text,sizeof text)<(int)sizeof text);
+    quest_vr_parse(&loaded,text);CHECK(loaded.show_hidden_races && loaded.visual_rep_remover && loaded.career_catchup==2);
+    menu=(QuestVRMenu){.open=1,.row=QUEST_VR_WHINE_ROW};
+    CHECK(quest_vr_menu_step(&menu,&s,1100,1,QUEST_VR_ACCEPT)==5 && s.gearbox_whine);
+    CHECK(quest_vr_menu_step(&menu,&s,1101,1,QUEST_VR_ACCEPT)==4 && s.gearbox_whine);
+    quest_vr_format(&s,text,sizeof text);quest_vr_parse(&loaded,text);CHECK(loaded.gearbox_whine);
+    quest_vr_parse(&loaded,"gearbox_whine=nan\ngearbox_whine=2\n");CHECK(loaded.gearbox_whine);
+    quest_vr_parse(&loaded,"gearbox_whine=0\n");CHECK(!loaded.gearbox_whine);
+    menu=(QuestVRMenu){.open=1,.row=QUEST_VR_GPS_ROW};
+    CHECK(quest_vr_menu_step(&menu,&s,1200,1,QUEST_VR_ACCEPT)==5 && s.gps_distance);
+    CHECK(quest_vr_menu_step(&menu,&s,1201,1,QUEST_VR_ACCEPT)==4 && s.gps_distance);
+    quest_vr_format(&s,text,sizeof text);quest_vr_parse(&loaded,text);CHECK(loaded.gps_distance);
+    quest_vr_parse(&loaded,"gps_distance=nan\ngps_distance=-1\ngps_distance=0.5\n");CHECK(loaded.gps_distance);
+    quest_vr_parse(&loaded,"gps_distance=0\n");CHECK(!loaded.gps_distance);
+    CHECK(!s.upscaled_hud && !s.detailed_map);
+    menu=(QuestVRMenu){.open=1,.row=QUEST_VR_UHUD_ROW};
+    CHECK(quest_vr_menu_step(&menu,&s,1300,1,QUEST_VR_ACCEPT)==5 && s.upscaled_hud);
+    quest_vr_menu_step(&menu,&s,1301,1,QUEST_VR_DOWN);CHECK(menu.row==QUEST_VR_DETAILED_MAP_ROW);
+    CHECK(quest_vr_menu_step(&menu,&s,1302,1,QUEST_VR_ACCEPT)==5 && s.detailed_map);
+    CHECK(quest_vr_format(&s,text,sizeof text)<sizeof text);quest_vr_parse(&loaded,text);
+    CHECK(loaded.upscaled_hud && loaded.detailed_map);
+    quest_vr_parse(&loaded,"upscaled_hud=nan\nupscaled_hud=2\ndetailed_map=-1\ndetailed_map=0.5\n");
+    CHECK(loaded.upscaled_hud && loaded.detailed_map);
+    quest_vr_parse(&loaded,"upscaled_hud=0\ndetailed_map=0\n");CHECK(!loaded.upscaled_hud && !loaded.detailed_map);
+    menu=(QuestVRMenu){.open=1,.row=QUEST_VR_SUBTITLES_ROW};
+    CHECK(quest_vr_menu_step(&menu,&s,1400,1,QUEST_VR_ACCEPT)==5 && s.subtitles);
+    quest_vr_format(&s,text,sizeof text);quest_vr_parse(&loaded,text);CHECK(loaded.subtitles);
+    quest_vr_parse(&loaded,"subtitles=-1\nsubtitles=nan\nsubtitles=0.5\n");CHECK(loaded.subtitles);
+    menu=(QuestVRMenu){.open=1,.row=QUEST_VR_VINYLS_ROW};
+    CHECK(quest_vr_menu_step(&menu,&s,1500,1,QUEST_VR_ACCEPT)==5 && s.hq_vinyls);
+    CHECK(quest_vr_menu_step(&menu,&s,1501,1,QUEST_VR_ACCEPT)==4 && s.hq_vinyls);
+    quest_vr_format(&s,text,sizeof text);quest_vr_parse(&loaded,text);CHECK(loaded.hq_vinyls);
+    quest_vr_parse(&loaded,"hq_vinyls=-1\nhq_vinyls=nan\nhq_vinyls=0.5\n");CHECK(loaded.hq_vinyls);
+    quest_vr_parse(&loaded,"hq_vinyls=0\n");CHECK(!loaded.hq_vinyls);
+    menu=(QuestVRMenu){.open=1,.row=QUEST_VR_SPECIAL_VINYLS_ROW};
+    CHECK(quest_vr_menu_step(&menu,&s,1600,1,QUEST_VR_ACCEPT)==5 && s.special_vinyls);
+    quest_vr_format(&s,text,sizeof text);quest_vr_parse(&loaded,text);CHECK(loaded.special_vinyls);
+    quest_vr_parse(&loaded,"special_vinyls=nan\nspecial_vinyls=-1\nspecial_vinyls=0.5\n");CHECK(loaded.special_vinyls);
+    menu=(QuestVRMenu){.open=1,.row=QUEST_VR_SOUNDTRACK_ROW};
+    CHECK(quest_vr_menu_step(&menu,&s,1700,1,QUEST_VR_ACCEPT)==5 && s.restored_soundtrack);
+    quest_vr_format(&s,text,sizeof text);quest_vr_parse(&loaded,text);CHECK(loaded.restored_soundtrack);
+    menu=(QuestVRMenu){.open=1,.row=QUEST_VR_REGIONAL_ROW};
+    CHECK(!s.regional_cars && quest_vr_menu_step(&menu,&s,1780,1,QUEST_VR_ACCEPT)==5 && s.regional_cars);
+    quest_vr_format(&s,text,sizeof text);quest_vr_parse(&loaded,text);CHECK(loaded.regional_cars==1);
+    quest_vr_parse(&loaded,"regional_cars=nan\nregional_cars=2\nregional_cars=-1\nregional_cars=0.5\n");CHECK(loaded.regional_cars==1);
+    menu=(QuestVRMenu){.open=1,.row=QUEST_VR_DAMAGE_ROW};
+    CHECK(!s.crash_damage && quest_vr_menu_step(&menu,&s,1790,1,QUEST_VR_ACCEPT)==5 && s.crash_damage);
+    quest_vr_format(&s,text,sizeof text);quest_vr_parse(&loaded,text);CHECK(loaded.crash_damage==1);
+    quest_vr_parse(&loaded,"crash_damage=nan\ncrash_damage=2\ncrash_damage=-1\ncrash_damage=0.5\n");CHECK(loaded.crash_damage==1);
+    menu=(QuestVRMenu){.open=1,.row=QUEST_VR_LIGHTS_ROW};
+    CHECK(quest_vr_menu_step(&menu,&s,1800,1,QUEST_VR_LEFT)==5 && s.headlights==2);
+    quest_vr_format(&s,text,sizeof text);quest_vr_parse(&loaded,text);CHECK(loaded.headlights==2);
+    quest_vr_parse(&loaded,"headlights=nan\nheadlights=-1\nheadlights=3\nheadlights=0.5\n");CHECK(loaded.headlights==2);
+    quest_vr_menu_step(&menu,&s,1801,1,0);
+    CHECK(quest_vr_menu_step(&menu,&s,1802,1,QUEST_VR_ACCEPT)==5 && s.headlights==0);
+    quest_vr_parse(&loaded,"career_catchup=nan\ncareer_catchup=-1\ncareer_catchup=3\ncareer_catchup=0.5\n");CHECK(loaded.career_catchup==2);
+    quest_vr_parse(&loaded,"career_catchup=0\n");CHECK(!loaded.career_catchup);
+    quest_vr_parse(&loaded,"show_hidden_races=nan\nshow_hidden_races=-1\nshow_hidden_races=0.5\n");
+    CHECK(loaded.show_hidden_races);
+    quest_vr_parse(&loaded,"show_hidden_races=0\n");CHECK(!loaded.show_hidden_races);
+    quest_vr_parse(&loaded,"visual_rep_remover=nan\nvisual_rep_remover=-1\nvisual_rep_remover=0.5\n");
+    CHECK(loaded.visual_rep_remover);
+    quest_vr_parse(&loaded,"visual_rep_remover=0\n");CHECK(!loaded.visual_rep_remover);
+    return 0;
+}
+static int online_car_setting_test(void)
+{
+    QuestVRSettings s=quest_vr_defaults(),loaded=quest_vr_defaults();
+    QuestVRMenu menu={.open=1,.row=QUEST_VR_ONLINE_CARS_ROW};
+    CHECK(s.online_cars==6);
+    for(unsigned i=0;i<70;++i){
+        quest_vr_menu_step(&menu,&s,2*i,1,0);
+        CHECK(quest_vr_menu_step(&menu,&s,2*i+1,1,QUEST_VR_RIGHT)==5);
+    }
+    CHECK(s.online_cars==64);
+    char text[4096];CHECK(quest_vr_format(&s,text,sizeof text)<sizeof text);
+    quest_vr_parse(&loaded,text);CHECK(loaded.online_cars==64);
+    quest_vr_parse(&loaded,"online_cars=nan\nonline_cars=65\nonline_cars=-1\nonline_cars=1.5\n");
+    CHECK(loaded.online_cars==64);
+    for(unsigned i=0;i<70;++i)quest_vr_adjust(&s,QUEST_VR_ONLINE_CARS_ROW,-1);
+    CHECK(s.online_cars==1);
+    quest_vr_parse(&loaded,"online_cars=32\n");CHECK(loaded.online_cars==32);
+    menu.held=0;CHECK(quest_vr_menu_step(&menu,&s,200,1,QUEST_VR_DOWN)==4 && menu.row==QUEST_VR_RESET_MIRRORS_ROW);
+    return 0;
+}
 static int led_menu_test(void)
 {
     QuestVRSettings s=quest_vr_defaults(),loaded=quest_vr_defaults();
@@ -28,7 +156,7 @@ static int led_menu_test(void)
     CHECK(menu.row==QUEST_VR_LED_PULSE_ROW && s.led_music_pulse);
     CHECK(quest_vr_menu_step(&menu,&s,540,1,QUEST_VR_RIGHT)==5 && !s.led_music_pulse);
     CHECK(quest_vr_menu_step(&menu,&s,1000,1,QUEST_VR_RIGHT)==4 && !s.led_music_pulse);
-    char text[512];
+    char text[4096];
     CHECK(quest_vr_format(&s,text,sizeof text)<(int)sizeof text);
     quest_vr_parse(&loaded,text);
     CHECK(loaded.led_color==s.led_color && !loaded.led_strips && !loaded.led_music_pulse);
@@ -159,7 +287,7 @@ static int minimap_grip_test(void)
         p[h][2]+=.013f;squeeze[h]=0;
         CHECK(quest_minimap_update(&grip,&mount,&settings.map,1,valid,wrist,squeeze,busy) && !grip.hand);
         CHECK(fabsf(offset[2]-.254f)<1e-6f);
-        char text[512];QuestVRSettings loaded=quest_vr_defaults();
+        char text[4096];QuestVRSettings loaded=quest_vr_defaults();
         quest_vr_format(&settings,text,sizeof text);quest_vr_parse(&loaded,text);
         for(int k=0;k<3;++k)CHECK(fabsf(loaded.map.offset[k]-offset[k])<.00051f);
         squeeze[h]=1;quest_minimap_update(&grip,&mount,&settings.map,1,valid,wrist,squeeze,busy);
@@ -200,7 +328,7 @@ static int minimap_tilt_test(void)
         CHECK(fabsf(local[0]-.07f)<1e-5f && fabsf(local[1])+fabsf(local[2])<1e-5f);
         valid[h]=0;
         CHECK(quest_minimap_update(&grip,&mount,&settings.map,1,valid,wrist,squeeze,busy));
-        char text[512];quest_vr_format(&settings,text,sizeof text);quest_vr_parse(&loaded,text);
+        char text[4096];quest_vr_format(&settings,text,sizeof text);quest_vr_parse(&loaded,text);
         CHECK(fabsf(loaded.map.pitch-pitch)<1e-5f && fabsf(loaded.map.yaw-yaw)<1e-5f);
         quest_vr_parse(&loaded,"map_pitch=nan\nmap_yaw=99\n");
         CHECK(loaded.map.pitch==0 && loaded.map.yaw==QUEST_MINIMAP_ANGLE_LIMIT);
@@ -256,13 +384,16 @@ static int seat_mirror_test(void)
 }
 int main(int argc,char **argv)
 {
+    CHECK(community_menu_test()==0);
+    CHECK(copchase_menu_test()==0);
+    CHECK(online_car_setting_test()==0);
     CHECK(!haptics_menu_test());
     CHECK(!led_menu_test());
     CHECK(!minimap_grip_test());
     CHECK(!minimap_tilt_test());
     CHECK(!minimap_shortcut_test());
     CHECK(!seat_mirror_test());
-    QuestVRSettings s=quest_vr_defaults(),round=quest_vr_defaults();char text[512];
+    QuestVRSettings s=quest_vr_defaults(),round=quest_vr_defaults();char text[4096];
     CHECK(s.sensitivity==1 && s.rotation==360 && s.resolution==0);
     quest_vr_parse(&s,"steering_sensitivity=nan\nwheel_rotation=inf\nseat_height=99\nseat_distance=-99\nresolution=999999999999\nunknown=7\n");
     CHECK(s.sensitivity==1 && s.rotation==360 && s.height==.35f && s.distance==-.4f && s.resolution==0);
@@ -279,7 +410,7 @@ int main(int argc,char **argv)
     CHECK(s.mirror_resolution==2 && s.shift_guide==QUEST_GUIDE_ALWAYS && s.map.offset[2]==0);
     quest_vr_parse(&s,"mirror_resolution=nan\nshift_guide=3\nshift_guide=1.5\nmap_x=inf\nmap_y=42\n");
     CHECK(s.mirror_resolution==2 && s.shift_guide==QUEST_GUIDE_ALWAYS && s.map.offset[0]==0 && s.map.offset[1]==2);
-    s=(QuestVRSettings){2,720,-.13f,.22f,4,330,4,0,{{.24f,-.32f,.26f},.15f,-.32f},1,0,6};quest_vr_format(&s,text,sizeof text);quest_vr_parse(&round,text);
+    s=(QuestVRSettings){2,720,-.13f,.22f,4,330,4,0,{{.24f,-.32f,.26f},.15f,-.32f},1,0,6};s.online_cars=6;s.cockpit=quest_cockpit_defaults();quest_vr_validate(&s);quest_vr_format(&s,text,sizeof text);quest_vr_parse(&round,text);
     CHECK(!memcmp(&s,&round,sizeof s));
     quest_vr_parse(&s,"wheel_return_speed=-3\n");CHECK(s.return_speed==0);
     quest_vr_parse(&s,"wheel_return_speed=9999\n");CHECK(s.return_speed==QUEST_WHEEL_RETURN_MAX);
@@ -380,9 +511,18 @@ int main(int argc,char **argv)
     CHECK(quest_vr_menu_step(&menu,&s,730,1,QUEST_VR_ACCEPT)==4);
     quest_vr_menu_step(&menu,&s,750,1,0);menu.row=QUEST_VR_SAVE_ROW;
     CHECK(quest_vr_menu_step(&menu,&s,780,1,QUEST_VR_ACCEPT)==6 && !menu.open);
-    for(int page=1;page<argc && page<=2;++page) {
+    for(int page=1;page<argc && page<=12;++page) {
         uint32_t *pixels=malloc(1024*768*4);CHECK(pixels);
-        s=quest_vr_defaults();s.resolution=3;menu.open=1;menu.row=page==1?QUEST_VR_RETURN_ROW:QUEST_VR_GRIP_ROW;
+        s=quest_vr_defaults();s.resolution=3;menu.open=1;
+        menu.row=page==1?QUEST_VR_RETURN_ROW:page==2?QUEST_VR_GRIP_ROW:page==3?QUEST_VR_HIDDEN_RACES_ROW:page==4?QUEST_VR_VISUAL_REP_ROW:QUEST_VR_ONLINE_CARS_ROW;
+        if(page==5)s.online_cars=64;
+        if(page==6){menu.row=QUEST_VR_VINYLS_ROW;s.hq_vinyls=1;}
+        if(page==7){menu.row=QUEST_VR_SPECIAL_VINYLS_ROW;s.special_vinyls=1;}
+        if(page==8){menu.row=QUEST_VR_SOUNDTRACK_ROW;s.restored_soundtrack=1;}
+        if(page==9){menu.row=QUEST_VR_LIGHTS_ROW;s.headlights=2;}
+        if(page==10){menu.row=QUEST_VR_DAMAGE_ROW;s.crash_damage=1;}
+        if(page==11){menu.row=QUEST_VR_REGIONAL_ROW;s.regional_cars=1;}
+        if(page==12){menu.row=QUEST_VR_COPCHASE_LIMIT_ROW;s.copchase=1;}
         quest_vr_panel(pixels,&s,&menu,1,1);
         FILE *f=fopen(argv[page],"wb");CHECK(f);fprintf(f,"P6\n1024 768\n255\n");
         for(int i=0;i<1024*768;++i){unsigned char rgb[3]={(pixels[i]>>16)&255,(pixels[i]>>8)&255,pixels[i]&255};fwrite(rgb,1,3,f);}

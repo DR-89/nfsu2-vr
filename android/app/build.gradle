@@ -8,12 +8,13 @@ android {
         applicationId 'org.nfsu2.quest'
         minSdk 30
         targetSdk 32
-        versionCode 9
-        versionName '0.6.1-dev'
+        versionCode 10
+        versionName '0.7.0-dev'
         ndk { abiFilters 'arm64-v8a' }
     }
     sourceSets.main {
         assets.srcDirs += '../../assets/cockpits/runtime'
+        assets.srcDirs += '../../build/mod-assets'
         java.srcDirs += '../../build/deps/SDL/android-project/app/src/main/java'
         jniLibs.srcDirs = ['../../build/quest-jni']
     }
@@ -22,6 +23,8 @@ android {
 }
 
 dependencies {
+    implementation 'com.squareup.okhttp3:okhttp:4.12.0'
+    testImplementation 'com.squareup.okhttp3:mockwebserver:4.12.0'
     implementation 'org.apache.commons:commons-compress:1.28.0'
     implementation 'org.tukaani:xz:1.12'
     testImplementation 'junit:junit:4.13.2'

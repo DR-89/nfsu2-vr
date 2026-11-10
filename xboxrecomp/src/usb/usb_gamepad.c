@@ -311,6 +311,47 @@ static PadStep s_script_steps[USB_GAMEPADS][PAD_SCRIPT_MAX];
 static int s_script_count[USB_GAMEPADS] = { -1, -1 };
 static unsigned long s_script_t0;
 
+/* Optional owned QA input: one bounded controller pulse through the normal
+ * USB reports, without focus/window automation. Disabled unless a timed test
+ * script and an explicit mailbox path are both supplied. Contents are four
+ * unsigned decimal integers: sequence, digital mask, analog mask, milliseconds.
+ * Optional signed left-stick X/Y follow (both -32768..32767), allowing owned
+ * driving QA through the same USB report as a physical controller.
+ * A new nonzero sequence is consumed once; malformed commands do nothing. */
+static void pad_mailbox(int dev,uint8_t *digital,uint8_t *analog)
+{
+    static uint32_t last_sequence[USB_GAMEPADS],until[USB_GAMEPADS],poll[USB_GAMEPADS];
+    static uint8_t digits[USB_GAMEPADS],analogs[USB_GAMEPADS];
+    static int16_t axis_x[USB_GAMEPADS],axis_y[USB_GAMEPADS];
+    static uint8_t has_axes[USB_GAMEPADS];
+    const char *path=getenv(dev?"RECOMP_PAD2_MAILBOX":"RECOMP_PAD_MAILBOX");
+    if(!path || !*path || !getenv("RECOMP_PAD_SCRIPT"))return;
+    uint32_t now=(uint32_t)GetTickCount();
+    if((int32_t)(now-poll[dev])>=0){
+        poll[dev]=now+100;
+        FILE *f=fopen(path,"rb");
+        if(f){
+            char line[128],tail;size_t n=fread(line,1,sizeof line-1,f);fclose(f);line[n]=0;
+            unsigned seq=0,d=0,a=0,ms=0;int x=0,y=0,axes=0;
+            int valid=sscanf(line,"%u %u %u %u %c",&seq,&d,&a,&ms,&tail)==4;
+            if(!valid){axes=sscanf(line,"%u %u %u %u %d %d %c",&seq,&d,&a,&ms,&x,&y,&tail)==6;
+                valid=axes && x>=-32768 && x<=32767 && y>=-32768 && y<=32767;}
+            if(n<sizeof line-1 && valid && seq && seq!=last_sequence[dev] && d<=255 && a<=255 && ms>=50 && ms<=1000){
+                last_sequence[dev]=seq;digits[dev]=(uint8_t)d;analogs[dev]=(uint8_t)a;until[dev]=now+ms;
+                has_axes[dev]=(uint8_t)axes;axis_x[dev]=(int16_t)x;axis_y[dev]=(int16_t)y;
+                fprintf(stderr,"  PAD%d: mailbox=%u digital=%u analog=%u hold=%u\n",dev+1,seq,d,a,ms);
+            }
+        }
+    }
+    if((int32_t)(until[dev]-now)>0){
+        *digital|=digits[dev];for(int b=0;b<8;b++)if(analogs[dev]&(1u<<b))analog[b]=0xff;
+        if(has_axes[dev]){ /* analog points at report+4, left stick at+12. */
+            analog[8]=(uint8_t)axis_x[dev];analog[9]=(uint8_t)((uint16_t)axis_x[dev]>>8);
+            analog[10]=(uint8_t)axis_y[dev];analog[11]=(uint8_t)((uint16_t)axis_y[dev]>>8);
+        }
+    }
+}
+
 static void pad_script_parse(int dev)
 {
     PadStep *steps = s_script_steps[dev];
@@ -370,6 +411,7 @@ static void pad_script(int dev, uint8_t *digital, uint8_t *analog)
     unsigned long now;
     int i;
 
+    pad_mailbox(dev,digital,analog);
     now = (unsigned long)GetTickCount();
     if (!s_script_t0) {
         if (dev)

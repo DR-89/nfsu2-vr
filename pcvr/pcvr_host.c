@@ -1,6 +1,19 @@
 #include <SDL.h>
 #include "quest_xr.h"
 #include "vr_music.h"
+#include "vr_whine.h"
+#include "vr_texpacks.h"
+#include "vr_subtitles.h"
+#include "vr_vinyls.h"
+#include "vr_soundtrack.h"
+#include "community/xyz_regional_assets.h"
+#include "community/copchase_assets.h"
+#include "community/copchase_audio.h"
+#include "community/copchase_profile.h"
+#include "community/copchase_runtime.h"
+extern void (*xbox_file_read_observer)(void*,const char*,void*,size_t,int64_t);
+#include "community/xyz_damage_textures.h"
+extern const char *(*xbox_path_redirect_hook)(const char *);
 #include "apu_xaudio2.h"
 #include "game_data.h"
 #include <stdio.h>
@@ -234,10 +247,24 @@ int pcvr_run_game(int (*entry)(void))
     }
     char *music_parent=SDL_GetBasePath();
     vr_music_start(music_parent);
+    vr_whine_start(music_parent);
+    vr_texpacks_start(music_parent,quest_xr_upscaled_hud(),quest_xr_detailed_map());
+    vr_subtitles_start(music_parent,quest_xr_subtitles());
+    vr_vinyls_start(music_parent,quest_xr_hq_vinyls());
+    vr_soundtrack_start(music_parent,quest_xr_restored_soundtrack());
+    copchase_assets_start(music_parent,quest_xr_copchase_at_start());
+    quest_xr_copchase_data_status(quest_xr_copchase_at_start() || copchase_assets_ready(),copchase_assets_ready());
+    if(copchase_assets_ready())copchase_audio_start(music_parent);
+    if(copchase_assets_ready() && copchase_runtime_start())xbox_file_read_observer=copchase_profile_observe;
+    xyz_damage_assets_start(music_parent);
+    xyz_regional_start(music_parent,quest_xr_regional_cars());
+    xbox_path_redirect_hook=xyz_community_redirect;
     SDL_free(music_parent);
     xa2_music_mix=vr_music_mix;
     quest_xr_game_thread();
     int result=entry();
     vr_music_stop();
+    copchase_audio_stop();
+    xbox_file_read_observer=NULL;copchase_runtime_stop();
     quest_xr_shutdown(); SDL_Quit(); pcvr_service_end(); return result;
 }

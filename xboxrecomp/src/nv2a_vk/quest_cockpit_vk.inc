@@ -8,6 +8,9 @@
 #include "quest_cockpit_occlusion.h"
 #include "quest_cockpit_vehicle.h"
 #include "quest_cockpit_controls.h"
+#include "quest_screen.h"
+#include "quest_gps.h"
+#include "quest_copchase_hud.h"
 #include "quest_cockpit_ui.h"
 #include "vr_music.h"
 static int s_cockpit_frame;
@@ -291,11 +294,18 @@ static VkPipeline cockpit_pipeline(int multiview,int ghost)
             "if(m.eyes[0].w>.5 && dot(offset,offset)>1.e-8){"
             "float nearZ=max(max(origin.z,.01),-m.proj.w/m.proj.z);"
             "float prev=1./nearZ;float farInv=max(0.,(1.-m.proj.z)/m.proj.w);"
-            "for(int i=0;i<=12;i++){float inv=mix(1./nearZ,farInv,float(i)/12.);vec2 p=farUV+offset*inv;"
+            "float pixels=length(offset*vec2(textureSize(depths,0).xy));"
+            "int steps=int(clamp(ceil(pixels*(1./nearZ-farInv)),16.,128.));"
+            "for(int i=0;i<=steps;i++){float inv=mix(1./nearZ,farInv,float(i)/float(steps));vec2 p=farUV+offset*inv;"
             "if(inside(p)&&inv<=(depth(p)-m.proj.z)/m.proj.w){"
-            "for(int j=0;j<4;j++){float mid=(prev+inv)*.5;vec2 q=farUV+offset*mid;"
-            "if(inside(q)&&mid<=(depth(q)-m.proj.z)/m.proj.w)inv=mid;else prev=mid;}"
-            "uv=farUV+offset*inv;break;}prev=inv;}}"
+            "float surface=(depth(p)-m.proj.z)/m.proj.w;vec2 candidate=farUV+offset*surface;"
+            "if(surface<=prev&&inside(candidate)&&abs((depth(candidate)-m.proj.z)/m.proj.w-surface)*pixels<=.75){uv=candidate;break;}"
+            "float a=prev,b=inv;for(int j=0;j<6;j++){float mid=(a+b)*.5;vec2 q=farUV+offset*mid;"
+            "if(inside(q)&&mid<=(depth(q)-m.proj.z)/m.proj.w)b=mid;else a=mid;}"
+            /* A depth jump at a silhouette does not describe a surface
+             * along this ray. Validate the hit to sub-texel precision. */
+            "vec2 hit=farUV+offset*b;"
+            "if(abs((depth(hit)-m.proj.z)/m.proj.w-b)*pixels<=.75){uv=hit;break;}}prev=inv;}}"
             "color=vec4(inside(uv)?rgb(uv):vec3(.04,.045,.05),1);}",
             s_multiview?"sampler2DArray":"sampler2D",s_multiview?"sampler2DArray":"sampler2D",
             s_multiview?"vec3(p,0)":"p",s_multiview?"vec3(p,0)":"p");
@@ -389,18 +399,18 @@ static VkPipeline cockpit_pipeline(int multiview,int ghost)
         snprintf(fragment,sizeof fragment,
             "#version 450\nlayout(location=0) in vec2 texcoord;layout(location=0) out vec4 color;"
             "layout(set=0,binding=0) uniform %s screen;"
-            "layout(set=0,binding=2,std140) uniform Meter{layout(offset=%u) vec4 bands[%d];}meter;"
+            "layout(set=0,binding=2,std140) uniform Meter{layout(offset=%u) vec4 bands[%d];vec4 screen;}meter;"
             "void main(){vec2 rim=vec2(.012,.021);vec2 uv=(texcoord-rim)/(1.-2.*rim);"
-            "if(any(lessThan(uv,vec2(0)))||any(greaterThan(uv,vec2(1)))){color=vec4(.095,.105,.115,1);return;}"
-            "if(meter.bands[0].x<0.){color=vec4(texture(screen,%s).rgb,1);return;}"
+            "if(any(lessThan(uv,vec2(0)))||any(greaterThan(uv,vec2(1)))){color=vec4(.095,.105,.115,meter.screen.x);return;}"
+            "if(meter.bands[0].x<0.){color=vec4(texture(screen,%s).rgb,meter.screen.x);return;}"
             "vec3 bg=vec3(.025,.052,.064);vec2 p=(vec2(uv.x,1.-uv.y)-vec2(.045,.07))/vec2(.91,.86);"
             "vec2 grid=p*vec2(%d.,12.);vec2 aa=clamp(fwidth(grid)*.5,vec2(.015),vec2(.35));"
-            "if(any(lessThan(p,vec2(0)))||any(greaterThanEqual(p,vec2(1)))){color=vec4(bg,1);return;}"
+            "if(any(lessThan(p,vec2(0)))||any(greaterThanEqual(p,vec2(1)))){color=vec4(bg,meter.screen.x);return;}"
             "int band=int(grid.x);float height=meter.bands[band/4][band%%4];"
             "vec2 led=1.-smoothstep(vec2(.42,.37)-aa,vec2(.42,.37)+aa,abs(fract(grid)-.5));"
             "float row=floor(grid.y);float lit=clamp(height*12.-row,0.,1.);"
             "vec3 phosphor=mix(vec3(.15,.83,.87),vec3(1.,.67,.22),smoothstep(7.,11.,row));"
-            "vec3 cell=mix(vec3(.065,.125,.14),phosphor,lit);color=vec4(mix(bg,cell,led.x*led.y),1);}",
+            "vec3 cell=mix(vec3(.065,.125,.14),phosphor,lit);color=vec4(mix(bg,cell,led.x*led.y),meter.screen.x);}",
             s_multiview?"sampler2DArray":"sampler2D",(unsigned)offsetof(QuestRadioLCD,bands),QUEST_RADIO_BANDS/4,
             s_multiview?"vec3(uv,0)":"uv",QUEST_RADIO_BANDS);
     } else if(ghost==4 || ghost==5) {
@@ -443,10 +453,10 @@ static VkPipeline cockpit_pipeline(int multiview,int ghost)
     /* Armrest keys and the shift guide overlay baked trim. The recessed
      * radio and screen use cabin depth so the rim can occlude their edges. */
     ds.depthTestEnable=ghost!=5;
-    ds.depthWriteEnable=ds.depthTestEnable && ghost!=4;
+    ds.depthWriteEnable=ds.depthTestEnable && ghost!=4 && ghost!=10;
     ds.depthCompareOp=ghost==8?VK_COMPARE_OP_ALWAYS:VK_COMPARE_OP_LESS_OR_EQUAL;
     VkPipelineColorBlendAttachmentState attachment={0}; attachment.colorWriteMask=15;
-    if(ghost==1 || ghost==2 || ghost==4 || ghost==5 || ghost==8 || ghost==9) {
+    if(ghost==1 || ghost==2 || ghost==4 || ghost==5 || ghost==8 || ghost==9 || ghost==10) {
         attachment.blendEnable=VK_TRUE;
         attachment.srcColorBlendFactor=(ghost==4 || ghost==5 || ghost==9)?VK_BLEND_FACTOR_ONE:VK_BLEND_FACTOR_SRC_ALPHA;
         attachment.dstColorBlendFactor=VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
@@ -664,13 +674,21 @@ static VkSurf *cockpit_mirror_surface(void)
 typedef struct {
     float eyes[2][4],axes[3][4],source[4],projection[4];
 } CockpitMirrorUniform;
-static VkImageView cockpit_mirror_depth(VkSurf *rear)
+static VkDepthBuf *cockpit_mirror_depth_buffer(VkSurf *rear)
 {
-    if(!rear->rear_depth_va || rear->rear_frame+1!=s_frame)return VK_NULL_HANDLE;
+    if(!rear->rear_depth_va || rear->rear_frame+1!=s_frame)return NULL;
     for(int i=0;i<VK_MAX_DEPTH;++i) {
         VkDepthBuf *d=&s_depth[i];
         if(d->va!=rear->rear_depth_va || !d->sample_depth || d->used+1!=s_frame ||
            d->eye!=rear->eye || d->pw!=rear->pw || d->ph!=rear->ph)continue;
+        return d;
+    }
+    return NULL;
+}
+static VkImageView cockpit_mirror_depth(VkSurf *rear)
+{
+    VkDepthBuf *d=cockpit_mirror_depth_buffer(rear);
+    if(d) {
         quest_depth_layout_transition(s_cb,d->image,&d->layout,d->layers,
             VK_IMAGE_ASPECT_DEPTH_BIT|VK_IMAGE_ASPECT_STENCIL_BIT,0);
         return d->sample_depth;
@@ -682,7 +700,8 @@ static VkImageView cockpit_mirror_depth(VkSurf *rear)
  * staging ring as other guest textures. Update once before drawing either eye. */
 static int cockpit_video_update(void)
 {
-    uint64_t serial=vr_music_video_frame(NULL);
+    int telemetry=quest_xr_screen_page();
+    uint64_t serial=telemetry?quest_xr_telemetry_frame(NULL):vr_music_video_frame(NULL);
     if(!serial)return 0;
     if(serial==s_cockpit.video_serial)return 1;
     if(!s_cockpit.video_image && !make_image(VR_VIDEO_WIDTH,VR_VIDEO_HEIGHT,VK_FORMAT_R8G8B8A8_UNORM,
@@ -691,7 +710,7 @@ static int cockpit_video_update(void)
     void *mapped=NULL;
     VkBufferImageCopy copy={0};
     copy.bufferOffset=ring_alloc(VR_VIDEO_BYTES,16,&mapped);
-    if(!mapped || !(serial=vr_music_video_frame(mapped)))return 0;
+    if(!mapped || !(serial=telemetry?quest_xr_telemetry_frame(mapped):vr_music_video_frame(mapped)))return 0;
     VkImageMemoryBarrier barrier={VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
     barrier.oldLayout=barrier.newLayout=VK_IMAGE_LAYOUT_GENERAL;
     barrier.srcQueueFamilyIndex=barrier.dstQueueFamilyIndex=VK_QUEUE_FAMILY_IGNORED;
@@ -773,13 +792,16 @@ static void cockpit_draw(VkSurf *target,int eye)
         radio_offset=ring_alloc((draw_screen?12:6)*sizeof(QuestGhostVertex),16,&mapped);
         if(!mapped)return;
         QuestGhostVertex *vertices=mapped;
+        float screen_matrix[16],screen_width=0,screen_opacity=1;
+        if(draw_screen)quest_xr_screen_drawn(s_cockpit_vehicle,screen_matrix,&screen_width,&screen_opacity);
+        lcd->screen[0]=screen_opacity;
         for(int i=0;i<6;++i){
             quest_radio_point(vertices[i].position,fit,uv[i][0],uv[i][1]);
             memcpy(vertices[i].uv,uv[i],sizeof uv[i]);memcpy(vertices[i].normal,state,sizeof state);
             if(draw_screen) {
                 float u=uv[i][0],v=uv[i][1]>0?1.f:0.f;
                 QuestGhostVertex *screen=&vertices[6+i];
-                quest_radio_screen_point(screen->position,fit,u,v);
+                quest_screen_point(screen->position,screen_matrix,screen_width,u,v);
                 screen->uv[0]=u;screen->uv[1]=v;
                 screen->normal[0]=screen->normal[1]=0;screen->normal[2]=1;
             }
@@ -797,8 +819,8 @@ static void cockpit_draw(VkSurf *target,int eye)
         void *mapped=NULL;
         control_offset=ring_alloc(QUEST_CONTROL_VERTICES*sizeof(QuestGhostVertex),16,&mapped);
         if(!mapped)return;
-        control_count=quest_cockpit_controls(mapped,s_cockpit_vehicle,&s_cockpit.radio_font,hover,
-            quest_xr_guide_gears(),fit_data[8],fit_data[9]);
+        control_count=quest_cockpit_controls_mode(mapped,s_cockpit_vehicle,&s_cockpit.radio_font,hover,
+            quest_xr_guide_gears(),fit_data[8],fit_data[9],quest_xr_shifter_mode(),quest_xr_shifter_reverse());
     }
     for(int i=0;i<3;++i) {
         const QuestCockpitPedal *p=&s_cockpit.pedals[i];
@@ -908,7 +930,7 @@ static void cockpit_draw(VkSurf *target,int eye)
         static int reported;
         if(!reported) {
             reported=1;
-            LOGE("Cockpit live rear mirror: surface=%08x %ux%u, original glass, shared rear camera\n",mirror->va,mirror->pw,mirror->ph);
+            LOGE("Cockpit live rear mirror: surface=%08x %ux%u, original glass, retail road/traffic capture\n",mirror->va,mirror->pw,mirror->ph);
         }
     }
     int instruments=s_cockpit.hud_split && s_cockpit.hud.gen && s_cockpit.hud.draw_frame+1==s_frame;
@@ -931,14 +953,6 @@ static void cockpit_draw(VkSurf *target,int eye)
         p_push_desc(s_cb,VK_PIPELINE_BIND_POINT_GRAPHICS,s_cockpit.layout,0,1,&fit_write);
         vkCmdBindVertexBuffers(s_cb,0,1,&s_f->ring,&radio_offset);
         vkCmdDraw(s_cb,6,1,0,0);
-        if(draw_screen) {
-            image.imageView=s_cockpit.screen_bands[0]<0.f?s_cockpit.video_view:s_cockpit.texture_view;
-            p_push_desc(s_cb,VK_PIPELINE_BIND_POINT_GRAPHICS,s_cockpit.layout,0,1,&write);
-            vkCmdBindPipeline(s_cb,VK_PIPELINE_BIND_POINT_GRAPHICS,s_cockpit.screen_pipeline[target->layers==2]);
-            vkCmdDraw(s_cb,6,1,6,0);
-            image.imageView=s_cockpit.texture_view;
-            p_push_desc(s_cb,VK_PIPELINE_BIND_POINT_GRAPHICS,s_cockpit.layout,0,1,&write);
-        }
         vkCmdBindVertexBuffers(s_cb,0,1,&s_cockpit.geometry,&offset);
     }
     if(control_count) {
@@ -975,6 +989,28 @@ static void cockpit_draw(VkSurf *target,int eye)
         vkCmdBindVertexBuffers(s_cb,0,1,&s_cockpit.panels,&panel_offset);
         vkCmdPushConstants(s_cb,s_cockpit.layout,VK_SHADER_STAGE_VERTEX_BIT,0,sizeof map_eyes,map_eyes);
         vkCmdDraw(s_cb,6,1,QUEST_PANEL_MAP,(uint32_t)hover_map);
+        char text[QUEST_GPS_TEXT];quest_xr_gps_text(text);
+        if(s_cockpit.control_pipeline[target->layers==2]){
+            QuestCopChaseHUD pursuit;quest_xr_copchase_hud(&pursuit);
+            QuestGhostVertex vertices[QUEST_COPCHASE_VERTICES];
+            unsigned count=quest_copchase_vertices(vertices,&s_cockpit.radio_font,&pursuit);
+            if(count){void *mapped=NULL;VkDeviceSize offset=ring_alloc(count*sizeof *vertices,16,&mapped);
+                if(mapped){memcpy(mapped,vertices,count*sizeof *vertices);
+                    vkCmdBindPipeline(s_cb,VK_PIPELINE_BIND_POINT_GRAPHICS,s_cockpit.control_pipeline[target->layers==2]);
+                    vkCmdBindVertexBuffers(s_cb,0,1,&s_f->ring,&offset);vkCmdDraw(s_cb,count,1,0,0);}
+            }
+        }
+        if(text[0] && s_cockpit.control_pipeline[target->layers==2]){
+            QuestGhostVertex vertices[QUEST_GPS_VERTICES];
+            unsigned count=quest_gps_vertices(vertices,&s_cockpit.radio_font,text);
+            void *mapped=NULL;VkDeviceSize gps_offset=ring_alloc(count*sizeof *vertices,16,&mapped);
+            if(count && mapped){
+                memcpy(mapped,vertices,count*sizeof *vertices);
+                vkCmdBindPipeline(s_cb,VK_PIPELINE_BIND_POINT_GRAPHICS,s_cockpit.control_pipeline[target->layers==2]);
+                vkCmdBindVertexBuffers(s_cb,0,1,&s_f->ring,&gps_offset);
+                vkCmdDraw(s_cb,count,1,0,0);
+            }
+        }
     }
     if(s_cockpit.hand_vertices) {
         if(s_cockpit.hand_texture_view) {
@@ -992,6 +1028,21 @@ static void cockpit_draw(VkSurf *target,int eye)
             vkCmdBindVertexBuffers(s_cb,0,1,&s_cockpit.hands,&hand_offset);
             vkCmdDraw(s_cb,s_cockpit.hand_vertices,1,0,0);
         }
+    }
+    /* Blend movable glass after opaque cabin/wheel and tracked hands. Its
+     * depth test uses their finished depth buffer, so placement determines
+     * occlusion in either direction; opacity still reveals objects behind. */
+    if(draw_radio && draw_screen) {
+        quest_xr_cockpit_matrix(eye,matrices[0]);quest_xr_cockpit_matrix(1,matrices[1]);
+        vkCmdPushConstants(s_cb,s_cockpit.layout,VK_SHADER_STAGE_VERTEX_BIT,0,sizeof matrices,matrices);
+        VkDescriptorBufferInfo display={s_f->ring,lcd_offset,sizeof(QuestRadioLCD)};
+        fit_write.dstBinding=2;fit_write.pBufferInfo=&display;
+        p_push_desc(s_cb,VK_PIPELINE_BIND_POINT_GRAPHICS,s_cockpit.layout,0,1,&fit_write);
+        image.imageView=s_cockpit.screen_bands[0]<0.f?s_cockpit.video_view:s_cockpit.texture_view;
+        p_push_desc(s_cb,VK_PIPELINE_BIND_POINT_GRAPHICS,s_cockpit.layout,0,1,&write);
+        vkCmdBindPipeline(s_cb,VK_PIPELINE_BIND_POINT_GRAPHICS,s_cockpit.screen_pipeline[target->layers==2]);
+        vkCmdBindVertexBuffers(s_cb,0,1,&s_f->ring,&radio_offset);
+        vkCmdDraw(s_cb,6,1,6,0);
     }
     if(s_cockpit.hud.gen && s_cockpit.hud.draw_frame+1==s_frame &&
        s_cockpit.hud_pipeline[target->layers==2]) {

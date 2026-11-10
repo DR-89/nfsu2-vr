@@ -32,3 +32,11 @@ Need for Speed and Underground are trademarks of Electronic Arts. Meta Quest
 is a trademark of Meta. This is an unofficial fan project and is not affiliated
 with or endorsed by Electronic Arts, Meta or Microsoft. No original game
 content is distributed in this repository.
+
+The native community integration retains dependency licenses and author notices
+under [src/community/vendor](src/community/vendor), including the nfsu2-web
+Free Roam/auth code, cJSON, networking libraries and optional asset converters.
+The consolidated [runtime notices](android/app/src/main/assets/runtime-third-party-notices.txt)
+ship in both binaries. Optional community artwork and audio remain separate;
+their preparation tools and notices do not grant redistribution rights to the
+underlying assets.

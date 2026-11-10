@@ -1,0 +1,1 @@
+Bounded HUFF decoder and original-compatible JDLZ codec from th0mk/nfsu2-web tools/texpacks.py and tools/vinylpacks.py, reference 16b23865f09dc41b9533635180e6d3fd34c45a6d. Used only for local optional asset preparation. No retail assets included. MIT; see LICENSE.

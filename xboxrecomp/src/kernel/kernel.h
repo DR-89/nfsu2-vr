@@ -397,6 +397,9 @@ typedef VOID (__stdcall *PXBOX_SYSTEM_ROUTINE)(PVOID StartContext);
  * the layout and the bridges cannot disagree about where it is. */
 #define XBOX_CONTIG_BASE 0x80000000u
 #define XBOX_CONTIG_SIZE (64u * 1024u * 1024u)
+/* Actual physical window; retail default above remains unchanged. Ports
+ * may reserve a larger window before memory initialization. */
+extern uint32_t g_xbox_contig_size;
 
 /* Default GPU instance size, used when a caller asks to claim everything. */
 #define XBOX_GPU_INSTANCE_DEFAULT (128u * 1024u)
@@ -663,6 +666,11 @@ NTSTATUS __stdcall xbox_NtReadFile(
  * and the file offset they came from, so a port can patch game data as it
  * loads. NULL (the default) = no hook. */
 extern void (*xbox_file_read_hook)(void *buf, size_t len, int64_t offset);
+/* Optional read-only provenance observer. Runs on the reading thread, after
+ * successful IO; buffer/path are borrowed only for the duration of the call.
+ * A null path still reports overwritten memory and invalidates old evidence. */
+extern void (*xbox_file_read_observer)(void *handle,const char *resolved_path,
+                                     void *buf,size_t len,int64_t offset);
 
 NTSTATUS __stdcall xbox_NtWriteFile(
     HANDLE FileHandle, HANDLE Event, PIO_APC_ROUTINE ApcRoutine, PVOID ApcContext,

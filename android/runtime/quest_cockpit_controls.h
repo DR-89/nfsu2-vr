@@ -4,9 +4,9 @@
 #include "quest_shifter.h"
 
 /* All quads lie in cabin X/Z, with the top of the text toward the dash.
- * Four keys + 13 letters, a crossbar, at most seven rails and gear labels,
- * neutral and the live cursor fit in 34 quads. */
-enum { QUEST_CONTROL_VERTICES=36*6 };
+ * Seat keys, console LED/page buttons and either shift guide fit in the
+ * shared vertex budget. Console keys follow the fitted sloping face. */
+enum { QUEST_CONTROL_VERTICES=56*6 };
 enum { QUEST_KEY_FACE, QUEST_KEY_HOVER, QUEST_GATE_RAIL, QUEST_GATE_CURSOR, QUEST_KEY_TEXT };
 static inline void quest_control_quad(QuestGhostVertex **next,const float p[3],float w,float h,
     int style,const uint32_t *glyph)
@@ -18,8 +18,14 @@ static inline void quest_control_quad(QuestGhostVertex **next,const float p[3],f
             {(float)style,glyph?(float)glyph[0]:0,glyph?(float)glyph[1]:0},{(float)u,(float)v}};
     }
 }
-static inline unsigned quest_cockpit_controls(QuestGhostVertex *out,int vehicle,const QuestRadioFont *font,
-    uint32_t hover,int gears,float lever_x,float lever_z)
+static inline void quest_console_quad(QuestGhostVertex **next,const QuestCockpitVehicle *fit,
+    float u,float v,float w,float h,int style,const uint32_t *glyph)
+{
+    QuestGhostVertex *start=*next;const float zero[3]={0};quest_control_quad(next,zero,1,1,style,glyph);
+    for(int i=0;i<6;++i)quest_radio_point(start[i].position,fit,u+(start[i].uv[0]-.5f)*w,v+(start[i].uv[1]-.5f)*h);
+}
+static inline unsigned quest_cockpit_controls_mode(QuestGhostVertex *out,int vehicle,const QuestRadioFont *font,
+    uint32_t hover,int gears,float lever_x,float lever_z,int sequential,int reverse)
 {
     QuestGhostVertex *next=out;
     const QuestCockpitVehicle *fit=quest_cockpit_vehicle(vehicle);
@@ -34,7 +40,21 @@ static inline unsigned quest_cockpit_controls(QuestGhostVertex *out,int vehicle,
         for(size_t c=0;c<n;++c,p[0]+=advance)
             quest_control_quad(&next,p,advance*.83f,.015f,QUEST_KEY_TEXT,font->bits[(unsigned)labels[i][c]]);
     }
-    if(gears>=4 && gears<=6) {
+    for(int button=0;button<2;++button) {
+        const char *label=button?"PAGE >":"LED";size_t n=strlen(label);float u=.275f+.45f*button;
+        quest_console_quad(&next,fit,u,2.2f,.43f,.60f,(hover&(1u<<(QUEST_COCKPIT_LED+button)))?QUEST_KEY_HOVER:QUEST_KEY_FACE,NULL);
+        for(size_t c=0;c<n;++c)quest_console_quad(&next,fit,u+((float)c-(n-1)*.5f)*.052f,2.2f,.044f,.25f,QUEST_KEY_TEXT,font->bits[(unsigned)label[c]]);
+    }
+    if(sequential && gears>=4 && gears<=6) {
+        QuestShifter neutral={0};float p[3];quest_shifter_knob(&neutral,vehicle,p);p[1]+=.045f;
+        quest_control_quad(&next,p,.004f,QUEST_SHIFT_THROW*2,QUEST_GATE_RAIL,NULL);
+        p[2]-=QUEST_SHIFT_THROW*1.25f;
+        quest_control_quad(&next,p,.014f,.020f,QUEST_KEY_TEXT,font->bits[reverse?'+':'-']);
+        p[2]+=QUEST_SHIFT_THROW*2.5f;
+        quest_control_quad(&next,p,.014f,.020f,QUEST_KEY_TEXT,font->bits[reverse?'-':'+']);
+        p[2]-=QUEST_SHIFT_THROW*1.25f;p[2]+=lever_z;
+        quest_control_quad(&next,p,.017f,.017f,QUEST_GATE_CURSOR,NULL);
+    } else if(gears>=4 && gears<=6) {
         QuestShifter neutral={0};float center[3],p[3];
         quest_shifter_knob(&neutral,vehicle,center);
         center[1]+=.045f;
@@ -57,3 +77,7 @@ static inline unsigned quest_cockpit_controls(QuestGhostVertex *out,int vehicle,
     }
     return (unsigned)(next-out);
 }
+
+static inline unsigned quest_cockpit_controls(QuestGhostVertex *out,int vehicle,const QuestRadioFont *font,
+    uint32_t hover,int gears,float lever_x,float lever_z)
+{ return quest_cockpit_controls_mode(out,vehicle,font,hover,gears,lever_x,lever_z,0,0); }

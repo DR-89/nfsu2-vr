@@ -1,0 +1,918 @@
+{
+  "schema": 1,
+  "audited_date": "2026-11-09",
+  "targets": [
+    "pcvr",
+    "quest3"
+  ],
+  "upstream": {
+    "repository": "https://github.com/th0mk/nfsu2-web",
+    "commit": "304978012da55b273c143f9a8bcec7d1d298a873",
+    "scope": "Published source snapshot; not proof of the exact version deployed at nfsu2.xyz. Source hashes normalize CRLF to LF.",
+    "files": {
+      "README.md": "64b3adb0bbdb3c583de9a838dcdb409699dccb6b1995ebbd4dd2a590627e4e37",
+      "web/src/app/mods.ts": "5d0a6bbf8ad1823c2f66d095e3421da03daf810cc7e3037d6495d10216455222",
+      "web/src/app/profile.ts": "841386282f9ff3ac5a01f6e914e1caebac8320f7dd7566a79e5c09594229cd68",
+      "web/src/app/claim.ts": "bc4e730d4a322b78e9fe5e322a5b23a8ef89898e8c8204d2b58152c1fcf83917",
+      "web/src/net/proto.ts": "ea38349ef29801f0e25e67fa7f8a6251ed4d872ae9d6269a124de2627fa0b570",
+      "web/src/net/index.ts": "a9e3b0c5e4d1f46ecb35486d2a9b55e5753695e44efe34ab352b9e7753df278c",
+      "runtime/roam_core.h": "ba4f5413538a377c95d08a2e796f8806c230c019cda6bcd10127dd3d6b4829cf",
+      "runtime/roam_core.c": "8a6b61d012aa4c74b510987316a344abce93edc636e105661f4d99ef14958f08",
+      "runtime/roam_game.c": "e240be30d9a67de40fe1b9c1b8fb683118d5e5dabc6c619eb103b0127830ef6a",
+      "runtime/online.c": "19698d81d3cdfffaee6dc91b05ddc2b55444b493384184f442baa260ba6aa499",
+      "win/roam_asi/README.txt": "e9f689a6c13ca6c55ff4c5ae5ebec83b2a0a991ff194e751d88da704c8a07718",
+      "licenses/NFSU2-SplitScreen.txt": "c457468e431e7843ca07fdd0f79b5d201585014ac51a241b76e46eb1610f87a1",
+      "licenses/UG2WhineGen.txt": "931638859a9ef640dd5f55129832d578c728505c0ba3c206859363083af23a6a",
+      "licenses/WidescreenFixesPack.txt": "389eef0fb81f8b3bc7aca2025da43cf007acfb390a70f49439d269e51de0b8dc",
+      "licenses/novisualrep.txt": "e827f88b1643f6949c9468e3a8fa6ce4ce31d2b7a7c252eae14b02b77cde49ba",
+      "runtime/cameras.c": "061d4562ef66b3165d01e18f105237f6bdd88444521a7c43c839b56e5ffac60e",
+      "runtime/catchup.c": "b4f1c9c771d95b71fc6a669c0644699e4487aadcf6d9a4037b4172a5ab8b34ff",
+      "runtime/damage.c": "d3d8b7b4ad98af0bc27d5e06bc8893c5f926004680b441b8dc2a7893ed0006b4",
+      "runtime/damage/Dent.h": "2232b04e2ad5dfc27a2b9912ecab33c60c57353ff270f0317cf0cf0d01e864e1",
+      "runtime/damage/Tessellate.h": "db0d4ce9ec49d99bf069611fa8d17a0a0e110f0f0903687a485c9c98633c3634",
+      "runtime/damage_none.c": "b656ef666665eedd4059ae3f214443faaa2dee2d6127c1324a06e76e8ddd4d18",
+      "runtime/damagecore.cpp": "125cfb0ab5af40eef10c1ade6c267f4e41c0584927612286afcfc0099c57eedd",
+      "runtime/framerate.c": "9dfc711650d92ea7c5dc22490fec9c2354a8b45c27ef6b3a781b506b4435c459",
+      "runtime/gpsdistance.c": "ed2cc60dffc88179110f31c127b234db387458b1c45fa10b3d69c38efc4c242d",
+      "runtime/gpsdistance_format.h": "cbfcaa49b20ec78602da1063917ef57af8cdf3c1ab5a3608afdf00e5e435e393",
+      "runtime/hiddenraces.c": "7d4765ce6facdf60ebebe68b8e5bce7e9e1a7cab15807c0014d052043c1b7d57",
+      "runtime/language.c": "dbb90a5ddae7b05e96ddb7fa5acd344e697e7f88e6ef0c1b30f113007a98d27b",
+      "runtime/lightkey.c": "a85c2dc27d2a1b00c20d139f5772efe7f32a7554c13c0aa3509d1ee7d749b30c",
+      "runtime/quickrace.c": "15e4be0fc2bc68d3ce26c042a958696af57d06893d0d1f960b197ea76f9a70cd",
+      "runtime/regional.c": "d0bdf197f2ef2814f3893d67b6865edab0ece1317a9d8e48a4762661e8c4cf33",
+      "runtime/split_minimap.inc": "43bc8a03c001fe1ec1773ca6659b91f3069c23b23c5508839516dfa6aa893902",
+      "runtime/split_post.inc": "1024f22a92d85aceb0df61bbd0c992a118156a7d66c101b4a7e093f6a8db9dd1",
+      "runtime/split_reflections.inc": "c2575a353222ef8288faf758852be05d9e6a2abd454cdd761d902f93f72d5584",
+      "runtime/splitscreen.c": "4d925243ae8acaafdd9c86386c30168f6707d07e1b3a6d7678717810b3d879b5",
+      "runtime/splitscreen_layout.h": "869994b89e166488da4e1de8eb675dd3303972fee1e7551e87847bedb48ee4c8",
+      "runtime/splitscreen_mem.h": "5bf44035a737019749b3fc39bb1a5e720e56c4ae204d375a4e0c0ef400356a96",
+      "runtime/vinylcat.c": "883b552e609877c61d4b40264a1378680311a31e4f0fbfb15d583b852624d9a3",
+      "runtime/visualrep.c": "42351207e0424e55590f2b73c5395d4bb701277153fa31aef20c63bd5257adb1",
+      "runtime/web/texrep_web.c": "504f095cf5cde3e64217720215eae4d406855d7d9fd566966c121f377b1ff353",
+      "runtime/whine.c": "b75b4932bc8169d9763d3590b22cb9056548849772da15fcb8689aade4c0b66f",
+      "runtime/whine.h": "c5a612ab98d80714604ee9014253ca8255a64e68ca56fae980d4c4db012b5052",
+      "runtime/widescreen.c": "2a6c196494be83f4cb92a60288df9c4db953d2f294eb80c635b45e9ec59c3868",
+      "tools/damage/scratches.tpk": "9e76c6dbea1205f346e82028d74ab1ecad610014502ca27bb1db1fb227d2ecc4",
+      "tools/damagepack.py": "6cecb20452a9ca48239792107d16fccb993be2ac78c99e534a82320b61d70dd4",
+      "tools/langpacks.py": "6803a2f3fe284c734c9106e765a0e6c43aff4b50db1e60c80935f9302615e66c",
+      "tools/musicpack.py": "43f843cde99374c0755788696b7de28a0a34a6094bea5262a6e258a9e9e2aff4",
+      "tools/split_reloc.py": "20d03e407b2e9d80fc27e465775223d832131f9848be48f300627fc6b2ad65f6",
+      "tools/texpacks.py": "301c0a397995681cd69608a3b29eb1bef4995554003ff1fb2ed393f4e86d1f6b",
+      "tools/whinepack.py": "6c26f44d5c00c5425c9cf59a96317638b6ed8f96b8790f9f0269628769dab154",
+      "web/src/host/io-worker.ts": "8b993dbd87873bcc4e20ec399916b81fd680a43ed24a3b96e20d85816bd38cdf"
+    }
+  },
+  "pc_executable": {
+    "filename": "SPEED2.EXE",
+    "edition": "PC 1.2 North America",
+    "bytes": 4800512,
+    "sha256": "f9dd86c054878ce6276beb07c1fd61874f7a1e4bf1f241b084c65b73e24168a7"
+  },
+  "missing_implementation": [
+    "Public Free Roam works on PCVR and Quest; the user reports substantially better behavior with the 64-car update. Reconnect, long drives, maximum-car performance and final headset acceptance remain open.",
+    "Race create/password/join/ready/start/leave/browser close passes two native instances and a browser-host/native-guest race. Native full finishes and a browser receiving the native finish and showing original results pass. Career-browser-full-race-career also passes: correct grid, two laps, normal finishes and identical return position, preserved profile/TLS. Final headset acceptance remains open.",
+    "All applicable catalogue mods now have native implementations or a documented native equivalent. Final headset/performance acceptance and optional Quest pack installation remain open; see individual mod evidence.",
+    "A complete new name reservation via the guided official-site handoff, live acceptance of existing-keyphrase login and actual Quest Keystore persistence remain unverified. The guide, fixed-URL browser launch, masked entry, derivation, protected storage and both connection paths are implemented; real Windows DPAPI tests pass. Read-only service name checks precede every connection/reconnect on both platforms; live unauthenticated rejection of the reserved user name passes, as do TLS connection and TCP/UDP tests with fresh free names. No automated claim or human-verification bypass.",
+    "Independent Xbox careers are supported. PC/Xbox save conversion is not implemented; there is no direct import.",
+    "The broader ancillary site-feature inventory is an assessment, not a promise that every website account/social feature is implemented.",
+    "Latest ARM64 build and Quest APK packaging pass. Verified local PCVR build is deployed; no new Quest device test is claimed."
+  ],
+  "mods": [
+    {
+      "id": "uhud",
+      "name": "Upscaled HUD",
+      "vr_disposition": "port_candidate",
+      "reason": "Xbox texture decoding and Vulkan content-matched replacements; independent Community Mods switch, default off, restart required.",
+      "implemented_by_this_change": true,
+      "upstream_files": [
+        "tools/texpacks.py",
+        "runtime/web/texrep_web.c"
+      ],
+      "native_files": [
+        "src/vr_texpacks.cpp",
+        "tools/prepare-community-textures.py"
+      ],
+      "validation": [
+        "Native format/checksum/fallback tests passed",
+        "Real Vulkan HUD replacement observed",
+        "Quest headset memory/performance acceptance pending"
+      ]
+    },
+    {
+      "id": "detailed-map",
+      "name": "Detailed Map",
+      "vr_disposition": "port_candidate",
+      "reason": "2048 map textures and track calibration data prepared; shared Vulkan replacement path, default off, restart required.",
+      "implemented_by_this_change": true,
+      "upstream_files": [
+        "tools/texpacks.py",
+        "runtime/web/texrep_web.c"
+      ],
+      "native_files": [
+        "src/vr_texpacks.cpp",
+        "tools/prepare-community-textures.py"
+      ],
+      "validation": [
+        "Native decoding/calibration fixtures passed",
+        "Actual original career world map opened through USB input, bound the 512-to-2048 texture replacement and changed GPS destinations; career-mods-navigation-proof.json",
+        "Headset placement and Quest performance acceptance pending"
+      ]
+    },
+    {
+      "id": "widescreen",
+      "name": "Widescreen Fix",
+      "vr_disposition": "native_equivalent",
+      "reason": "Use the existing tracked stereo projection and cockpit HUD; the PC screen-aspect patch does not transfer.",
+      "implemented_by_this_change": false,
+      "upstream_files": [
+        "runtime/widescreen.c",
+        "licenses/WidescreenFixesPack.txt"
+      ]
+    },
+    {
+      "id": "splitscreen",
+      "name": "Split Screen",
+      "vr_disposition": "not_applicable",
+      "reason": "A split-screen image is not a tracked stereo view. Separate-headset multiplayer belongs to the network adapter.",
+      "implemented_by_this_change": false,
+      "upstream_files": [
+        "runtime/splitscreen.c",
+        "runtime/splitscreen_layout.h",
+        "runtime/splitscreen_mem.h",
+        "runtime/split_minimap.inc",
+        "runtime/split_post.inc",
+        "runtime/split_reflections.inc",
+        "tools/split_reloc.py",
+        "licenses/NFSU2-SplitScreen.txt"
+      ]
+    },
+    {
+      "id": "subtitles",
+      "name": "English Subtitles Fixed",
+      "vr_disposition": "port_candidate",
+      "reason": "107 complete English lines use the original Xbox movie clock and subtitle layout; default off, restart required.",
+      "implemented_by_this_change": true,
+      "upstream_files": [
+        "tools/langpacks.py",
+        "runtime/language.c"
+      ],
+      "native_files": [
+        "src/vr_subtitles.cpp",
+        "src/community/xyz_subtitles.inl",
+        "tools/prepare-community-subtitles.py"
+      ],
+      "validation": [
+        "Actual movie load and timed cues observed",
+        "Malformed pack and bounds tests passed",
+        "Headset subtitle acceptance pending"
+      ]
+    },
+    {
+      "id": "songs",
+      "name": "Uncensored & Restored Soundtrack",
+      "vr_disposition": "port_candidate",
+      "reason": "Optional EA Trax overlay converted to Xbox EA-XA v2 PCM blocks. Original archives and saves remain intact. Select Original under Radio Soundtrack, enable Restored Soundtrack, save and restart.",
+      "implemented_by_this_change": true,
+      "upstream_files": [
+        "tools/musicpack.py",
+        "web/src/host/io-worker.ts"
+      ],
+      "native_files": [
+        "src/vr_soundtrack.cpp",
+        "tools/prepare-community-soundtrack.py",
+        "tools/stage-community-soundtrack.py",
+        "tools/install-community-soundtrack.py"
+      ],
+      "validation": [
+        "All four prepared files validated by SHA-256",
+        "Independent decoder reproduced source PCM exactly for streams 1, 6, 22 and 43",
+        "Unmodified-disc runtime overlay and six-car test passed",
+        "Runtime music source identified; capture discontinuities are not a claim of bit-perfect APU output",
+        "Optional Quest asset installation and headset listening pending"
+      ]
+    },
+    {
+      "id": "high-fps-audio",
+      "name": "High FPS Audio Fix",
+      "vr_disposition": "not_applicable",
+      "reason": "Targets the PC sound update. Our Xbox APU timing needs its own measurements; do not apply PC addresses.",
+      "implemented_by_this_change": false,
+      "upstream_files": [
+        "runtime/framerate.c"
+      ]
+    },
+    {
+      "id": "gps-distance",
+      "name": "GPS Distance",
+      "vr_disposition": "adapt_for_vr",
+      "reason": "Straight-line distance to the current GPS destination on the VR navigation panel, using game units; live toggle, default off.",
+      "implemented_by_this_change": true,
+      "upstream_files": [
+        "runtime/gpsdistance.c",
+        "runtime/gpsdistance_format.h"
+      ],
+      "native_files": [
+        "src/community/xyz_xbox_gps.h",
+        "android/runtime/quest_vr_runtime.inc"
+      ],
+      "validation": [
+        "Native bounds and unit tests passed",
+        "Actual copied career: 142.365 metres of car displacement with GPS, two original destinations and disable/cancel/enable via the world map passed; career-mods-navigation-proof.json",
+        "Headset route placement and units display acceptance pending"
+      ]
+    },
+    {
+      "id": "gearbox-whine",
+      "name": "Transmission Whine",
+      "vr_disposition": "port_candidate",
+      "reason": "Native three-layer gearbox audio follows speed, gear, reverse and Master/Engine volume; live toggle, default off.",
+      "implemented_by_this_change": true,
+      "upstream_files": [
+        "runtime/whine.c",
+        "runtime/whine.h",
+        "tools/whinepack.py",
+        "licenses/UG2WhineGen.txt"
+      ],
+      "native_files": [
+        "src/vr_whine.cpp",
+        "tools/prepare-community-audio.py"
+      ],
+      "validation": [
+        "Resampling/mixing/gear/reverse tests passed",
+        "Headset listening and live volume acceptance pending"
+      ]
+    },
+    {
+      "id": "extra-options",
+      "name": "Extra Options",
+      "vr_disposition": "adapt_for_vr",
+      "reason": "Native Quick Race limits, special vinyls, headlight controls and verified converted Corsa/106 assets; tracked VR projection supplies the viewing mode.",
+      "implemented_by_this_change": true,
+      "upstream_files": [
+        "runtime/cameras.c",
+        "runtime/lightkey.c",
+        "runtime/regional.c",
+        "runtime/vinylcat.c",
+        "runtime/quickrace.c"
+      ],
+      "parts": [
+        {
+          "name": "High beam",
+          "status": "implemented",
+          "control": "Community Mods / Headlights: Original, Off, High Beam",
+          "validation": "Original road projector and lamp hooks exercised in runtime; outgoing and incoming Free Roam state tested; headset appearance pending"
+        },
+        {
+          "name": "Special vinyls",
+          "status": "implemented",
+          "control": "Community Mods / Special Vinyl Category",
+          "validation": "Actual Peugeot paint shop: 4 available, 7 excluded; original unlock and price filters retained"
+        },
+        {
+          "name": "Quick Race",
+          "status": "implemented",
+          "control": "Original offline Quick Race options",
+          "validation": "Original menu and native race started with 127 laps and five AI opponents; drag-grid and scope tests pass. Full long-race/headset acceptance pending."
+        },
+        {
+          "name": "European cars",
+          "status": "implemented",
+          "reason": "Locally owned PC assets converted into a separate six-file verified Xbox pack.",
+          "control": "Community Mods / European Cars; save and restart",
+          "validation": "571 solids per model, independently validated texture packs, six-car changes/removal: 1530 ready frames, zero failures. Original Corsa AI loaded in five-opponent Quick Race. Headset/Quest pack checks pending."
+        },
+        {
+          "name": "Drift camera",
+          "status": "native_equivalent",
+          "reason": "Head-tracked stereo cockpit view; an untracked PC chase-camera patch is not applied"
+        }
+      ],
+      "native_files": [
+        "src/community/xyz_quickrace_bridge.inl",
+        "src/community/xyz_lights_bridge.inl",
+        "src/community/xyz_xbox_regional.h",
+        "src/community/xyz_regional_assets.cpp",
+        "tools/prepare-community-regional.py",
+        "tools/install-community-regional.py"
+      ],
+      "validation": [
+        "127 laps/five AI set through original menu and native race loaded.",
+        "Corsa/106 geometry/texture conversion and six-car lifecycle pass.",
+        "Original headlight projection/lamp and special-vinyl shop checks pass.",
+        "Final headset and Quest optional-pack checks pending."
+      ]
+    },
+    {
+      "id": "crash-damage",
+      "name": "Crash Damage",
+      "vr_disposition": "adapt_for_vr",
+      "reason": "Native Xbox private dent geometry, scratch textures, detachable parts, wheel deformation, topology/repair and Free Roam damage extension. Default off/restart; bounded detailed damage for nearby remote cars.",
+      "implemented_by_this_change": true,
+      "upstream_files": [
+        "runtime/damage.c",
+        "runtime/damagecore.cpp",
+        "runtime/damage/Dent.h",
+        "runtime/damage/Tessellate.h",
+        "runtime/damage_none.c",
+        "tools/damagepack.py",
+        "tools/damage/scratches.tpk"
+      ],
+      "native_files": [
+        "src/community/xyz_damage.cpp",
+        "src/community/xyz_damage_bridge.inl",
+        "src/community/xyz_damage_arena.cpp",
+        "src/community/xyz_damage_textures.cpp",
+        "src/community/xyz_texture_lists.inl",
+        "tools/prepare-community-damage.py"
+      ],
+      "validation": [
+        "Actual native damaged/scratch/loose-part draws and original repair verified.",
+        "Detached hood and 114 successful native ground queries; wall-query calls exercised without a wall hit.",
+        "Real damage core two-way transport, private lifetime/arena and texture-list tests pass.",
+        "Six-car lifecycle passed; allocation-budget fallback retains an undamaged visible car.",
+        "Headset cockpit/mirror appearance, live browser-player damage rendering and Quest device run remain unverified."
+      ],
+      "runtime_evidence": "build/xyz-lan-qa/damage-current-proof.json"
+    },
+    {
+      "id": "hidden-races",
+      "name": "Show Hidden Races",
+      "vr_disposition": "port_candidate",
+      "reason": "Shared native Community Mods setting; restart to apply. Verified stock Xbox table patching and Windows game boot; headset gameplay check pending.",
+      "implemented_by_this_change": true,
+      "upstream_files": [
+        "runtime/hiddenraces.c"
+      ],
+      "native_files": [
+        "src/vr_community_mods.h",
+        "src/recomp_manual.c",
+        "android/runtime/quest_vr_settings.h",
+        "android/runtime/quest_vr_runtime.inc"
+      ],
+      "validation": [
+        "Windows game build passed",
+        "Android ARM64 game build passed",
+        "Both retail Xbox table fixtures passed",
+        "Isolated Windows game boot reached loader hook",
+        "Quest device and headset gameplay validation pending"
+      ]
+    },
+    {
+      "id": "visual-rep",
+      "name": "Visual Reputation Remover",
+      "vr_disposition": "port_candidate",
+      "reason": "Default-off shared Community Mods control; save/restart. Native Xbox rating wrapper uses the current stage, restores the original override, and suppresses only the verified rating-box caller. Both builds and Windows/Quest menu/stage checks pass; isolated original Xbox calculation verified at stage 0. Career gameplay and rating-box runtime checks remain pending.",
+      "implemented_by_this_change": true,
+      "upstream_files": [
+        "runtime/visualrep.c",
+        "licenses/novisualrep.txt"
+      ],
+      "native_files": [
+        "src/vr_community_mods.h",
+        "src/recomp_manual.c",
+        "android/runtime/quest_vr_settings.h",
+        "android/runtime/quest_vr_panel.h",
+        "android/runtime/quest_vr_runtime.inc",
+        "src/community/vendor/visualrep/LICENSE"
+      ],
+      "validation": [
+        "Windows and Android ARM64 game builds passed",
+        "Menu persistence, invalid settings and stage bounds passed on Windows and Quest",
+        "Rendered Community Mods panel inspected",
+        "Isolated Xbox original calculation returned expected value and restored override",
+        "Career progression, rewards and rating-box runtime validation pending"
+      ]
+    },
+    {
+      "id": "rubberbanding",
+      "name": "Rubberbanding",
+      "vr_disposition": "port_candidate",
+      "reason": "Career-only Original / No Boost / Off control; multiplayer simulation unchanged.",
+      "implemented_by_this_change": true,
+      "upstream_files": [
+        "runtime/catchup.c"
+      ],
+      "native_files": [
+        "src/vr_community_mods.h",
+        "src/recomp_manual.c"
+      ],
+      "validation": [
+        "Audited Xbox driver pace/boost fields",
+        "Native validation and scope tests passed",
+        "Actual career Circuit 4001: Off corrected 570 of 1,200 AI updates; three opponents retained pace/boost 1 across 16 snapshots and moved 1.23-1.41 km. No Boost preserved slowing down to 0.610026 with boost 1; 5,040 logged updates, two laps, original first-place finish, all four results, saved completed career record and return to Explore. Positive-boost clamping remains covered by the rule test; no positive original boost occurred in this runtime. Final headset acceptance remains open."
+      ]
+    },
+    {
+      "id": "hq-vinyls",
+      "name": "HQ Vinyls & Doorlines",
+      "vr_disposition": "port_candidate",
+      "reason": "Optional 31-car 1024 packs with native recipe, gloss and colours; frontend, race relocation and six private remote skins verified through Vulkan. Default off/restart.",
+      "implemented_by_this_change": true,
+      "upstream_files": [
+        "runtime/hqvinyls.c",
+        "web/src/gpu/hqskin.ts",
+        "tools/hqvinyls.py"
+      ],
+      "native_files": [
+        "src/vr_vinyls.cpp",
+        "tools/prepare-community-vinyls.py",
+        "tools/stage-community-vinyls.py",
+        "tools/install-community-vinyls.py"
+      ],
+      "validation": [
+        "Composition, repaint ownership, relocated-content matching and corrupt-pack tests passed",
+        "Frontend Vulkan replacement observed",
+        "Race relocation, six-car GPU bindings and alias-cache lifecycle passed; Quest/headset performance pending."
+      ]
+    },
+    {
+      "id": "stance",
+      "name": "Stance",
+      "vr_disposition": "adapt_for_vr",
+      "reason": "Front/rear camber and offset, tire width, per-model sidecar storage and Free Roam extension 4. Render-only wheel transforms; default off.",
+      "implemented_by_this_change": true,
+      "upstream_files": [
+        "runtime/stance.c",
+        "runtime/stance.h"
+      ],
+      "native_files": [
+        "src/community/xyz_stance.cpp",
+        "src/community/xyz_xbox_stance.c",
+        "src/community/xyz_stance_bridge.inl"
+      ],
+      "validation": [
+        "Persistence, wire encoding and transform restoration tests passed",
+        "Six-car model changes and original-draw restoration passed in runtime",
+        "Headset appearance and Quest device acceptance pending"
+      ]
+    }
+  ],
+  "site_features": [
+    {
+      "group": "driving",
+      "name": "Drift mode",
+      "vr_disposition": "needs_adapter",
+      "implemented_by_this_change": false
+    },
+    {
+      "group": "driving",
+      "name": "Free look",
+      "vr_disposition": "native_equivalent",
+      "implemented_by_this_change": false,
+      "reason": "Tracked head movement and native cockpit cameras already exist; this is not the PC stick-camera code."
+    },
+    {
+      "group": "driving",
+      "name": "Horn",
+      "vr_disposition": "needs_adapter",
+      "implemented_by_this_change": false
+    },
+    {
+      "group": "driving",
+      "name": "Horn Volume",
+      "vr_disposition": "needs_adapter",
+      "implemented_by_this_change": false
+    },
+    {
+      "group": "driving",
+      "name": "Radio",
+      "vr_disposition": "native_equivalent",
+      "implemented_by_this_change": false,
+      "reason": "Native cockpit radio and local music already exist."
+    },
+    {
+      "group": "driving",
+      "name": "Next song",
+      "vr_disposition": "native_equivalent",
+      "implemented_by_this_change": false,
+      "reason": "Native cockpit radio controls already exist."
+    },
+    {
+      "group": "driving",
+      "name": "Music in drag and drift races",
+      "vr_disposition": "needs_adapter",
+      "implemented_by_this_change": false
+    },
+    {
+      "group": "free-roam",
+      "name": "Free roam with others",
+      "vr_disposition": "needs_adapter",
+      "implemented_by_this_change": false
+    },
+    {
+      "group": "free-roam",
+      "name": "Ghost mode",
+      "vr_disposition": "needs_adapter",
+      "implemented_by_this_change": false
+    },
+    {
+      "group": "free-roam",
+      "name": "Same weather for everyone",
+      "vr_disposition": "needs_adapter",
+      "implemented_by_this_change": false
+    },
+    {
+      "group": "free-roam",
+      "name": "Quick chat",
+      "vr_disposition": "needs_adapter",
+      "implemented_by_this_change": false
+    },
+    {
+      "group": "free-roam",
+      "name": "Crews",
+      "vr_disposition": "needs_adapter",
+      "implemented_by_this_change": false
+    },
+    {
+      "group": "free-roam",
+      "name": "Friends",
+      "vr_disposition": "needs_adapter",
+      "implemented_by_this_change": false
+    },
+    {
+      "group": "free-roam",
+      "name": "Messages to friends",
+      "vr_disposition": "needs_adapter",
+      "implemented_by_this_change": false
+    },
+    {
+      "group": "free-roam",
+      "name": "Your name",
+      "vr_disposition": "needs_adapter",
+      "implemented_by_this_change": false
+    },
+    {
+      "group": "free-roam",
+      "name": "Your flag",
+      "vr_disposition": "needs_adapter",
+      "implemented_by_this_change": false
+    },
+    {
+      "group": "free-roam",
+      "name": "Show Player Names",
+      "vr_disposition": "needs_adapter",
+      "implemented_by_this_change": false
+    },
+    {
+      "group": "free-roam",
+      "name": "Rooms",
+      "vr_disposition": "needs_adapter",
+      "implemented_by_this_change": false
+    },
+    {
+      "group": "free-roam",
+      "name": "Blocked players",
+      "vr_disposition": "needs_adapter",
+      "implemented_by_this_change": false
+    },
+    {
+      "group": "free-roam",
+      "name": "Outruns between players",
+      "vr_disposition": "needs_adapter",
+      "implemented_by_this_change": false
+    },
+    {
+      "group": "free-roam",
+      "name": "Drift battles",
+      "vr_disposition": "needs_adapter",
+      "implemented_by_this_change": false
+    },
+    {
+      "group": "free-roam",
+      "name": "Races from free roam",
+      "vr_disposition": "needs_adapter",
+      "implemented_by_this_change": false
+    },
+    {
+      "group": "free-roam",
+      "name": "Cars evened out",
+      "vr_disposition": "needs_adapter",
+      "implemented_by_this_change": false
+    },
+    {
+      "group": "free-roam",
+      "name": "Prize money and quit fee",
+      "vr_disposition": "needs_adapter",
+      "implemented_by_this_change": false
+    },
+    {
+      "group": "free-roam",
+      "name": "Car meets",
+      "vr_disposition": "needs_adapter",
+      "implemented_by_this_change": false
+    },
+    {
+      "group": "free-roam",
+      "name": "Players on the maps",
+      "vr_disposition": "needs_adapter",
+      "implemented_by_this_change": false
+    },
+    {
+      "group": "free-roam",
+      "name": "Other players' cars",
+      "vr_disposition": "needs_adapter",
+      "implemented_by_this_change": false
+    },
+    {
+      "group": "free-roam",
+      "name": "Hood, trunk and doors",
+      "vr_disposition": "needs_adapter",
+      "implemented_by_this_change": false
+    },
+    {
+      "group": "free-roam",
+      "name": "Player 2 in free roam",
+      "vr_disposition": "not_applicable",
+      "implemented_by_this_change": false,
+      "reason": "Two local screen views do not provide two independent VR headsets."
+    },
+    {
+      "group": "free-roam",
+      "name": "Online mode",
+      "vr_disposition": "needs_adapter",
+      "implemented_by_this_change": false
+    },
+    {
+      "group": "free-roam",
+      "name": "Online and LAN races",
+      "vr_disposition": "needs_adapter",
+      "implemented_by_this_change": false
+    },
+    {
+      "group": "free-roam",
+      "name": "LAN races with everyone",
+      "vr_disposition": "needs_adapter",
+      "implemented_by_this_change": false
+    },
+    {
+      "group": "free-roam",
+      "name": "Smooth cars in races",
+      "vr_disposition": "needs_adapter",
+      "implemented_by_this_change": false
+    },
+    {
+      "group": "photos",
+      "name": "Photo mode",
+      "vr_disposition": "needs_adapter",
+      "implemented_by_this_change": false
+    },
+    {
+      "group": "photos",
+      "name": "Hide HUD",
+      "vr_disposition": "needs_adapter",
+      "implemented_by_this_change": false
+    },
+    {
+      "group": "photos",
+      "name": "Frame rate",
+      "vr_disposition": "needs_adapter",
+      "implemented_by_this_change": false
+    },
+    {
+      "group": "photos",
+      "name": "Frame-rate counter",
+      "vr_disposition": "needs_adapter",
+      "implemented_by_this_change": false
+    },
+    {
+      "group": "photos",
+      "name": "Exposure and White Level",
+      "vr_disposition": "needs_adapter",
+      "implemented_by_this_change": false
+    },
+    {
+      "group": "photos",
+      "name": "Other cars' headlights",
+      "vr_disposition": "needs_adapter",
+      "implemented_by_this_change": false
+    },
+    {
+      "group": "photos",
+      "name": "Pixelated textures",
+      "vr_disposition": "needs_adapter",
+      "implemented_by_this_change": false
+    },
+    {
+      "group": "photos",
+      "name": "Startup movies",
+      "vr_disposition": "needs_adapter",
+      "implemented_by_this_change": false
+    },
+    {
+      "group": "photos",
+      "name": "Movies",
+      "vr_disposition": "needs_adapter",
+      "implemented_by_this_change": false
+    },
+    {
+      "group": "career",
+      "name": "10 garage slots and Trade Car",
+      "vr_disposition": "needs_adapter",
+      "implemented_by_this_change": false
+    },
+    {
+      "group": "career",
+      "name": "Unique parts after Caleb",
+      "vr_disposition": "needs_adapter",
+      "implemented_by_this_change": false
+    },
+    {
+      "group": "career",
+      "name": "Save in the pause menu",
+      "vr_disposition": "needs_adapter",
+      "implemented_by_this_change": false
+    },
+    {
+      "group": "career",
+      "name": "Career wins with players",
+      "vr_disposition": "needs_adapter",
+      "implemented_by_this_change": false
+    },
+    {
+      "group": "career",
+      "name": "The Bank when it changes",
+      "vr_disposition": "needs_adapter",
+      "implemented_by_this_change": false
+    },
+    {
+      "group": "career",
+      "name": "Power Units",
+      "vr_disposition": "needs_adapter",
+      "implemented_by_this_change": false
+    },
+    {
+      "group": "career",
+      "name": "Turn the car in the garage",
+      "vr_disposition": "needs_adapter",
+      "implemented_by_this_change": false
+    },
+    {
+      "group": "career",
+      "name": "Tuning graphs",
+      "vr_disposition": "needs_adapter",
+      "implemented_by_this_change": false
+    },
+    {
+      "group": "career",
+      "name": "Art Factory 28 to 34",
+      "vr_disposition": "needs_adapter",
+      "implemented_by_this_change": false
+    },
+    {
+      "group": "controls",
+      "name": "Site keys",
+      "vr_disposition": "needs_adapter",
+      "implemented_by_this_change": false
+    },
+    {
+      "group": "controls",
+      "name": "Menu",
+      "vr_disposition": "needs_adapter",
+      "implemented_by_this_change": false
+    },
+    {
+      "group": "controls",
+      "name": "Controllers",
+      "vr_disposition": "native_equivalent",
+      "implemented_by_this_change": false,
+      "reason": "Native Touch and SDL gamepad support already exist; mappings differ."
+    },
+    {
+      "group": "controls",
+      "name": "Steering wheels",
+      "vr_disposition": "needs_adapter",
+      "implemented_by_this_change": false
+    },
+    {
+      "group": "controls",
+      "name": "RC radios",
+      "vr_disposition": "needs_adapter",
+      "implemented_by_this_change": false
+    },
+    {
+      "group": "controls",
+      "name": "Touch controls",
+      "vr_disposition": "not_applicable",
+      "implemented_by_this_change": false,
+      "reason": "Phone screen controls do not apply to tracked headset controllers."
+    },
+    {
+      "group": "saves",
+      "name": "Cloud saves",
+      "vr_disposition": "needs_adapter",
+      "implemented_by_this_change": false
+    },
+    {
+      "group": "saves",
+      "name": "Backup and restore",
+      "vr_disposition": "needs_adapter",
+      "implemented_by_this_change": false
+    },
+    {
+      "group": "saves",
+      "name": "Screenshots",
+      "vr_disposition": "needs_adapter",
+      "implemented_by_this_change": false
+    },
+    {
+      "group": "saves",
+      "name": "Play time",
+      "vr_disposition": "needs_adapter",
+      "implemented_by_this_change": false
+    },
+    {
+      "group": "saves",
+      "name": "Autosave",
+      "vr_disposition": "needs_adapter",
+      "implemented_by_this_change": false
+    },
+    {
+      "group": "saves",
+      "name": "Rename",
+      "vr_disposition": "needs_adapter",
+      "implemented_by_this_change": false
+    },
+    {
+      "group": "saves",
+      "name": "First profile's name",
+      "vr_disposition": "needs_adapter",
+      "implemented_by_this_change": false
+    }
+  ],
+  "excluded_upstream_entries": [
+    {
+      "id": "mod-rims",
+      "reason": "Blitz Rims is commented out in the audited mods catalogue. It is not an active mod in that snapshot."
+    }
+  ],
+  "additional_scope": [
+    "Language packs and translations described by the upstream README require separate Xbox text/font/movie conversion.",
+    "External mod assets are not supplied by this catalogue.",
+    "A native_equivalent entry describes existing VR behavior; it does not assert compatibility with the website implementation or online peers."
+  ],
+  "current_catalog": {
+    "observed_at": "2026-11-09",
+    "website": "https://nfsu2.xyz/",
+    "live_game_rev": "6f4f1e4e",
+    "live_main_js_sha256": "06b533a84095f6c08623816b7c9191355fbf16927f6b1e57cfb3e344b32c5d15",
+    "reference_commit": "16b23865f09dc41b9533635180e6d3fd34c45a6d",
+    "scope": "Live catalogue observed: 16 mods. Current public repository reference is not proof of identical deployed code. Original audit retained above.",
+    "updated_protocol_files": {
+      "roam_core.c": "610d7d225b2093e72fa5b37d44d1b7581ffc593721346d2078d5ac34e61e9959",
+      "roam_core.h": "efc4dc49005b5a46ebd177853d646b2ec52b5a4fb074c46f92b2e0e63dd32382"
+    },
+    "files": {
+      "licenses/NFSU2-SplitScreen.txt": "c457468e431e7843ca07fdd0f79b5d201585014ac51a241b76e46eb1610f87a1",
+      "licenses/UG2WhineGen.txt": "931638859a9ef640dd5f55129832d578c728505c0ba3c206859363083af23a6a",
+      "licenses/WidescreenFixesPack.txt": "389eef0fb81f8b3bc7aca2025da43cf007acfb390a70f49439d269e51de0b8dc",
+      "licenses/novisualrep.txt": "e827f88b1643f6949c9468e3a8fa6ce4ce31d2b7a7c252eae14b02b77cde49ba",
+      "runtime/cameras.c": "d9ac63b0b33f284c87ac573aac63ea708b0b95fef9b857b06f938fb6ccee8783",
+      "runtime/catchup.c": "b4f1c9c771d95b71fc6a669c0644699e4487aadcf6d9a4037b4172a5ab8b34ff",
+      "runtime/damage.c": "d3d8b7b4ad98af0bc27d5e06bc8893c5f926004680b441b8dc2a7893ed0006b4",
+      "runtime/damage/Dent.h": "2232b04e2ad5dfc27a2b9912ecab33c60c57353ff270f0317cf0cf0d01e864e1",
+      "runtime/damage/Tessellate.h": "db0d4ce9ec49d99bf069611fa8d17a0a0e110f0f0903687a485c9c98633c3634",
+      "runtime/damage_none.c": "b656ef666665eedd4059ae3f214443faaa2dee2d6127c1324a06e76e8ddd4d18",
+      "runtime/damagecore.cpp": "125cfb0ab5af40eef10c1ade6c267f4e41c0584927612286afcfc0099c57eedd",
+      "runtime/framerate.c": "9dfc711650d92ea7c5dc22490fec9c2354a8b45c27ef6b3a781b506b4435c459",
+      "runtime/gpsdistance.c": "ed2cc60dffc88179110f31c127b234db387458b1c45fa10b3d69c38efc4c242d",
+      "runtime/gpsdistance_format.h": "cbfcaa49b20ec78602da1063917ef57af8cdf3c1ab5a3608afdf00e5e435e393",
+      "runtime/hiddenraces.c": "7d4765ce6facdf60ebebe68b8e5bce7e9e1a7cab15807c0014d052043c1b7d57",
+      "runtime/hqvinyls.c": "05d365fce4106d152d1f8da3001b8cce9d1bdf86f92fc261780b1f6e5f8c2b91",
+      "runtime/language.c": "dbb90a5ddae7b05e96ddb7fa5acd344e697e7f88e6ef0c1b30f113007a98d27b",
+      "runtime/lightkey.c": "a85c2dc27d2a1b00c20d139f5772efe7f32a7554c13c0aa3509d1ee7d749b30c",
+      "runtime/quickrace.c": "15e4be0fc2bc68d3ce26c042a958696af57d06893d0d1f960b197ea76f9a70cd",
+      "runtime/regional.c": "d0bdf197f2ef2814f3893d67b6865edab0ece1317a9d8e48a4762661e8c4cf33",
+      "runtime/split_minimap.inc": "43bc8a03c001fe1ec1773ca6659b91f3069c23b23c5508839516dfa6aa893902",
+      "runtime/split_post.inc": "1024f22a92d85aceb0df61bbd0c992a118156a7d66c101b4a7e093f6a8db9dd1",
+      "runtime/split_reflections.inc": "c2575a353222ef8288faf758852be05d9e6a2abd454cdd761d902f93f72d5584",
+      "runtime/splitscreen.c": "4d925243ae8acaafdd9c86386c30168f6707d07e1b3a6d7678717810b3d879b5",
+      "runtime/splitscreen_layout.h": "869994b89e166488da4e1de8eb675dd3303972fee1e7551e87847bedb48ee4c8",
+      "runtime/splitscreen_mem.h": "5bf44035a737019749b3fc39bb1a5e720e56c4ae204d375a4e0c0ef400356a96",
+      "runtime/stance.c": "057c2a88456870da711d15cbb951d2ff0d5675e171d58fd4f735fb8c41b3478f",
+      "runtime/stance.h": "9fe8dbf01650322ccf3e80f29432db0b1bd60eeb7cf51b73122be4f7ba59d57c",
+      "runtime/vinylcat.c": "883b552e609877c61d4b40264a1378680311a31e4f0fbfb15d583b852624d9a3",
+      "runtime/visualrep.c": "42351207e0424e55590f2b73c5395d4bb701277153fa31aef20c63bd5257adb1",
+      "runtime/web/texrep_web.c": "504f095cf5cde3e64217720215eae4d406855d7d9fd566966c121f377b1ff353",
+      "runtime/whine.c": "b75b4932bc8169d9763d3590b22cb9056548849772da15fcb8689aade4c0b66f",
+      "runtime/whine.h": "c5a612ab98d80714604ee9014253ca8255a64e68ca56fae980d4c4db012b5052",
+      "runtime/widescreen.c": "2a6c196494be83f4cb92a60288df9c4db953d2f294eb80c635b45e9ec59c3868",
+      "tools/damage/scratches.tpk": "9e76c6dbea1205f346e82028d74ab1ecad610014502ca27bb1db1fb227d2ecc4",
+      "tools/damagepack.py": "6cecb20452a9ca48239792107d16fccb993be2ac78c99e534a82320b61d70dd4",
+      "tools/hqvinyls.py": "4128e3d9d1820c3318e39435b2e20629f2366ae610e1ad3857bfaa1fb181d00d",
+      "tools/langpacks.py": "6803a2f3fe284c734c9106e765a0e6c43aff4b50db1e60c80935f9302615e66c",
+      "tools/musicpack.py": "43f843cde99374c0755788696b7de28a0a34a6094bea5262a6e258a9e9e2aff4",
+      "tools/split_reloc.py": "20d03e407b2e9d80fc27e465775223d832131f9848be48f300627fc6b2ad65f6",
+      "tools/texpacks.py": "38a316dc86b1b99913c0217f7ea2a59b44738e251a7b96e1702436671a1cb7b6",
+      "tools/whinepack.py": "6c26f44d5c00c5425c9cf59a96317638b6ed8f96b8790f9f0269628769dab154",
+      "web/src/app/mods.ts": "30a4b0ff8f113fe8e795845099003353bf9f5e79d1d07f99ba3b4cce771ed11e",
+      "web/src/gpu/hqskin.ts": "d92ac3749e6d8ecf035de1996181f8206a061b5f95d4e4f6ebd7977abab91c38",
+      "web/src/host/io-worker.ts": "c2b208840bcd089b208f9b3214aca38d3c87f6f1e6c24ebf3833c07a5df95678"
+    }
+  },
+  "delivery_status": {
+    "implementation": "complete_for_final_user_test",
+    "automatic_release_checks": "passed",
+    "user_validation": "deferred_to_final_test_at_user_request_2026-11-09",
+    "quest_device_installation": "deferred_by_user"
+  }
+}

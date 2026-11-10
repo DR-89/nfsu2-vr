@@ -40,6 +40,13 @@
 #endif
 #if defined(__ANDROID__) || defined(NFSU2_PCVR)
 #include "quest_xr.h"
+#include "vr_community_mods.h"
+#include "vr_vinyls.h"
+#include "community/xyz_xbox_remote.h"
+#include "community/xyz_xbox_pool.h"
+#include "community/xyz_car_files.h"
+#include "community/xyz_game_api.h"
+#include "community/xyz_xnet.h"
 #include "quest_haptics.h"
 #include "quest_culling.h"
 #include "quest_frame_timing.h"
@@ -52,6 +59,8 @@
 #include "quest_rear_camera.h"
 #include "vr_replay.h"
 #include "vr_music.h"
+#include "vr_whine.h"
+#include "community/xyz_xbox_gps.h"
 #include <time.h>
 #endif
 
@@ -123,6 +132,7 @@ extern void sub_00055C80_gen(void);
 /* Guest-thread identity, refreshed by the driving camera. Never infer the
  * player's body from its dimensions or from a particular vehicle name. */
 static uint32_t cockpit_player_car;
+static int community_copchase_music;
 static uint32_t restored_mover,restored_car;
 /* Guest-thread only. Slot 0..4 indexes the five retail manual replay
  * views, followed by the fitted VR cockpit. This choice is per playback. */
@@ -134,7 +144,8 @@ static int cockpit_entry_direction=1;
 extern void sub_001E32E0_gen(void);
 /* These are additional calls from the guest thread. Preserve the entire
  * interrupted register file, including SIMD scratch used by the audio engine. */
-static uint32_t cockpit_guest_call(void (*function)(void),uint32_t self,uint32_t continuation,int argc,uint32_t arg,uint32_t second)
+static uint32_t guest_call_full(void (*function)(void),uint32_t self,uint32_t second_register,
+                               uint32_t continuation,unsigned argc,const uint32_t *args)
 {
     uint32_t regs[]={eax,ecx,edx,ebx,esi,edi,esp,g_ebp,g_seh_ebp,g_fs_base};
     RecompXmm *xs[]={&g_xmm0,&g_xmm1,&g_xmm2,&g_xmm3,&g_xmm4,&g_xmm5,&g_xmm6,&g_xmm7},x[8];
@@ -142,7 +153,8 @@ static uint32_t cockpit_guest_call(void (*function)(void),uint32_t self,uint32_t
     double fp[8];memcpy(fp,g_fp_stack,sizeof fp);
     int top=g_fp_top,cmp=g_fp_cmp,df=g_df;uint16_t cc=g_fp_cc,cw=g_fp_control_word;
     for(int i=0;i<8;++i){x[i]=*xs[i];m[i]=*ms[i];}
-    ecx=self;if(argc==2)PUSH32(esp,second);if(argc)PUSH32(esp,arg);
+    ecx=self;edx=second_register;
+    for(unsigned i=argc;i>0;--i)PUSH32(esp,args[i-1]);
     PUSH32(esp,continuation);function();
     uint32_t result=eax;
     eax=regs[0];ecx=regs[1];edx=regs[2];ebx=regs[3];esi=regs[4];edi=regs[5];esp=regs[6];
@@ -150,6 +162,12 @@ static uint32_t cockpit_guest_call(void (*function)(void),uint32_t self,uint32_t
     for(int i=0;i<8;++i){*xs[i]=x[i];*ms[i]=m[i];}
     memcpy(g_fp_stack,fp,sizeof fp);g_fp_top=top;g_fp_cmp=cmp;g_fp_cc=cc;g_fp_control_word=cw;
     return result;
+}
+#include "vr_io_completion.inc"
+static uint32_t cockpit_guest_call(void (*function)(void),uint32_t self,uint32_t continuation,int argc,uint32_t arg,uint32_t second)
+{
+    const uint32_t args[2]={arg,second};
+    return guest_call_full(function,self,edx,continuation,(unsigned)argc,args);
 }
 static unsigned cockpit_last_slot(void)
 {
@@ -283,6 +301,9 @@ static float cockpit_engine_rumble(void)
     if(!quest_rear_pointer(spec,0x1fc))return 0;
     /* Retail reads idle at 0x177E1 and divides current RPM by this car's
      * rev limit at 0x1E67C6. +0x438 is the processed accelerator. */
+    uint32_t control=MEM32(car+0x30);
+    float brake=quest_rear_pointer(control,0x218)?MEMF(control+0x214):0;
+    quest_xr_telemetry_publish(car,MEMF(car+0x440),MEMF(spec+0x1f8),MEMF(car+0x42c),brake);
     return quest_engine_rumble(MEMF(car+0x440),MEMF(spec+0x1f0),MEMF(spec+0x1f8),MEMF(car+0x438));
 }
 static int cockpit_grid_gears(uint32_t car)
@@ -344,7 +365,7 @@ static int cockpit_apply_shifter(uint32_t driver,uint32_t car)
        quest_xr_shifter_grid_request(car)==QUEST_SHIFT_NONE))return 0;
     int raw_pedals=0;
     uint32_t spec=MEM32(car+0x20);
-    int count=quest_cockpit_window_address(spec,0x1cc)?(int)MEM32(spec+0x1c8):0;
+    int count=xyz_xbox_address(spec,0x1cc)?(int)MEM32(spec+0x1c8):0;
     int gear=(int)MEM32(car+0x434), mode=(int)MEM32(driver+0x2c0);
     int manual=mode==1 || mode==3 || mode==4;
     int locked=MEM8(driver+0x2b4)?QUEST_DRIVER_GRID_LOCK:QUEST_DRIVER_READY;
@@ -367,7 +388,7 @@ static int cockpit_apply_shifter(uint32_t driver,uint32_t car)
 static void cockpit_driver_update(void)
 {
     uint32_t driver=ecx;
-    if(!quest_cockpit_window_address(driver,0x314) || MEM32(0x428e34u)!=6) {
+    if(!xyz_xbox_address(driver,0x314) || MEM32(0x428e34u)!=6) {
         sub_0002D800();return;
     }
     uint32_t car=MEM32(driver+0x2a8),manager=cockpit_replay_manager();
@@ -398,6 +419,24 @@ static void cockpit_driver_update(void)
     }
 }
 #endif
+extern void sub_002535AC_gen(void);
+extern void sub_000A1580_gen(void);
+void sub_000A1580(void)
+{
+#if defined(__ANDROID__) || defined(NFSU2_PCVR)
+    uint32_t texture=xyz_online_texture(MEM32(esp+4));
+    if(texture){eax=texture;esp+=4;return;}
+#endif
+    sub_000A1580_gen();
+}
+void sub_002535AC(void)
+{
+#if defined(__ANDROID__) || defined(NFSU2_PCVR)
+    vr_io_register_completion();
+#else
+    sub_002535AC_gen();
+#endif
+}
 /* 0x1DA770 records the simulation step on channel 1. Preserve its full
  * tick count across a slow VR frame while retail still owns the stream,
  * compression and snapshots. Both calls are thiscall and pop their args. */
@@ -447,12 +486,13 @@ void sub_00055C80(void)
     int available=0, active=0;
     float saved[16];
     int rear_adjusted=0;
-    /* RearCameraMover's SetMatrix call, scoped to this player's retail
-     * eView 3. Move its capture origin to the reflected tracked head; the
-     * retail mover still controls orientation, projection and visibility. */
-    if(camera==0x003efb20u && MEM32(esp)==0x00059a2eu && cockpit_player_car &&
-       quest_xr_cockpit_active() && quest_cockpit_window_address(esi,0x30) &&
-       MEM32(esi+0x2c)==cockpit_player_car && quest_cockpit_window_address(target,64)) {
+    /* Keep the retail rear camera independent of physical mirror trim.
+     * The glass shader changes its own reflected rays, never the source. */
+    int player_rear=camera==0x003efb20u && MEM32(esp)==0x00059a2eu &&
+        xyz_xbox_address(esi,0x30) && MEM32(esi)==0x003446f0u &&
+        MEM32(esi+0x1c)==camera && MEM32(esi+0x2c)==cockpit_local_car();
+    if(player_rear && cockpit_player_car && quest_xr_cockpit_active() &&
+       MEM32(esi+0x2c)==cockpit_player_car && xyz_xbox_address(target,64)) {
         float front[16],rear[16],rotation[12],pos[3],zero[3]={0};
         QuestMirrorCamera source;
         memcpy(rotation,(const void *)XBOX_PTR(cockpit_player_car+0x90),sizeof rotation);
@@ -462,13 +502,18 @@ void sub_00055C80(void)
             /* The mover rewrites these eView 3 fields every tick. Include
              * the outer lanes and allow close traffic behind the glass. */
             MEM16(camera+0xc4)=0x6800; /* 146.25 degrees horizontally */
-            MEMF(camera+0xbc)=.18f;
             MEMF(camera+0xc0)=QUEST_MIRROR_REAR_FAR;
             memcpy(saved,rear,sizeof rear);
-            quest_xr_mirror_camera(cockpit_player_car,&source,rear);
+            uint32_t info[2]={MEM32(0x3ea638u),MEM32(0x3ea63cu)},masks[2];
+            extern uint32_t g_xbox_contig_size;
+            quest_cockpit_mirror_masks(cockpit_ui_read,NULL,info,masks,0x80000000u+g_xbox_contig_size);
+            quest_xr_mirror_camera(cockpit_player_car,&source,masks);
+            MEMF(camera+0xbc)=.18f;
             memcpy((void *)XBOX_PTR(target),rear,sizeof rear);rear_adjusted=1;
         }
     }
+    /* Mirrors show the road and traffic; exclude the local shell/interior. */
+    if(player_rear)MEM32(camera+0x280)=MEM32(esi+0x2c);
     uint32_t m=mover&0x7fffffffu;
     if(main_camera && (MEM32(0x00428e34u)!=6 || MEM32(esp)!=0x000612d2u)) {
         restored_mover=restored_car=0;
@@ -520,7 +565,8 @@ void sub_00055C80(void)
         }
         const QuestCockpitVehicle *fit=quest_cockpit_vehicle(fitted_index);
         uint32_t windows[QUEST_COCKPIT_WINDOWS];
-        quest_cockpit_window_textures(cockpit_ui_read,NULL,car,windows);
+        extern uint32_t g_xbox_contig_size;
+        quest_cockpit_window_textures_range(cockpit_ui_read,NULL,car,windows,0x80000000u+g_xbox_contig_size);
         quest_xr_cockpit_vehicle_publish(car,fitted_index,windows);
         memcpy(rotation,(const void *)XBOX_PTR(car+0x90),sizeof rotation);
         memcpy(position,(const void *)XBOX_PTR(car+0x50),sizeof position);
@@ -537,6 +583,10 @@ void sub_00055C80(void)
             active=1;
         }
     }
+#endif
+#if defined(__ANDROID__) || defined(NFSU2_PCVR)
+    if(main_camera && MEM32(0x428e34)==6 && xyz_xbox_address(target,64))
+        quest_xr_copchase_camera((const float*)XBOX_PTR(target));
 #endif
     sub_00055C80_gen();
 #if defined(__ANDROID__) || defined(NFSU2_PCVR)
@@ -577,8 +627,8 @@ void sub_0004CA40(void)
 }
 
 #if defined(__ANDROID__) || defined(NFSU2_PCVR)
-/* Use the game's owner-managed rear-camera mover, including its normal car
- * tracking, projection and player-body exclusion. The profile may have the
+/* Use the game's owner-managed rear-camera mover and normal car tracking.
+ * The cockpit matrix hook enables its own shell. The profile may have the
  * mirror disabled, so enabling the render target alone is insufficient. */
 static void cockpit_rear_camera(void *context,uint32_t manager,int enable)
 {
@@ -681,9 +731,7 @@ static int cockpit_ui_read(void *context,uint32_t address,void *out,size_t size)
     (void)context;
     /* Guest UI and car render data can use the physical-memory window.
      * It is distinct from low virtual memory in this runtime. */
-    uint64_t end=(uint64_t)address+size;
-    if(!((address>=0x10000u && end<=0x04000000u) ||
-         (address>=0x80000000u && end<=0x84000000u))) return 0;
+    if(!xyz_xbox_address(address,size))return 0;
     memcpy(out,(const void *)XBOX_PTR(address),size);
     return 1;
 }
@@ -813,11 +861,35 @@ static void cockpit_radio_voices(uint32_t stream,uint32_t voices[2])
  * (16-bit PCM units). Its per-speaker gains are applied later at 0x279942. */
 static void cockpit_radio_channel(recomp_func_t render)
 {
+    static RECOMP_TLS unsigned depth;
     uint32_t voice=esi,capacity=MEM32(esp+8),dest=MEM32(esp+16);
-    render();
+    ++depth;render();--depth;
+    /* The resampler can call the decoder through the same hook. Capture
+     * only the outer output at mixer rate; concatenating source-rate and
+     * resampled blocks distorts the spectrum and audio diagnostics. */
+    if(depth)return;
     uint32_t frames=eax;
-    if(frames && frames<=capacity && frames<=4096 && quest_rear_pointer(dest,frames*sizeof(float)))
+    if(frames && frames<=capacity && frames<=4096 && quest_rear_pointer(dest,frames*sizeof(float))) {
         vr_music_stock_samples(voice,(const float *)XBOX_PTR(dest),frames);
+        /* Owned headless QA: isolate the EA song from engines and the custom
+         * music mixer. No capture without both explicit probe and pad script. */
+        static int probe=-1,done;static unsigned used;static uint32_t capture_voice,capture_node;static float samples[48000];
+        if(probe<0)probe=getenv("NFSU2_STOCK_AUDIO_PROBE") && getenv("RECOMP_PAD_SCRIPT");
+        if(probe && !done && MEM32(0x428e34)==6){
+            uint32_t stream=MEM32(0x3e5afc),voices[2]={0};
+            if(quest_rear_pointer(stream,0x1a4))cockpit_radio_voices(stream,voices);
+            if(voice==voices[0] && voice){
+                uint32_t node=MEM32(0x3e5140);
+                if(voice!=capture_voice || node!=capture_node){capture_voice=voice;capture_node=node;used=0;}
+                unsigned take=frames;if(take>48000-used)take=48000-used;
+                memcpy(samples+used,(const void*)XBOX_PTR(dest),take*sizeof(float));used+=take;
+                if(used==48000){done=1;const char *path=getenv("NFSU2_STOCK_AUDIO_PROBE");FILE *f=path?fopen(path,"wb"):NULL;
+                    if(f){fwrite(samples,sizeof(float),used,f);fclose(f);}
+                    fprintf(stderr,"[VR music probe] EA channel=%08x node=%u samples=%u written=%d\n",voice,MEM32(0x3e5140),used,f!=NULL);
+                }
+            }
+        }
+    }
 }
 static void cockpit_radio_resampled(void) { cockpit_radio_channel(sub_0027BA23); }
 static void cockpit_radio_decoded(void) { cockpit_radio_channel(sub_0027C5EB); }
@@ -855,9 +927,10 @@ static void cockpit_radio(int driving,int replay,int cockpit)
     float level=isfinite(volume) && volume>QUEST_RADIO_SILENT_GAIN?volume:0.f;
     QuestRadioSong custom_song={0};
     int custom_paused=0;
-    VrRadioPlayback playback=vr_music_update(driving && race,!voice || paused,level,&custom_song,&custom_paused);
+    int pursuit_music=community_copchase_music && driving && race;
+    VrRadioPlayback playback=vr_music_update(driving && race,!pursuit_music && (!voice || paused),level,&custom_song,&custom_paused);
     int custom=playback==VR_RADIO_CUSTOM;
-    int mute_original=playback!=VR_RADIO_ORIGINAL;
+    int mute_original=playback!=VR_RADIO_ORIGINAL || pursuit_music;
     /* Only take ownership of a playing retail music voice. Leave pauses
      * imposed by the frontend or the player to their original owner. */
     if(custom_player && (!mute_original || player!=custom_player || handle!=custom_handle || voice!=custom_voice)) {
@@ -890,8 +963,10 @@ static void cockpit_radio(int driving,int replay,int cockpit)
     if(playing>=0)last_played=playing;
     if(submitted && playing==requested){requested=-1;submitted=0;}
     int interactive=valid || (custom && cockpit);
+    const QuestRadioSong pursuit_song={"POLICE PURSUIT","VITORINI MODS"};
     QuestRadioCommand cmd=quest_xr_radio_exchange(interactive?cockpit_player_car:0,level,
-        custom?custom_paused:(paused_player!=0 || paused),custom?&custom_song:cockpit_radio_song(playing));
+        pursuit_music?0:(custom?custom_paused:(paused_player!=0 || paused)),
+        pursuit_music?&pursuit_song:(custom?&custom_song:cockpit_radio_song(playing)));
     if(!interactive)return;
     if(cmd.action==QUEST_RADIO_VOLUME) {
         if(isfinite(cmd.volume) && cmd.volume>=0 && cmd.volume<=1 && quest_radio_volume_changed(level,cmd.volume)) {
@@ -899,6 +974,7 @@ static void cockpit_radio(int driving,int replay,int cockpit)
             cockpit_guest_call(sub_00076A70,system,0xb4a2du,1,0x406ce8u,0);
         }
     }
+    if(pursuit_music)return; /* Volume remains adjustable; restore song transport after pursuit. */
     if(custom) {
         if(cmd.action && cmd.action!=QUEST_RADIO_VOLUME)vr_music_command(cmd.action);
         return;
@@ -977,8 +1053,8 @@ void sub_000A1800(void)
                       (menu==QUEST_UI_REPLAY || (menu==QUEST_UI_HUD && !MEM8(0x0040245cu))),
                       menu==QUEST_UI_REPLAY,quest_xr_cockpit_active());
     }
-    quest_xr_pause_publish(MEM32(0x00428e34u)==6 &&
-                           quest_cockpit_ui_paused(cockpit_ui_read,NULL));
+    quest_xr_pause_publish(MEM32(0x00428e34u)==6?quest_cockpit_ui_paused(cockpit_ui_read,NULL):
+        MEM32(0x00428e34u)==3 && quest_cockpit_ui_main(cockpit_ui_read,NULL)?2:0);
     if(quest_xr_cockpit_active() && MEM32(0x00428e34u)==6 &&
        MEM32(0x003f5c14u)==3 && MEM32(0x003f5c50u)==0x003efb20u) {
         uint32_t surface=MEM32(0x003f5c68u);
@@ -1663,6 +1739,1161 @@ void sub_001890C0(void)
         if(!start) start=now;
     }
 #endif
+}
+
+#if defined(__ANDROID__) || defined(NFSU2_PCVR)
+static int community_adapter_busy;
+extern void sub_002194B0_gen(void);
+#include "community/xyz_pool_bridge.inc"
+static void community_pool_trace(const char *reason,uint32_t caller,uint32_t phase)
+{
+    uint32_t pool=MEM32(0x3e3fec),rides=MEM32(0x45afbc);
+    fprintf(stderr,"[XYZ car pool] %s caller=%08x phase=%u size=%u used=%u free=%u rides=%u/%u loader=%u\n",
+        reason,caller,phase,xyz_xbox_address(pool,0x50)?MEM32(pool+0x1c):0,
+        xyz_xbox_address(pool,0x50)?MEM32(pool+0x20):0,
+        xyz_xbox_address(pool,0x50)?MEM32(pool+0x28):0,
+        xyz_xbox_address(rides,0x30)?MEM32(rides+0x18):0,
+        xyz_xbox_address(rides,0x30)?MEM32(rides+0x2c):0,MEM32(0x45c4b4));
+}
+static int community_guest_write(void *context,uint32_t address,const void *data,size_t size)
+{
+    (void)context;
+    if(!xyz_xbox_address(address,size))return 0;
+    memcpy((void *)XBOX_PTR(address),data,size);return 1;
+}
+#include "community/xyz_paint_bridge.inc"
+static int community_guest_call(void *context,enum XyzXboxOp op,uint32_t self,uint32_t second,
+                                unsigned count,const uint32_t *args,uint32_t *result)
+{
+    (void)context;
+    if(op==XYZ_G_PAINT_ALLOC || op==XYZ_G_PAINT_FREE)return community_paint_memory(op,count,args,result);
+    if(op==XYZ_G_POOL_READY && !count && result){*result=community_pool_prepare();return 1;}
+    if(op==XYZ_G_TYPE_AVAILABLE && count==1 && args && args[0]<46 && result){
+        uint32_t types=MEM32(0x45af88);char name[32];
+        if(!xyz_xbox_address(types,46*0x890))return 0;
+        memcpy(name,(const void*)XBOX_PTR(types+args[0]*0x890),sizeof name);
+        if(!memchr(name,0,sizeof name))return 0;
+        *result=xyz_car_files_available(name);return 1;
+    }
+    static const struct {uint32_t address;unsigned arguments;} calls[XYZ_G_OP_COUNT]={
+        {0x0003ed50,1},{0x001ff570,1},{0x001ff6b0,4},{0x00216350,1},
+        {0x00207020,0},{0x00207620,1},{0x001b6d90,1},{0x00206d00,5},
+        {0x0021ac20,3},{0x0021ac90,2},{0x001ffda0,1},{0x00207e00,1},{0x0021a120,1},
+        {0x001f6650,2},{0x001dbe60,1},{0x001e4a70,1},{0x001f10c0,1},
+        {0x001e6b40,0},{0x001e6ac0,0},{0x001e48b0,0},{0x0018e780,1},{0x001ca7e0,1},
+        {0x000af510,4},{0x000ac200,3},{0x0009f040,1},{0x0009f2e0,1},
+        {0x00096e60,2},{0x00206b00,5},{0x001ff430,0},
+        {0,0},{0,0},{0x000a1580,3},{0x0009c860,0},{0,0},{0,0}
+    };
+    if((unsigned)op>=XYZ_G_OP_COUNT || count!=calls[op].arguments ||
+       (count && !args) || !result)return 0;
+    recomp_func_t function=recomp_lookup_manual(calls[op].address);
+    if(!function)function=recomp_lookup(calls[op].address);
+    if(!function)return 0;
+    *result=guest_call_full(function,self,second,0x0018ab7fu,count,args);
+    return 1;
+}
+static void community_socket_probe(const XyzXboxFrame *sample,uint64_t now)
+{
+    static int requested=-1,done;
+    if(requested<0){const char *e=getenv("NFSU2_XYZ_XNET_PROBE");requested=e && *e=='1';}
+    if(!requested || done || (sample->status!=XYZ_XBOX_READY && sample->status!=XYZ_XBOX_OTHER_RACE))return;
+    done=1;
+    uint32_t size=0x200,arena=0,objects[5]={0},args[6]={0},result=0;
+    int stage=0,tcp=0,udp=0;
+    if(!community_guest_call(NULL,XYZ_G_ALLOC,0,0,1,&size,&arena) || !xyz_xbox_address(arena,size))return;
+    memset((void*)XBOX_PTR(arena),0,size);
+    uint8_t *address=(uint8_t*)XBOX_PTR(arena);
+    address[0]=2;address[2]=0x26;address[3]=0xac;address[4]=10;address[5]=77;address[6]=1;address[7]=2;
+    memcpy((void*)XBOX_PTR(arena+16),address,16);
+    MEM8(arena+18)=0x0e;MEM8(arena+19)=0x4a; /* 3658 */
+    memcpy((void*)XBOX_PTR(arena+32),(const void*)XBOX_PTR(arena+16),16);MEM8(arena+35)=0x4c; /* 3660 */
+    static const uint8_t payload[16]={'X','Y','Z',' ','X','N','E','T',' ','b','r','i','d','g','e','!'};
+    memcpy((void*)XBOX_PTR(arena+64),payload,16);
+    if(!xyz_xnet_probe_begin(g_fs_base))goto end;
+    /* These are the original EA/DirtySock routines. Their direct XNet calls
+     * reach the wrappers below, so this checks lifted code, ABI and the UDP
+     * protocol-254 prefix, not just the portable fixture. No public socket. */
+    for(unsigned i=0;i<2;++i){args[0]=2;args[1]=1;args[2]=0;
+        objects[i]=guest_call_full(sub_00293380,0,0,0x0018ab7fu,3,args);
+        if(!xyz_xbox_address(objects[i],0x50))goto close;
+    }
+    stage=1;args[0]=objects[0];args[1]=arena;args[2]=16;
+    if(guest_call_full(sub_002934E0,0,0,0x0018ab7fu,3,args))goto close;
+    args[1]=2;if(guest_call_full(sub_00293670,0,0,0x0018ab7fu,2,args))goto close;
+    stage=2;args[0]=objects[1];args[1]=arena;args[2]=16;
+    if(guest_call_full(sub_002935E0,0,0,0x0018ab7fu,3,args))goto close;
+    xyz_xnet_probe_tick(now/1000);
+    args[0]=objects[1];args[1]=0x73746174u;args[2]=args[3]=0;
+    if(guest_call_full(sub_002939F0,0,0,0x0018ab7fu,4,args)!=1)goto close;
+    stage=3;MEM32(arena+160)=16;args[0]=objects[0];args[1]=arena+176;args[2]=arena+160;
+    objects[2]=guest_call_full(sub_002936D0,0,0,0x0018ab7fu,3,args);
+    if(!xyz_xbox_address(objects[2],0x50))goto close;
+    args[0]=objects[1];args[1]=arena+64;args[2]=16;args[3]=args[4]=args[5]=0;
+    if(guest_call_full(sub_00293790,0,0,0x0018ab7fu,6,args)!=16)goto close;
+    xyz_xnet_probe_tick(now/1000);
+    args[0]=objects[2];args[1]=arena+96;args[2]=32;
+    result=guest_call_full(sub_00293870,0,0,0x0018ab7fu,6,args);
+    if(result!=16 || memcmp((const void*)XBOX_PTR(arena+96),payload,16))goto close;
+    tcp=1;stage=4;
+    for(unsigned i=3;i<5;++i){args[0]=2;args[1]=2;args[2]=0;
+        objects[i]=guest_call_full(sub_00293380,0,0,0x0018ab7fu,3,args);
+        if(!xyz_xbox_address(objects[i],0x50))goto close;
+        args[0]=objects[i];args[1]=arena+(i==3?16:32);args[2]=16;
+        if(guest_call_full(sub_002934E0,0,0,0x0018ab7fu,3,args) || MEM32(objects[i]+0x10)!=254)goto close;
+    }
+    stage=5;args[0]=objects[3];args[1]=arena+64;args[2]=16;args[3]=0;args[4]=arena+32;args[5]=16;
+    if(guest_call_full(sub_00293790,0,0,0x0018ab7fu,6,args)!=16)goto close;
+    xyz_xnet_probe_tick(now/1000);
+    memset((void*)XBOX_PTR(arena+96),0,32);MEM32(arena+160)=16;
+    args[0]=objects[4];args[1]=arena+96;args[2]=32;args[3]=0;args[4]=arena+176;args[5]=arena+160;
+    result=guest_call_full(sub_00293870,0,0,0x0018ab7fu,6,args);
+    udp=result==16 && !memcmp((const void*)XBOX_PTR(arena+96),payload,16) && MEM8(arena+178)==0x0e && MEM8(arena+179)==0x4a;
+    stage=6;
+close:
+    for(unsigned i=0;i<5;++i)if(xyz_xbox_address(objects[i],0x50)){
+        args[0]=objects[i];guest_call_full(sub_00293430,0,0,0x0018ab7fu,1,args);
+    }
+    xyz_xnet_probe_end();
+end:
+    fprintf(stderr,"[XYZ XNet] original guest SocketOpen/Bind/Connect/Info/Accept/Send/Recv/Close: stage=%d TCP=%d UDP254=%d last=%u; isolated loopback\n",stage,tcp,udp,result);
+    community_guest_call(NULL,XYZ_G_FREE,0,0,1,&arena,&result);
+}
+#include "community/xyz_lobby_bridge.inl"
+#include "community/xyz_lobby_probe.inl"
+#include "community/xyz_race_link_probe.inl"
+#include "community/xyz_races_bridge.inl"
+#include "community/xyz_races_probe.inl"
+#include "community/xyz_career_probe.inl"
+#include "community/xyz_career_mods_probe.inl"
+#include "community/xyz_races_pair_probe.inl"
+#include "community/xyz_subtitles.inl"
+#include "community/xyz_stance_bridge.inl"
+#include "community/xyz_lights_bridge.inl"
+#include "community/xyz_damage_bridge.inl"
+#include "community/copchase_probe.inl"
+#include "community/copchase_bridge.inl"
+extern void sub_00210E00_gen(void);
+#include "community/xyz_texture_lists.inl"
+#include "community/xyz_regional_assets.h"
+#include "community/xyz_xbox_regional.h"
+static int community_regional_ready;
+static void community_regional_frame(void){
+    if(community_regional_ready || !xyz_regional_available("CORSA") || !xyz_regional_available("PEUGOT106"))return;
+    XyzXboxGuest memory={NULL,cockpit_ui_read,community_guest_write,community_guest_call};
+    community_regional_ready=xyz_xbox_regional_install(&memory);
+    if(community_regional_ready)fprintf(stderr,"[VR regional] original car selection and 28-car AI list %s\n",community_regional_ready>0?"enabled":"rejected: unexpected Xbox tables");
+}
+#include "community/xyz_race_settings_probe.inl"
+static void community_ride_probe(const XyzXboxFrame *sample)
+{
+    static int requested=-1,done;
+    if(requested<0){const char *e=getenv("NFSU2_XYZ_RIDE_PROBE");requested=e && *e=='1';}
+    if(!requested || done || !sample->config_size ||
+       (sample->status!=XYZ_XBOX_READY && sample->status!=XYZ_XBOX_OTHER_RACE))return;
+    done=1; /* guest loads can pump the game; never re-enter this diagnostic */
+    XyzXboxGuest guest={NULL,cockpit_ui_read,community_guest_write,community_guest_call};
+    uint32_t size=0x1200,allocation=0;
+    if(!community_guest_call(NULL,XYZ_G_ALLOC,0,0,1,&size,&allocation) || !xyz_xbox_address(allocation,size)) {
+        fprintf(stderr,"[XYZ ride] owned scratch allocation failed\n");return;
+    }
+    /* Stable for the process lifetime; no game object owns this test ride. */
+    XyzXboxArena arena={allocation,size};
+    uint32_t ride=(allocation+0xffu)&~0xffu,scratch=ride+0x900;
+    XyzXboxRideResult result;
+    int ok=xyz_xbox_build_ride(&guest,arena,ride,scratch,5,sample->config,sample->config_size,&result);
+    uint8_t rebuilt[RC_CFG_MAX];
+    int count=ok?xyz_xbox_ride_config(cockpit_ui_read,NULL,ride,rebuilt,sizeof rebuilt):0;
+    int same=count==sample->config_size && !memcmp(rebuilt,sample->config,(size_t)count);
+    fprintf(stderr,"[XYZ ride] reconstruction=%s type=%u fallback=%d missing=%u bytes=%d exact=%d owned=%08x\n",
+        ok?"built":"failed",result.type,result.fallback_type,result.missing_parts,count,same,ride);
+    const char *output=getenv("NFSU2_XYZ_RIDE_PROBE_OUT");
+    if(count && output && *output) {
+        FILE *file=fopen(output,"wb");
+        if(file){fwrite(rebuilt,1,(size_t)count,file);fclose(file);}
+    }
+}
+static void community_visual_probe(const XyzXboxFrame *sample)
+{
+    static int requested=-1,done;
+    if(requested<0){const char *e=getenv("NFSU2_VISUAL_REP_PROBE");requested=e && *e=='1';}
+    if(!requested || done || !quest_xr_visual_rep_remover() || !sample->ride ||
+       (sample->status!=XYZ_XBOX_READY && sample->status!=XYZ_XBOX_OTHER_RACE))return;
+    done=1;
+    uint32_t ride=sample->ride,before=MEM32(0x3a37f8u);
+    // The existing override branch returns before reading this/ride. Use the
+    // actual current stage; never alter career progression for a diagnostic.
+    guest_call_full(sub_00130300,0,0,0x0018ab7fu,1,&ride);
+    fprintf(stderr,"[Community mods] visual rating probe: override preserved=%d\n",MEM32(0x3a37f8u)==before);
+}
+static void community_clone_probe(const XyzXboxFrame *sample,uint64_t now)
+{
+    static int requested=-1,busy,started,reported=-1,finished,configured;
+    static XyzXboxClone clone;
+    static uint64_t ready,last_motion;
+    static uint64_t duration=10000000ull;
+    static float base[3],max_position_error,max_rotation_error;
+    static unsigned motion_frames,motion_failures,hidden_frames;
+    if(requested<0){
+        const char *e=getenv("NFSU2_XYZ_CLONE_PROBE");requested=e && *e=='1';
+        const char *seconds=getenv("NFSU2_XYZ_CLONE_PROBE_SECONDS");
+        if(seconds){long value=strtol(seconds,NULL,10);if(value>=10 && value<=300)duration=(uint64_t)value*1000000ull;}
+    }
+    if(!requested || busy || finished)return;
+    XyzXboxGuest guest={NULL,cockpit_ui_read,community_guest_write,community_guest_call};
+    busy=1;
+    if(!started && sample->config_size &&
+       (sample->status==XYZ_XBOX_READY || sample->status==XYZ_XBOX_OTHER_RACE)) {
+        started=1;
+        uint32_t size=0x3000,allocation=0;
+        if(community_guest_call(NULL,XYZ_G_ALLOC,0,0,1,&size,&allocation) && xyz_xbox_address(allocation,size)) {
+            XyzXboxArena arena={allocation,size};
+            int ok=xyz_xbox_clone_begin(&guest,&clone,arena,sample->world,sample->car,5,now);
+            fprintf(stderr,"[XYZ clone] begin=%d record=%08x handle=%08x world=%08x\n",ok,clone.record,clone.handle,clone.world);
+        } else {fprintf(stderr,"[XYZ clone] allocation failed\n");finished=1;}
+    }
+    if(started && !finished) {
+        int stage=xyz_xbox_clone_poll(&guest,&clone,now);
+        if(stage!=reported) {
+            fprintf(stderr,"[XYZ clone] stage=%d car=%08x indexed=%u\n",stage,clone.car,
+                sample->world?MEM32(sample->world+0x10):0);
+            reported=stage;
+        }
+        if(stage==XYZ_CLONE_READY && !configured) {
+            uint8_t config[RC_CFG_MAX];int config_size=sample->config_size;
+            memcpy(config,sample->config,config_size);
+            const char *type=getenv("NFSU2_XYZ_CLONE_TYPE");
+            if(type && *type && strlen(type)<32) {
+                rc_carcfg decoded;
+                if(rc_carcfg_decode(config,config_size,&decoded)==RC_OK) {
+                    uint32_t types=MEM32(0x45af88);
+                    if(xyz_xbox_address(types,46*0x890))for(unsigned i=0;i<46;++i) {
+                        const char *name=(const char *)XBOX_PTR(types+i*0x890);
+                        if(strncmp(name,type,32))continue;
+                        snprintf(decoded.type_name,sizeof decoded.type_name,"%s",type);
+                        decoded.type_hash=MEM32(types+i*0x890+0xd0);decoded.n_parts=0;
+                        config_size=rc_carcfg_encode(&decoded,config,sizeof config);break;
+                    }
+                }
+            }
+            XyzXboxRideResult result={0};
+            community_pool_trace("before clone look",0,0);
+            int ok=xyz_xbox_clone_configure(&guest,&clone,config,config_size,now,&result);
+            fprintf(stderr,"[XYZ clone] look begin=%d type=%u fallback=%d missing=%u\n",ok,result.type,result.fallback_type,result.missing_parts);
+            configured=ok?1:3;
+            stage=clone.stage;
+            if(!ok)ready=now;
+        } else if(stage==XYZ_CLONE_READY && configured==1) {
+            uint8_t wire[RC_CFG_MAX];
+            int n=xyz_xbox_ride_config(cockpit_ui_read,NULL,MEM32(clone.car+0x10),wire,sizeof wire);
+            int exact=n==sample->config_size && !memcmp(wire,sample->config,(size_t)n);
+            fprintf(stderr,"[XYZ clone] look applied bytes=%d exact=%d ride=%08x\n",n,exact,MEM32(clone.car+0x10));
+            configured=2;ready=now;memcpy(base,sample->state.p,sizeof base);
+            community_pool_trace("clone look ready",0,0);
+        }
+        if(stage==XYZ_CLONE_READY && configured==2 && sample->world==clone.world) {
+            float t=(float)(now-ready)/1000000.f;
+            if(t>=4.f && t<5.f) {
+                if(!xyz_xbox_clone_hide(&guest,&clone))++motion_failures;
+                ++hidden_frames;
+            } else {
+                rc_pose p;memset(&p,0,sizeof p);
+                float angle=t*.3f,heading=angle+1.57079633f;
+                p.p[0]=base[0]+6.f*cosf(angle);p.p[1]=base[1]+6.f*sinf(angle);p.p[2]=base[2];
+                p.q[2]=sinf(heading*.5f);p.q[3]=cosf(heading*.5f);
+                p.v[0]=-1.8f*sinf(angle);p.v[1]=1.8f*cosf(angle);p.w[2]=.3f;
+                p.mode=RC_MODE_INTERP;p.speed=1.8f;p.rpm=2000;p.gear=1;p.throttle=.25f;p.steer=.1f;
+                float dt=last_motion?(float)(now-last_motion)/1000000.f:0;
+                rc_state actual;
+                int ok=xyz_xbox_clone_pose(&guest,&clone,&p,dt) &&
+                    xyz_xbox_car_state(cockpit_ui_read,NULL,clone.world,clone.car,(uint32_t)now,&actual);
+                if(ok) {
+                    float dot=0;
+                    for(unsigned i=0;i<3;i++){float e=fabsf(p.p[i]-actual.p[i]);if(e>max_position_error)max_position_error=e;}
+                    for(unsigned i=0;i<4;i++)dot+=p.q[i]*actual.q[i];
+                    float error=fabsf(1.f-fabsf(dot));if(error>max_rotation_error)max_rotation_error=error;
+                } else ++motion_failures;
+                ++motion_frames;
+            }
+            last_motion=now;
+        }
+        if(stage==XYZ_CLONE_FAILED || sample->world!=clone.world ||
+           (ready && now-ready>=duration)) {
+            uint32_t oldcar=clone.car;
+            int ok=xyz_xbox_clone_retire(&guest,&clone);
+            fprintf(stderr,"[XYZ clone] retire=%d car=%08x remaining=%08x\n",ok,oldcar,
+                oldcar && sample->world?xyz_xbox_find_car(cockpit_ui_read,NULL,sample->world,oldcar,0):0);
+            fprintf(stderr,"[XYZ clone] motion frames=%u hidden=%u failures=%u max_position_error=%.8f max_rotation_error=%.8f\n",
+                motion_frames,hidden_frames,motion_failures,max_position_error,max_rotation_error);
+            finished=1;
+        }
+    }
+    busy=0;
+}
+#endif
+
+/* Original lobby Drop deliberately switches to its "keep friends suspended"
+ * branch for a started game (19AEFB), even when called with zero. The XYZ LAN
+ * path never initializes the Xbox Live friends manager. Its Suspend method
+ * nevertheless calls BuddyApi with a null client, eventually clearing guest
+ * 0x1c..0x4353 and erasing the main TIB. Skip only that absent optional client
+ * at the audited Drop callsite; existing clients and other callers remain
+ * original. No fake client or repaired TLS state is introduced. */
+extern void sub_00190210_gen(void);
+void sub_00190210(void)
+{
+#if defined(__ANDROID__) || defined(NFSU2_PCVR)
+    if(community_engine_lobby.initialized && community_engine_lobby.play_received &&
+       ecx==0x42dc50 && xyz_xbox_address(esp,4) && MEM32(esp)==0x19b00e && !MEM32(ecx+0xf8)){
+        esp+=4;return;
+    }
+#endif
+    sub_00190210_gen();
+}
+
+/* Audited Xbox equivalent of CarLoader::Purge (PC 0x63a1b0). Phase 1 can
+ * remove textures from referenced rides. Record pool pressure at its callers
+ * without logging any network identity, configuration or credential. */
+void sub_002194B0(void)
+{
+#if defined(__ANDROID__) || defined(NFSU2_PCVR)
+    static unsigned calls;
+    uint32_t caller=MEM32(esp),phase=MEM32(esp+4);
+    if(ecx==0x45c4a0 && phase) {
+        int handled=community_pool_purge(caller);
+        if(handled>=0){eax=(uint32_t)handled;esp+=8;return;}
+        ++calls;
+        if(calls<=12 || !(calls&(calls-1)))community_pool_trace("retail purge",caller,phase);
+    }
+#endif
+    sub_002194B0_gen();
+}
+extern void sub_001FFBC0_gen(void);
+void sub_001FFBC0(void)
+{
+#if defined(__ANDROID__) || defined(NFSU2_PCVR)
+    if(community_pool_blocks && ecx==0x45c4a0) {
+        XyzXboxPool p;
+        if(xyz_xbox_pool_read(cockpit_ui_read,NULL,&p) && MEM32(esp+4)<=p.size){esp+=8;return;}
+    }
+#endif
+    sub_001FFBC0_gen();
+}
+extern void sub_002199C0_gen(void);
+void sub_002199C0(void)
+{
+#if defined(__ANDROID__) || defined(NFSU2_PCVR)
+    if(ecx==0x45c4a0 && !community_pool_release()){esp+=4;return;}
+#endif
+    sub_002199C0_gen();
+}
+extern void sub_00050070_gen(void);
+void sub_00050070(void)
+{
+#if defined(__ANDROID__) || defined(NFSU2_PCVR)
+    if(community_pool_enabled() && MEM32(esp+4)==0x1240 && MEM32(esp+8)==22 && MEM32(esp+12)==0x360b4c) {
+        uint32_t stack=esp;MEM32(stack+8)=192;sub_00050070_gen();MEM32(stack+8)=22;
+        fprintf(stderr,"[XYZ car pool] ride capacity=192\n");return;
+    }
+#endif
+    sub_00050070_gen();
+}
+
+/* Audited Xbox XNet stdcall entry points. Outside a selected native adapter
+ * they execute the retail implementation, including its real last error. */
+static int community_xnet_call(unsigned operation)
+{
+#if defined(__ANDROID__) || defined(NFSU2_PCVR)
+    unsigned count=xyz_xnet_arg_count((enum XyzXnetOp)operation);
+    if(count>6 || !xyz_xbox_address(esp,4+4*count))return 0;
+    uint32_t args[6],result;for(unsigned i=0;i<count;++i)args[i]=MEM32(esp+4+4*i);
+    XyzXboxGuest guest={NULL,cockpit_ui_read,community_guest_write,community_guest_call};
+    struct timespec ts;clock_gettime(CLOCK_MONOTONIC,&ts);
+    uint64_t now=(uint64_t)ts.tv_sec*1000ull+(uint64_t)ts.tv_nsec/1000000;
+    if(xyz_xnet_dispatch(&guest,(enum XyzXnetOp)operation,g_fs_base,args,count,now,&result) ||
+       xyz_online_xnet(&guest,(enum XyzXnetOp)operation,g_fs_base,args,count,now,&result)){
+        eax=result;esp+=4+4*count;return 1;
+    }
+#else
+    (void)operation;
+#endif
+    return 0;
+}
+/* One declaration per line: manual_scan.py uses this form to retain the
+ * original implementations under their _gen names. */
+extern void sub_002FA815_gen(void);
+extern void sub_002FA820_gen(void);
+extern void sub_002FA82B_gen(void);
+extern void sub_002FA836_gen(void);
+extern void sub_002FA841_gen(void);
+extern void sub_002FA850_gen(void);
+extern void sub_002FA85B_gen(void);
+extern void sub_002FA866_gen(void);
+extern void sub_002FA871_gen(void);
+extern void sub_002FA87C_gen(void);
+extern void sub_002FA887_gen(void);
+extern void sub_002FA892_gen(void);
+extern void sub_002FA8BB_gen(void);
+extern void sub_002FA8D5_gen(void);
+extern void sub_002FA8E4_gen(void);
+extern void sub_002FA8FE_gen(void);
+extern void sub_00307CC9_gen(void);
+void sub_002FA815(void) {if(!community_xnet_call(0))sub_002FA815_gen();}
+void sub_002FA820(void) {if(!community_xnet_call(1))sub_002FA820_gen();}
+void sub_002FA82B(void) {if(!community_xnet_call(2))sub_002FA82B_gen();}
+void sub_002FA836(void) {if(!community_xnet_call(3))sub_002FA836_gen();}
+void sub_002FA841(void) {if(!community_xnet_call(4))sub_002FA841_gen();}
+void sub_002FA850(void) {if(!community_xnet_call(5))sub_002FA850_gen();}
+void sub_002FA85B(void) {if(!community_xnet_call(6))sub_002FA85B_gen();}
+void sub_002FA866(void) {if(!community_xnet_call(7))sub_002FA866_gen();}
+void sub_002FA871(void) {if(!community_xnet_call(8))sub_002FA871_gen();}
+void sub_002FA87C(void) {if(!community_xnet_call(9))sub_002FA87C_gen();}
+void sub_002FA887(void) {if(!community_xnet_call(10))sub_002FA887_gen();}
+void sub_002FA892(void) {if(!community_xnet_call(11))sub_002FA892_gen();}
+void sub_002FA8BB(void) {if(!community_xnet_call(12))sub_002FA8BB_gen();}
+void sub_002FA8D5(void) {if(!community_xnet_call(13))sub_002FA8D5_gen();}
+void sub_002FA8E4(void) {if(!community_xnet_call(14))sub_002FA8E4_gen();}
+void sub_002FA8FE(void) {if(!community_xnet_call(15))sub_002FA8FE_gen();}
+void sub_00307CC9(void) {if(!community_xnet_call(16))sub_00307CC9_gen();}
+
+/* Visual Reputation Remover: use the supported Xbox calculation's existing
+ * override branch, retaining its complete x87/ABI behavior. Restore the debug
+ * override immediately afterward; a saved career is never edited here. */
+extern void sub_00151DF0_gen(void);
+extern void sub_00204430_gen(void);
+extern void sub_000A75D0_gen(void);
+extern void sub_000A2CD0_gen(void);
+extern void sub_002E80A0_gen(void);
+void sub_00204430(void)
+{
+#if defined(__ANDROID__) || defined(NFSU2_PCVR)
+    float before=community_lights_flare_gain;
+    community_lights_flare_gain=xyz_xbox_address(ecx,4) && community_lights_state(MEM32(ecx))==2?3.f:1.f;
+#endif
+    sub_00204430_gen();
+#if defined(__ANDROID__) || defined(NFSU2_PCVR)
+    community_lights_flare_gain=before;
+#endif
+}
+void sub_000A75D0(void)
+{
+#if defined(__ANDROID__) || defined(NFSU2_PCVR)
+    uint32_t address=esp+0x10,light=MEM32(esp+8),original=MEM32(address);int changed=0;
+    if(community_lights_flare_gain!=1 && xyz_xbox_address(light,12)){
+        uint32_t hash=MEM32(light+8);float value=MEMF(address);
+        if((hash==0x9db90133 || hash==0xd09091c6) && isfinite(value) && value>=0 && value<=4){
+            MEMF(address)=value*community_lights_flare_gain;changed=1;++community_lights_flare_count;
+        }
+    }
+#endif
+    sub_000A75D0_gen();
+#if defined(__ANDROID__) || defined(NFSU2_PCVR)
+    if(changed)MEM32(address)=original;
+#endif
+}
+void sub_000A2CD0(void)
+{
+#if defined(__ANDROID__) || defined(NFSU2_PCVR)
+    float before=community_lights_road_gain;uint32_t matrix=0;float saved[16];
+    uint32_t view=MEM32(esp+8);
+    community_lights_road_gain=1;
+    if(community_lights_car && xyz_xbox_address(view,0x44) && MEM32(view+4)==9){
+        community_lights_road_gain=community_lights_mode==1?0:community_lights_mode==2?5:1;
+        uint32_t platform=MEM32(view);
+        if(community_lights_mode==2 && xyz_xbox_address(platform,0xc0)){
+            float v[16],p[16],out[16];
+            /* 0xA33F0 transposes all shader matrices with 0x99F70 before
+             * publishing them. Calculate in row-vector form, then transpose
+             * back for the Xbox shader upload. */
+            for(unsigned r=0;r<4;r++)for(unsigned c=0;c<4;c++){
+                v[r*4+c]=MEMF(platform+4*(c*4+r));p[r*4+c]=MEMF(platform+0x40+4*(c*4+r));
+            }
+            if(vr_mod_high_beam(v,p,out)){
+                matrix=platform+0x80;memcpy(saved,(const void*)XBOX_PTR(matrix),64);
+                for(unsigned r=0;r<4;r++)for(unsigned c=0;c<4;c++)MEMF(matrix+4*(r*4+c))=out[c*4+r];
+            }
+        }
+    }
+#endif
+    sub_000A2CD0_gen();
+#if defined(__ANDROID__) || defined(NFSU2_PCVR)
+    if(matrix)memcpy((void*)XBOX_PTR(matrix),saved,64);
+    community_lights_road_gain=before;
+#endif
+}
+void sub_002E80A0(void)
+{
+#if defined(__ANDROID__) || defined(NFSU2_PCVR)
+    uint32_t address=edx;float saved[3];int changed=0;
+    if(ecx==0x7a && MEM32(esp)==0xa2e92 && community_lights_road_gain!=1 && xyz_xbox_address(address,16)){
+        memcpy(saved,(const void*)XBOX_PTR(address),12);
+        if(isfinite(saved[0]) && isfinite(saved[1]) && isfinite(saved[2])){
+            for(unsigned i=0;i<3;i++)MEMF(address+4*i)=saved[i]*community_lights_road_gain;
+            changed=1;++community_lights_road_count;
+        }
+    }
+#endif
+    sub_002E80A0_gen();
+#if defined(__ANDROID__) || defined(NFSU2_PCVR)
+    if(changed)memcpy((void*)XBOX_PTR(address),saved,12);
+#endif
+}
+extern void sub_001105C0_gen(void);
+#if defined(__ANDROID__) || defined(NFSU2_PCVR)
+#include "community/xyz_special_vinyls.inl"
+#endif
+void sub_00151DF0(void)
+{
+    uint32_t screen=ecx,caller=MEM32(esp),category=MEM32(esp+4);
+    sub_00151DF0_gen();
+#if defined(__ANDROID__) || defined(NFSU2_PCVR)
+    if(caller==0x15272c && category==22)community_special_category(screen);
+#endif
+}
+void sub_001105C0(void)
+{
+#if defined(__ANDROID__) || defined(NFSU2_PCVR)
+    if(edx==COMMUNITY_SPECIAL_HASH && community_special_label){eax=community_special_label;esp+=4;return;}
+#endif
+    sub_001105C0_gen();
+}
+extern void sub_00130300_gen(void);
+extern void sub_0011ED10_gen(void);
+extern void sub_001106E0_gen(void);
+extern void sub_001197B0_gen(void);
+void sub_0011ED10(void)
+{
+    sub_0011ED10_gen();
+#if defined(__ANDROID__) || defined(NFSU2_PCVR)
+    community_subtitle_loaded();
+#endif
+}
+void sub_001106E0(void)
+{
+    sub_001106E0_gen();
+#if defined(__ANDROID__) || defined(NFSU2_PCVR)
+    community_subtitle_unloaded();
+#endif
+}
+void sub_001197B0(void)
+{
+    sub_001197B0_gen();
+#if defined(__ANDROID__) || defined(NFSU2_PCVR)
+    if(community_subtitle_lines)SET_LO8(eax,1);
+#endif
+}
+#if defined(__ANDROID__) || defined(NFSU2_PCVR)
+#include "community/xyz_quickrace_bridge.inl"
+#include "community/xyz_map_textures.inl"
+#endif
+extern void sub_000CC2B0_gen(void);
+/* LapCounter::Update's sprint/percentage branch also fits a one-lap
+ * circuit. Scope the flag to this HUD call; race rules retain their flag. */
+extern void sub_000C3F80_gen(void);
+void sub_000C3F80(void)
+{
+#if defined(__ANDROID__) || defined(NFSU2_PCVR)
+    int percentage=MEM32(0x3cc47c)==1 && !MEM32(0x3cc474);
+    if(percentage)MEM32(0x3cc474)=1;
+#endif
+    sub_000C3F80_gen();
+#if defined(__ANDROID__) || defined(NFSU2_PCVR)
+    if(percentage && MEM32(0x3cc474)==1)MEM32(0x3cc474)=0;
+#endif
+}
+void sub_000CC2B0(void)
+{
+#if defined(__ANDROID__) || defined(NFSU2_PCVR)
+    if(community_quickrace_action(0))return;
+#endif
+    sub_000CC2B0_gen();
+}
+extern void sub_000CBD40_gen(void);
+void sub_000CBD40(void)
+{
+#if defined(__ANDROID__) || defined(NFSU2_PCVR)
+    if(community_quickrace_action(1))return;
+#endif
+    sub_000CBD40_gen();
+}
+extern void sub_000CC570_gen(void);
+void sub_000CC570(void)
+{
+#if defined(__ANDROID__) || defined(NFSU2_PCVR)
+    if(community_quickrace_action(2))return;
+#endif
+    sub_000CC570_gen();
+}
+extern void sub_000CC320_gen(void);
+void sub_000CC320(void)
+{
+    uint32_t self=ecx;sub_000CC320_gen();
+#if defined(__ANDROID__) || defined(NFSU2_PCVR)
+    community_quickrace_unfreeze(self);
+#endif
+}
+extern void sub_000CBE10_gen(void);
+void sub_000CBE10(void)
+{
+    uint32_t self=ecx;sub_000CBE10_gen();
+#if defined(__ANDROID__) || defined(NFSU2_PCVR)
+    community_quickrace_unfreeze(self);
+#endif
+}
+extern void sub_00026B10_gen(void);
+void sub_00026B10(void)
+{
+#if defined(__ANDROID__) || defined(NFSU2_PCVR)
+    uint32_t driver=ecx;
+#endif
+    sub_00026B10_gen();
+#if defined(__ANDROID__) || defined(NFSU2_PCVR)
+    int mode=quest_xr_career_catchup();
+    static int log=-1;
+    if(log<0){const char *s=getenv("NFSU2_CATCHUP_LOG");log=s && !strcmp(s,"1");}
+    if((mode || log) && MEM32(0x41c338)==1 && MEM32(0x406960) && !MEM32(0x456290) &&
+       xyz_xbox_address(driver,0x774)){
+        uint32_t car=MEM32(driver+4),world=MEM32(0x4493e0);
+        if(xyz_xbox_address(car,0x46c) && xyz_xbox_find_car(cockpit_ui_read,NULL,world,car,0)==car){
+            float pace=MEMF(driver+0x770),boost=MEMF(car+0x468);
+            float before_pace=pace,before_boost=boost;
+            if(vr_mod_catchup(mode,1,0,&pace,&boost)){
+                MEMF(driver+0x770)=pace;MEMF(car+0x468)=boost;
+                static int said;if(!said){fprintf(stderr,"[Community mods] career rubberbanding applied mode=%d\n",mode);said=1;}
+            }
+            if(log){
+                static unsigned calls,changed;static float low=9.f,high=-9.f,maximum_boost=-9.f;
+                if(before_pace<low)low=before_pace;if(before_pace>high)high=before_pace;
+                if(before_boost>maximum_boost)maximum_boost=before_boost;
+                changed+=pace!=before_pace || boost!=before_boost;
+                if(++calls%120==0){
+                    fprintf(stderr,"[Community mods catchup] mode=%d updates=%u changed=%u original_pace=%.6f..%.6f original_boost=%.6f final_pace=%.6f final_boost=%.6f driver=%08x car=%08x\n",
+                        mode,calls,changed,low,high,maximum_boost,pace,boost,driver,car);
+                    low=9.f;high=maximum_boost=-9.f;
+                }
+            }
+        }
+    }
+#endif
+}
+void sub_00130300(void)
+{
+#if defined(__ANDROID__) || defined(NFSU2_PCVR)
+    if(quest_xr_visual_rep_remover() && MEM32(0x3a37f8u)==0xbf800000u) {
+        int stage=(int32_t)MEM32(0x405d28u);
+        float stars=vr_mod_visual_rating(stage);
+        if(stars>=0) {
+            MEMF(0x3a37f8u)=stars;
+            sub_00130300_gen();
+            MEM32(0x3a37f8u)=0xbf800000u;
+            static int last=-1;
+            if(last!=stage){fprintf(stderr,"[Community mods] Visual Reputation Remover: stage %d, returned %.1f stars (expected %.1f), override restored\n",stage,g_fp_stack[g_fp_top&7],stars);last=stage;}
+            return;
+        }
+    }
+#endif
+    sub_00130300_gen();
+}
+/* Only the rating-box caller gets the upstream mod's "already present"
+ * answer. All other package queries retain the original result. */
+extern void sub_0013A2A0_gen(void);
+void sub_0013A2A0(void)
+{
+#if defined(__ANDROID__) || defined(NFSU2_PCVR)
+    int meter=quest_xr_visual_rep_remover() && xyz_xbox_address(esp,8) &&
+        MEM32(esp)==0x16242du && MEM32(esp+4)==0x353de0u;
+#endif
+    sub_0013A2A0_gen();
+#if defined(__ANDROID__) || defined(NFSU2_PCVR)
+    if(meter){
+        eax|=1u;
+        static int said;
+        if(!said){fprintf(stderr,"[Community mods] Visual Reputation Remover: rating box suppressed at verified caller\n");said=1;}
+    }
+#endif
+}
+
+/* US Xbox main loop 0x18a8c0: the call at 0x18ab7a immediately follows
+ * its two debug no-ops, after WorldDoTimestep and before cameras/rendering.
+ * This corresponds to the PC adapter's hook at 0x581475. A camera selector
+ * or a physics substep is not a once-per-frame hook. Keep the original call
+ * and return values; all guest calls run synchronously on this game thread. */
+extern void sub_001FAED0_gen(void);
+#if defined(__ANDROID__) || defined(NFSU2_PCVR)
+extern void xyz_online_fleet_probe(const XyzXboxGuest *,const XyzXboxFrame *,uint64_t);
+#endif
+/* Stock frontend Wake has the same overwrite semantics as the PC version.
+ * Repair only packs held by the online adapter; without an online session or
+ * explicit asset probe this wrapper runs exactly the original function. */
+extern void sub_0009F2E0_gen(void);
+void sub_0009F2E0(void)
+{
+#if defined(__ANDROID__) || defined(NFSU2_PCVR)
+    if(!community_adapter_busy && xyz_xbox_address(esp,8)) {
+        community_adapter_busy=1;
+        XyzXboxGuest guest={NULL,cockpit_ui_read,community_guest_write,community_guest_call};
+        XyzXboxWakePlan plan;
+        int prepared=xyz_online_before_wake(&guest,MEM32(esp+4),&plan);
+        sub_0009F2E0_gen();
+        if(prepared)xyz_online_after_wake(&guest,&plan);
+        community_adapter_busy=0;return;
+    }
+#endif
+    sub_0009F2E0_gen();
+}
+/* Streaming waits repeatedly call this original pump while the outer frame
+ * is blocked. Keep the owned race's DirtySock callbacks moving there too;
+ * otherwise a long load fills the bounded LAN departure queue and forces a
+ * new service generation. Never advance gameplay or run probe transitions
+ * from this nested loader context. Other guest threads and offline loads
+ * retain the original behavior. */
+extern void sub_001894F0_gen(void);
+void sub_001894F0(void)
+{
+    sub_001894F0_gen();
+#if defined(__ANDROID__) || defined(NFSU2_PCVR)
+    uint32_t flow=MEM32(0x428e34);
+    if(!community_adapter_busy && community_engine_lobby.stage==XYZ_LOBBY_RACE &&
+       g_fs_base==community_engine_thread && (flow==4 || flow==5 || flow==7 || flow==8)){
+        static uint64_t last;
+        struct timespec ts;clock_gettime(CLOCK_MONOTONIC,&ts);
+        uint64_t now=(uint64_t)ts.tv_sec*1000000ull+(uint64_t)ts.tv_nsec/1000;
+        if(now>=last && now-last<10000ull)return;
+        last=now;community_adapter_busy=1;
+        XYZOnlineStatus status;xyz_online_snapshot(&status);
+        xyz_xbox_lobby_tick(&community_engine_guest,&community_engine_lobby,status.lan_ready?status.generation:0,now);
+        if(community_engine_lobby.stage==XYZ_LOBBY_RACE)++community_engine_load_pumps;
+        community_adapter_busy=0;
+    }
+#endif
+}
+extern void sub_0020BC50_gen(void);
+extern void sub_0003ED50_gen(void);
+void sub_0003ED50(void)
+{
+#if defined(__ANDROID__) || defined(NFSU2_PCVR)
+    uint32_t arg=esp+4,bytes=MEM32(arg);
+    unsigned count=xyz_xbox_regional_ai_count(community_regional_ready>0,MEM32(esp),esi,ebx,bytes);
+    int extended=count!=ebx;
+    if(extended){ebx=count;MEM32(arg)=count*4;}
+#endif
+    sub_0003ED50_gen();
+#if defined(__ANDROID__) || defined(NFSU2_PCVR)
+    if(extended)MEM32(arg)=bytes;
+#endif
+}
+extern void sub_00210E00_gen(void);
+void sub_00210E00(void)
+{
+#if defined(__ANDROID__) || defined(NFSU2_PCVR)
+    community_texture_list();
+#else
+    sub_00210E00_gen();
+#endif
+}
+extern void sub_001AB4C0_gen(void);
+void sub_001AB4C0(void)
+{
+#if defined(__ANDROID__) || defined(NFSU2_PCVR)
+    uint32_t body=ecx,impulse=MEM32(esp+4),point=MEM32(esp+8);
+    if(xyz_xbox_address(impulse,12)){
+        float raw[3];memcpy(raw,(const void*)XBOX_PTR(impulse),sizeof raw);
+        copchase_game_collision(community_copchase_game,body,raw);
+    }
+#endif
+    sub_001AB4C0_gen();
+#if defined(__ANDROID__) || defined(NFSU2_PCVR)
+    if(community_damage_ready && xyz_xbox_address(body,0x134) &&
+       xyz_xbox_address(MEM32(body),0x54) && MEM32(MEM32(body)+0x50)==0x1AB4C0)dmg_impulse(body,impulse,point);
+#endif
+}
+extern void sub_00217100_gen(void);
+void sub_00217100(void)
+{
+#if defined(__ANDROID__) || defined(NFSU2_PCVR)
+    if(community_damage_ready)dmg_zero(ecx,MEM32(esp));
+#endif
+    sub_00217100_gen();
+}
+extern void sub_00042D50_gen(void);
+void sub_00042D50(void)
+{
+#if defined(__ANDROID__) || defined(NFSU2_PCVR)
+    uint32_t caller=MEM32(esp),part=MEM32(esp+8);
+#endif
+    sub_00042D50_gen();
+#if defined(__ANDROID__) || defined(NFSU2_PCVR)
+    if(community_damage_render && part<4 && (caller==0x20BC8A || caller==0x20BCAD || caller==0x20BCD6 || caller==0x20BCFD)){
+        int original=eax!=1,opened=xyz_damage_open(community_damage_render,(int)part,original);
+        if(opened && !original){eax=0;community_damage_forced|=1u<<part;}
+    }
+#endif
+}
+extern void sub_000436D0_gen(void);
+void sub_000436D0(void)
+{
+#if defined(__ANDROID__) || defined(NFSU2_PCVR)
+    uint32_t caller=MEM32(esp),part=MEM32(esp+8);
+    if(community_damage_render && part<2 && (community_damage_forced&(1u<<part)) && (caller==0x20BD37 || caller==0x20BD6A)){
+        g_fp_top=(g_fp_top+7)&7;g_fp_stack[g_fp_top]=1.0;esp+=4;return;
+    }
+#endif
+    sub_000436D0_gen();
+}
+extern void sub_000ACB30_gen(void);
+extern void sub_0009E430_gen(void);
+void sub_0009E430(void)
+{
+#if defined(__ANDROID__) || defined(NFSU2_PCVR)
+    if(community_copchase_probe_enabled()){
+        uint32_t pack=MEM32(esp+8),entry=MEM32(esp+12);
+        if(xyz_xbox_address(pack,0xb0) && xyz_xbox_address(entry,24)){
+            char name[97];memcpy(name,(const void*)XBOX_PTR(pack+8),96);name[96]=0;
+            for(unsigned i=0;i<96 && name[i];i++)if((unsigned char)name[i]<32 || (unsigned char)name[i]>126)name[i]='?';
+            fprintf(stderr,"[CopChase stream request] manager=%08x pack=%08x entry=%08x key=%08x offset=%u packed=%u raw=%u flags=%08x buffer=%08x name=%s\n",ecx,pack,entry,MEM32(entry),MEM32(entry+4),MEM32(entry+8),MEM32(entry+12),MEM32(entry+16),MEM32(entry+20),name);
+        }
+    }
+#endif
+    sub_0009E430_gen();
+}
+extern void sub_0017D210_gen(void);
+void sub_0017D210(void)
+{
+#if defined(__ANDROID__) || defined(NFSU2_PCVR)
+    uint32_t source=MEM32(esp+4),destination=MEM32(esp+8),caller=MEM32(esp);
+    uint32_t raw=0,packed=0;
+    int probe=community_copchase_probe_enabled();
+    if(probe && xyz_xbox_address(source,16) && MEM32(source)==0x5a4c444a){raw=MEM32(source+8);packed=MEM32(source+12);}
+    if(probe && raw){
+        fprintf(stderr,"[CopChase decode begin] source=%08x destination=%08x raw=%u packed=%u caller=%08x\n",source,destination,raw,packed,caller);
+        const char *dump=getenv("NFSU2_COPCHASE_DECODE_DUMP");
+        if(dump && *dump && packed>=16 && packed<=(8u<<20) && xyz_xbox_address(source,packed)){
+            static unsigned serial;
+            char path[1024];int n=snprintf(path,sizeof path,"%s/decode-%04u-%08x.bin",dump,serial++,source);
+            if(n>0 && (size_t)n<sizeof path){FILE *file=fopen(path,"wb");if(file){fwrite((const void*)XBOX_PTR(source),1,packed,file);fclose(file);}}
+        }
+    }
+#endif
+    sub_0017D210_gen();
+#if defined(__ANDROID__) || defined(NFSU2_PCVR)
+    if(probe && raw){
+        fprintf(stderr,"[CopChase decode] source=%08x destination=%08x raw=%u packed=%u result=%u caller=%08x\n",source,destination,raw,packed,eax,caller);
+    }
+#endif
+}
+extern void sub_000A32D0_gen(void);
+void sub_000A32D0(void)
+{
+#if defined(__ANDROID__) || defined(NFSU2_PCVR)
+    uint32_t solid=ecx,chunk=MEM32(esp+4);
+#endif
+    sub_000A32D0_gen();
+#if defined(__ANDROID__) || defined(NFSU2_PCVR)
+    if(community_copchase_probe_enabled() && xyz_xbox_address(solid,0xc4)){
+        static unsigned reports;
+        if(reports++<8192){
+            char name[33];memcpy(name,(const void*)XBOX_PTR(solid+0xa4),32);name[32]=0;
+            for(unsigned i=0;i<32 && name[i];i++)if((unsigned char)name[i]<32 || (unsigned char)name[i]>126)name[i]='?';
+            fprintf(stderr,"[CopChase mesh loaded] solid=%08x mesh=%08x hash=%08x chunk=%08x name=%s\n",solid,MEM32(solid),MEM32(solid+0x10),chunk,name);
+        }
+    }
+#endif
+}
+void sub_000ACB30(void)
+{
+#if defined(__ANDROID__) || defined(NFSU2_PCVR)
+    if(community_copchase_probe_enabled()){
+        uint32_t model=MEM32(esp+4),solid=xyz_xbox_address(model,0x20)?MEM32(model+0x0c):0;
+        uint32_t mesh=xyz_xbox_address(solid,0xb0)?MEM32(solid):0;
+        if(solid && !xyz_xbox_address(mesh,0x40)){
+            static unsigned reports;
+            if(reports++<4){
+                fprintf(stderr,"[CopChase geometry probe] invalid mesh model=%08x solid=%08x mesh=%08x view=%08x caller=%08x esi=%08x\n",model,solid,mesh,ecx,MEM32(esp),esi);
+                fprintf(stderr,"[CopChase geometry probe] model:");for(unsigned i=0;i<0x20;i+=4)fprintf(stderr," %08x",MEM32(model+i));fprintf(stderr,"\n");
+                if(xyz_xbox_address(solid,0xb0)){fprintf(stderr,"[CopChase geometry probe] solid:");for(unsigned i=0;i<0xb0;i+=4)fprintf(stderr," %08x",MEM32(solid+i));fprintf(stderr,"\n");}
+                fflush(stderr);
+            }
+        }
+    }
+    int marker=0;
+    if(community_damage_render){
+        uint32_t model=MEM32(esp+4),matrix=MEM32(esp+8);
+        dmg_body_draw(model,matrix);
+        for(unsigned slot=16;slot<=33;slot+=17){
+            uint32_t row=community_damage_render+0x17a8+slot*32;
+            if(model && (MEM32(row)==model || MEM32(row+16)==model)){dmg_marker_pre((int)slot,model,matrix);marker=1;break;}
+        }
+    }
+#endif
+    sub_000ACB30_gen();
+#if defined(__ANDROID__) || defined(NFSU2_PCVR)
+    if(marker)dmg_marker_post();
+#endif
+}
+void sub_0020BC50(void)
+{
+#if defined(__ANDROID__) || defined(NFSU2_PCVR)
+    if(getenv("NFSU2_VINYL_PROBE") && xyz_xbox_address(ecx,8)){
+        static uint32_t seen[80];static unsigned count;
+        uint32_t car=MEM32(ecx),ride=MEM32(ecx+4),key=car?car:ecx;
+        unsigned i=0;while(i<count && seen[i]!=key)++i;
+        if(i==count && count<80 && xyz_xbox_address(ride,0x590)){
+            seen[count++]=key;fprintf(stderr,"[VR vinyl draw] car=%08x render=%08x ride=%08x type=%u skin=%08x\n",car,ecx,ride,MEM32(ride),MEM32(ride+0x584));
+            unsigned found=0;
+            for(unsigned slot=0;slot<63 && found<3;++slot){
+                uint32_t model=MEM32(ecx+0x17a8+slot*32);
+                if(!xyz_xbox_address(model,0x18))continue;
+                uint32_t list=MEM32(model+0x10),n=MEM32(model+0x14);
+                if(n>128 || !xyz_xbox_address(list,n*16))continue;
+                for(unsigned j=0;j<n && found<3;j++)if(MEM32(list+j*16+4)==MEM32(ride+0x584)){
+                    fprintf(stderr,"[VR vinyl binding] car=%08x slot=%u model=%08x replace=%08x texture=%08x\n",car,slot,model,MEM32(list+j*16+4),MEM32(list+j*16+8));++found;
+                }
+            }
+        }
+    }
+    XyzStanceDraw saved;community_stance_begin(&saved);
+    XyzStanceDraw *previous=community_stance_drawing;community_stance_drawing=saved.active?&saved:NULL;
+    uint32_t damage_previous=community_damage_render,damage_forced=community_damage_forced;
+    uint32_t damage_args=esp+4,damage_wheels[3]={MEM32(esp+0x18),MEM32(esp+0x1c),MEM32(esp+0x20)};
+    community_damage_render=community_damage_ready?ecx:0;community_damage_forced=0;
+    if(community_damage_render)dmg_render_entry(ecx,damage_args);
+#endif
+    sub_0020BC50_gen();
+#if defined(__ANDROID__) || defined(NFSU2_PCVR)
+    XyzXboxGuest memory={NULL,cockpit_ui_read,community_guest_write,community_guest_call};
+    int was_active=saved.active;
+    if(community_damage_render)for(unsigned i=0;i<3;i++)MEM32(damage_args+20+i*4)=damage_wheels[i];
+    community_damage_render=damage_previous;community_damage_forced=damage_forced;
+    xyz_xbox_stance_end(&memory,&saved);community_stance_drawing=previous;
+    if(was_active && community_stance_probe==1){
+        static unsigned checked;int ok=!memcmp((const void*)XBOX_PTR(saved.render+0x400),saved.places,sizeof saved.places) &&
+            !memcmp((const void*)XBOX_PTR(saved.render+0x420),saved.widths,sizeof saved.widths);
+        for(unsigned k=0;k<2;k++)ok&=!memcmp((const void*)XBOX_PTR(saved.wheels+(k+2)*64),saved.rear[k],48);
+        if(!ok || !(checked++%600))fprintf(stderr,"[VR stance probe] %s original draw completed; places, widths, rear rotations restored; calls=%u\n",ok?"PASS":"FAIL",checked);
+    }
+#endif
+}
+extern void sub_001A4EE0_gen(void);
+void sub_001A4EE0(void)
+{
+#if defined(__ANDROID__) || defined(NFSU2_PCVR)
+    uint32_t ride=ecx-0x10,caller=MEM32(esp);
+#endif
+    sub_001A4EE0_gen();
+#if defined(__ANDROID__) || defined(NFSU2_PCVR)
+    if(caller==0x20e6bd && community_stance_drawing && community_stance_drawing->ride==ride){
+        g_fp_stack[g_fp_top&7]=community_stance_drawing->value.fc/70.0;
+        static int reported;if(!reported && community_stance_probe==1){reported=1;fprintf(stderr,"[VR stance probe] front camber return %.6f -> %.1f degrees\n",g_fp_stack[g_fp_top&7],community_stance_drawing->value.fc*.1);}
+    }
+#endif
+}
+/* CopChase by Vitorini Mods: these two audited boundaries are currently used
+ * only by the explicit, offline one-car diagnostic. Native path selection
+ * rewrites the steering target between Update and heading computation. */
+extern void sub_00030450_gen(void);
+void sub_00030450(void)
+{
+#if defined(__ANDROID__) || defined(NFSU2_PCVR)
+    community_copchase_probe_driver(ecx);
+    copchase_game_driver(community_copchase_game,ecx);
+#endif
+    sub_00030450_gen();
+}
+extern void sub_00015520_gen(void);
+void sub_00015520(void)
+{
+#if defined(__ANDROID__) || defined(NFSU2_PCVR)
+    community_copchase_probe_heading(ecx);
+    copchase_game_heading(community_copchase_game,ecx);
+#endif
+    sub_00015520_gen();
+}
+/* Invalidate before native destructors free storage. Pointer equality alone
+ * cannot distinguish recycled Worlds, Players or indexed traffic cars. */
+extern void sub_001EF3F0_gen(void);
+void sub_001EF3F0(void)
+{
+#if defined(__ANDROID__) || defined(NFSU2_PCVR)
+    community_copchase_world_ending();
+#endif
+    sub_001EF3F0_gen();
+}
+extern void sub_001EF650_gen(void);
+void sub_001EF650(void)
+{
+#if defined(__ANDROID__) || defined(NFSU2_PCVR)
+    community_copchase_world_ending();
+#endif
+    sub_001EF650_gen();
+}
+extern void sub_001E18D0_gen(void);
+void sub_001E18D0(void)
+{
+#if defined(__ANDROID__) || defined(NFSU2_PCVR)
+    ++community_copchase_player_generation;
+#endif
+    sub_001E18D0_gen();
+}
+extern void sub_001E1F50_gen(void);
+void sub_001E1F50(void)
+{
+#if defined(__ANDROID__) || defined(NFSU2_PCVR)
+    ++community_copchase_player_generation;
+#endif
+    sub_001E1F50_gen();
+}
+extern void sub_001E48B0_gen(void);
+void sub_001E48B0(void)
+{
+#if defined(__ANDROID__) || defined(NFSU2_PCVR)
+    if(ecx==community_copchase_player_car)++community_copchase_player_generation;
+    copchase_game_car_ending(community_copchase_game,ecx);
+#endif
+    sub_001E48B0_gen();
+}
+extern void sub_00122330_gen(void);
+void sub_00122330(void)
+{
+#if defined(__ANDROID__) || defined(NFSU2_PCVR)
+    /* New/reset profile at the same address is a different identity. The
+     * decoder's internal reset is already covered by the load transaction. */
+    if(ecx==0x406ca0u && MEM32(esp)!=0x141099u)community_copchase_profile_clear();
+#endif
+    sub_00122330_gen();
+}
+extern void sub_001413C0_gen(void);
+void sub_001413C0(void)
+{
+#if defined(__ANDROID__) || defined(NFSU2_PCVR)
+    /* Only the successful whole-profile file load, not rollback/car import.
+     * Bind the actual decoded buffer to successful reads of one save file. */
+    CopChaseProfileProof proof={0};int accepted=0;
+    int load=ecx==0x406c90u && MEM32(esp)==0xc3758u && MEM32(ecx+0x156a8)!=4;
+    if(load){
+        community_copchase_profile_clear();
+        uint32_t task=MEM32(0x3f9d14),payload=MEM32(esp+4),length=MEM32(esp+8);
+        if(xyz_xbox_address(task,0x58) && length==0xd218 && xyz_xbox_address(payload,length) &&
+           MEM32(task+0x1c)==payload && MEM32(task+0x54)==length && MEM32(task+0x28)==0x10d &&
+           MEM32(task+0x2c)==length && MEM32(task+0x50)==0)
+            accepted=copchase_profile_claim((const void*)XBOX_PTR(payload),length,&proof);
+    }
+#endif
+    sub_001413C0_gen();
+#if defined(__ANDROID__) || defined(NFSU2_PCVR)
+    if(load){
+        if(accepted && MEM32(0x406cc0)==1)memcpy(community_copchase_profile_id,proof.id,sizeof proof.id);
+        fprintf(stderr,"[CopChase profile] decoded save provenance=%s bytes=%zu offset=%llu\n",
+            community_copchase_profile_id[0]?"verified":"unknown",proof.bytes,(unsigned long long)proof.file_offset);
+    }
+#endif
+}
+void sub_001FAED0(void)
+{
+#if defined(__ANDROID__) || defined(NFSU2_PCVR)
+    if(MEM32(esp)==0x0018ab7fu) {
+        /* CopChase models are substantially larger than retail traffic.
+         * Attach the already audited Cars backing block in the frontend,
+         * before the track loader can evict a live racer's geometry. */
+        if(copchase_assets_ready() && !community_pool_blocks && MEM32(0x428e34)==3 &&
+           !MEM32(0x45c4a0+0x14))community_pool_prepare();
+        community_map_textures();
+        community_stance_frame();
+        community_lights_frame();
+        community_damage_frame();
+        community_copchase_probe_frame();
+        community_copchase_frame();
+        community_regional_frame();
+        int whine_enabled=vr_whine_enabled(),gps_enabled=quest_xr_gps_enabled();
+        if(whine_enabled || gps_enabled){
+            rc_state sound;uint32_t player=MEM32(0x44940c),world=MEM32(0x4493e0);
+            uint32_t car=xyz_xbox_address(player,0x14) && MEM32(player+0x10)==0?MEM32(player+4):0;
+            int running=MEM32(0x428e34)==6 && quest_cockpit_ui_menu(cockpit_ui_read,NULL)==QUEST_UI_HUD &&
+                xyz_xbox_car_state(cockpit_ui_read,NULL,world,car,0,&sound);
+            float master=MEMF(0x406ce8),engine=MEMF(0x406cfc);
+            float volume=isfinite(master) && master>=0 && master<=1 && isfinite(engine) && engine>=0 && engine<=1?master*engine:0;
+            if(whine_enabled)vr_whine_update(car,running,running?sound.speed:0,running?sound.gear:0,volume,MEMF(0x428a0c));
+            if(gps_enabled){
+                float metres=-1;int metric=0;
+                if(running)xyz_xbox_gps(cockpit_ui_read,NULL,sound.p,&metres,&metric);
+                quest_xr_gps_publish(metres,metric);
+            }
+        }
+        static int enabled=-1,reported=-1,captured,assets,fleet_probe;
+        static unsigned frames;
+        static uint64_t last_report;
+        static const char *capture_path;
+        if(enabled<0) {
+            const char *trace=getenv("NFSU2_XYZ_VEHICLE_TRACE");
+            const char *probe=getenv("NFSU2_XYZ_RIDE_PROBE");
+            const char *clone=getenv("NFSU2_XYZ_CLONE_PROBE");
+            const char *fleet=getenv("NFSU2_XYZ_FLEET_PROBE");fleet_probe=fleet && *fleet=='1';
+            const char *asset_probe=getenv("NFSU2_XYZ_ASSET_PROBE");assets=asset_probe && *asset_probe=='1';
+            const char *visual_probe=getenv("NFSU2_VISUAL_REP_PROBE");
+            const char *xnet_probe=getenv("NFSU2_XYZ_XNET_PROBE");
+            const char *lobby_probe=getenv("NFSU2_XYZ_LOBBY_PROBE");
+            const char *engine_probe=getenv("NFSU2_XYZ_LOBBY_ENGINE_PROBE");
+            const char *race_probe=getenv("NFSU2_XYZ_RACE_LINK_PROBE");
+            const char *races_ui_probe=getenv("NFSU2_XYZ_RACES_UI_PROBE");
+            capture_path=getenv("NFSU2_XYZ_CAPTURE");
+            enabled=assets || (lobby_probe && *lobby_probe=='1') || (engine_probe && *engine_probe=='1') || (xnet_probe && *xnet_probe=='1') || (visual_probe && *visual_probe=='1') || (trace && *trace=='1') || (capture_path && *capture_path) || (probe && *probe=='1') || (clone && *clone=='1');
+            enabled|=race_probe && (!strcmp(race_probe,"host") || !strcmp(race_probe,"guest"));
+            enabled|=races_ui_probe && *races_ui_probe=='1';
+            const char *races_pair=getenv("NFSU2_XYZ_RACES_PAIR_PROBE");
+            enabled|=races_pair && (!strcmp(races_pair,"host") || !strcmp(races_pair,"guest") || !strcmp(races_pair,"browser-guest"));
+            const char *career_probe=getenv("NFSU2_XYZ_CAREER_PROBE");enabled|=career_probe && *career_probe=='1';
+            const char *career_mods=getenv("NFSU2_XYZ_CAREER_MODS_PROBE");enabled|=career_mods && !strcmp(career_mods,"observe");
+            const char *settings_probe=getenv("NFSU2_XYZ_RACE_SETTINGS_PROBE");
+            enabled|=settings_probe && *settings_probe=='1';
+            enabled|=fleet_probe;
+        }
+        if(!community_adapter_busy && (enabled || xyz_online_needs_frame() || xyz_races_needs_frame())) {
+            community_adapter_busy=1;
+            struct timespec ts; clock_gettime(CLOCK_MONOTONIC,&ts);
+            uint64_t now=(uint64_t)ts.tv_sec*1000000ull+(uint64_t)ts.tv_nsec/1000;
+            XyzXboxFrame sample;
+            int status=xyz_xbox_sample(cockpit_ui_read,NULL,(uint32_t)now,&sample);
+            if(sample.car && sample.car==community_lights_car){sample.state.hibeam=community_lights_mode==2;if(community_lights_mode==1)sample.state.bits|=RC_BIT_DARK;}
+            XyzXboxGuest guest={NULL,cockpit_ui_read,community_guest_write,community_guest_call};
+            if(assets && (status==XYZ_XBOX_READY || status==XYZ_XBOX_OTHER_RACE))xyz_online_assets_probe(&guest,now);
+            if(fleet_probe)xyz_online_fleet_probe(&guest,&sample,now);
+            xyz_online_frame(&guest,&sample,quest_cockpit_ui_paused(cockpit_ui_read,NULL),now);
+            int race_main_menu=sample.flow==3 && quest_cockpit_ui_main(cockpit_ui_read,NULL);
+            community_races_frame(&sample,race_main_menu,quest_cockpit_ui_paused(cockpit_ui_read,NULL),now);
+            community_races_probe(&sample,race_main_menu,now);
+            community_races_pair_probe(&sample,race_main_menu,now);
+            community_career_probe(&sample,race_main_menu,now);
+            community_career_mods_probe(&sample,race_main_menu,now);
+            community_race_settings_probe(&sample,race_main_menu,now);
+            community_ride_probe(&sample);
+            community_visual_probe(&sample);
+            community_socket_probe(&sample,now);
+            community_lobby_probe(&sample,now);
+            community_race_link_probe(&sample,now);
+            community_clone_probe(&sample,now);
+            ++frames;
+            if(enabled && (reported!=status || now-last_report>=5000000ull)) {
+                fprintf(stderr,"[XYZ vehicle] frames=%u status=%s flow=%u track=%u race=%u world=%08x car=%08x ride=%08x cfg=%u pos=(%.3f,%.3f,%.3f) speed=%.3f rpm=%.1f\n",
+                    frames,xyz_xbox_status_text((enum XyzXboxStatus)status),sample.flow,sample.track,sample.race_type,
+                    sample.world,sample.car,sample.ride,sample.config_size,
+                    sample.state.p[0],sample.state.p[1],sample.state.p[2],sample.state.speed,sample.state.rpm);
+                reported=status; last_report=now;
+            }
+            if(!captured && capture_path && *capture_path && sample.config_size &&
+               (status==XYZ_XBOX_READY || status==XYZ_XBOX_OTHER_RACE)) {
+                captured=1;
+                FILE *file=fopen(capture_path,"wb");
+                if(file) {
+                    size_t written=fwrite(sample.config,1,sample.config_size,file);
+                    int closed=fclose(file);
+                    fprintf(stderr,"[XYZ vehicle] wire config capture %s (%u bytes)\n",
+                        written==sample.config_size && !closed?"saved":"failed",sample.config_size);
+                } else fprintf(stderr,"[XYZ vehicle] wire config capture could not be opened\n");
+            }
+            community_adapter_busy=0;
+        }
+    }
+#endif
+    sub_001FAED0_gen();
 }
 
 /* ── Stream read, unlocked precheck (0x00072F90) ─────────────
@@ -2936,9 +4167,36 @@ void sub_0033518D(void)
  *       g_eax = result;
  *   }
  */
+#if defined(__ANDROID__) || defined(NFSU2_PCVR)
+/* Registered chunk-loader callback (no direct callers in the supported XBE).
+ * Keep the original generated function: the manual dispatcher intercepts the
+ * callback, and this direct call deliberately invokes its unchanged parser. */
+static void community_load_career(void)
+{
+    if(quest_xr_hidden_races() && quest_rear_pointer(esp,8)) {
+        uint32_t chunk=MEM32(esp+4);
+        if(quest_rear_pointer(chunk,8) && MEM32(chunk)==0x80034a10u) {
+            uint32_t bytes=MEM32(chunk+4);
+            if(bytes<=131064 && quest_rear_pointer(chunk,bytes+8)) {
+                int changed=vr_mod_hidden_races((void *)XBOX_PTR(chunk),bytes+8,1);
+                if(changed==1)fprintf(stderr,"[Community mods] Show Hidden Races: 33 races revealed; stage caps raised to 8\n");
+                else if(changed<0)fprintf(stderr,"[Community mods] Show Hidden Races skipped: unsupported career tables\n");
+            }
+        }
+    }
+    sub_0011F370();
+}
+#endif
 recomp_func_t recomp_lookup_manual(uint32_t xbox_va)
 {
 #if defined(__ANDROID__) || defined(NFSU2_PCVR)
+    if(xbox_va==0x00196390u && community_lobby_callback_owner())return community_lobby_callback;
+    if(xbox_va==0x00196390u && community_engine_callback_owner())return community_engine_callback;
+    if(xbox_va==0x00196410u && community_engine_join_owner())return community_engine_join_callback;
+    if(xbox_va==0x00196680u && community_engine_join_owner())return community_engine_search_callback;
+    if(xbox_va==0x0018f530u && community_engine_request_owner())return community_engine_request_callback;
+    if(xbox_va==0x00198a40u && community_engine_join_owner())return community_engine_game_callback;
+    if(xbox_va==0x0011f370u)return community_load_career;
     if(xbox_va==0x0002d800u)return cockpit_driver_update;
     if(xbox_va==0x00019d30u)return cockpit_race_stage;
     if(xbox_va==0x00016c70u)return cockpit_driver_first;
@@ -3056,4 +4314,24 @@ void recomp_unimpl(const char *text, uint32_t va)
         fflush(stderr);
     }
     if (stop) abort();
+}
+
+/* Xbox P8 skin compositor: recipe and source gloss are captured before the
+ * original call, then only a host GPU replacement is published. */
+extern void sub_00201520_gen(void);
+void sub_00201520(void)
+{
+#if defined(__ANDROID__) || defined(NFSU2_PCVR)
+    static unsigned vinyl_calls;
+    if(getenv("NFSU2_VINYL_PROBE") && vinyl_calls++<12 && xyz_xbox_address(MEM32(esp+4),0x234)){
+        uint32_t r=MEM32(esp+4),ti=MEM32(r);
+        if(xyz_xbox_address(ti,0x7c))fprintf(stderr,"[VR vinyl probe] caller=%08x recipe=%08x target=%08x size=%ux%u bits=%u mips=%u layers=%u ride=%08x\n",
+            MEM32(esp),r,ti,MEM16(ti+0x44),MEM16(ti+0x46),MEM8(ti+0x4a),MEM8(ti+0x4e),MEM32(r+0x1c4),MEM32(r+0x230));
+    }
+    void *job=MEM32(esp)==0x20931eu?vr_vinyls_begin(cockpit_ui_read,NULL,MEM32(esp+4)):NULL;
+#endif
+    sub_00201520_gen();
+#if defined(__ANDROID__) || defined(NFSU2_PCVR)
+    vr_vinyls_finish(job,cockpit_ui_read,NULL,eax!=0);
+#endif
 }

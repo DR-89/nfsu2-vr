@@ -17,6 +17,11 @@
 #include <string.h>
 #include <ctype.h>
 
+/* Optional title-owned path overlays. Set before guest threads start. The
+ * callback returns an absolute UTF-8 filename to copy immediately, NULL for
+ * ordinary routing, or an empty string to reject a claimed unsafe path. */
+const char *(*xbox_path_redirect_hook)(const char *path);
+
 /*
  * Helper: check if an ANSI string starts with a prefix (case-insensitive).
  * Returns the number of chars consumed from the prefix, or 0 if no match.
@@ -430,6 +435,12 @@ BOOL xbox_translate_path(const char* xbox_path, xbox_host_char* host_path_buf, D
     if (!s_initialized)
         xbox_path_init(NULL, NULL);
 
+    if(xbox_path_redirect_hook){
+        const char *redirect=xbox_path_redirect_hook(xbox_path);
+        if(redirect && !*redirect)return FALSE;
+        if(redirect)return MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,redirect,-1,host_path_buf,(int)buf_size)>0;
+    }
+
     {
         char linked[512];
         if (resolve_symlink(xbox_path, linked, sizeof(linked)))
@@ -687,6 +698,12 @@ BOOL xbox_translate_path(const char* xbox_path, xbox_host_char* host_path_buf, D
 
     if (!s_initialized)
         xbox_path_init(NULL, NULL);
+
+    if(xbox_path_redirect_hook){
+        const char *redirect=xbox_path_redirect_hook(xbox_path);
+        if(redirect && !*redirect)return FALSE;
+        if(redirect){int n=snprintf(host_path_buf,buf_size,"%s",redirect);return n>=0 && (size_t)n<buf_size;}
+    }
 
     {
         char linked[512];

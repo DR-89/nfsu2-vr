@@ -14,6 +14,7 @@ void vr_music_set_source(int source);
 typedef enum { VR_RADIO_ORIGINAL, VR_RADIO_CUSTOM, VR_RADIO_QUIET } VrRadioPlayback;
 VrRadioPlayback vr_music_update(int driving,int can_mix,float volume,QuestRadioSong *song,int *paused);
 void vr_music_command(int action);
+void vr_music_shift_click(void);
 int vr_music_mix(const int16_t *game,int16_t *out,int samples);
 enum { VR_VIDEO_WIDTH=320, VR_VIDEO_HEIGHT=180, VR_VIDEO_BYTES=VR_VIDEO_WIDTH*VR_VIDEO_HEIGHT*4 };
 /* Returns zero when no video frame is due. With pixels != NULL, copies the

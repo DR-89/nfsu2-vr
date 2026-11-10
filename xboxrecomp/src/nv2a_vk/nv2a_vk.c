@@ -566,6 +566,7 @@ typedef struct {
     float rear_projection[4];  /* horizontal/vertical scales and depth A+B/Z */
     QuestMirrorCamera rear_camera;
     int rear_camera_valid,rear_vehicle;
+    uint32_t rear_windows[QUEST_COCKPIT_WINDOWS];
 #endif
 } VkSurf;
 #ifdef NFSU2_OPENXR
@@ -1263,6 +1264,8 @@ static VkSurf *target(const Nv2aSurface *sf, uint32_t zeta_va, VkDepthBuf **dout
 
 typedef struct {
     uint32_t va, color, w, h, pitch, hash, bytes;
+    uint64_t vinyl_revision;
+    uint32_t gpu_w,gpu_h;       /* replacements never change the guest/cache dimensions */
     uint32_t face;              /* cube map: bytes per face; 0 = 2D */
     VkImage image; VkImageView view; VkDeviceMemory mem;
     VkFormat fmt;
@@ -1365,6 +1368,10 @@ static uint32_t tex_bytes(uint32_t color, uint32_t w, uint32_t h, uint32_t pitch
     if (color == 0x0C) return ((w + 3) / 4) * ((h + 3) / 4) * 8;
     if (color == 0x0E || color == 0x0F) return ((w + 3) / 4) * ((h + 3) / 4) * 16;
     if (pitch) return pitch * h;
+    /* P8 source storage is one index per pixel; RGBA expansion happens only
+     * during upload. Hashing four bytes here reads past a private paint buffer
+     * and mistakes changes in neighbouring allocations for texture changes. */
+    if (color == 0x0B) return w * h;
     return w * h * 4;
 }
 
@@ -1517,8 +1524,8 @@ static void tex_upload(VkTex *t, const void *src, uint32_t bytes, uint32_t row_t
     rg.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
     rg.imageSubresource.baseArrayLayer = layer;
     rg.imageSubresource.layerCount = 1;
-    rg.imageExtent.width = t->w;
-    rg.imageExtent.height = t->h;
+    rg.imageExtent.width = t->gpu_w;
+    rg.imageExtent.height = t->gpu_h;
     rg.imageExtent.depth = 1;
     vkCmdCopyBufferToImage(s_cb, s_f->ring, t->image, VK_IMAGE_LAYOUT_GENERAL, 1, &rg);
 }
@@ -1593,6 +1600,30 @@ static void tex_fill(VkTex *t, uint32_t va, uint32_t layer)
 }
 
 /* face: bytes per cube face (cube_face_bytes), 0 for a 2D texture. */
+#ifdef NFSU2_OPENXR
+#include "vr_texpacks.h"
+#include "vr_vinyls.h"
+static int tex_replacement(uint32_t va,uint32_t color,uint32_t w,uint32_t h,uint32_t pitch,VRTextureReplacement *out)
+{
+    unsigned fmt=color==0x0c?0x31545844:color==0x0e?0x33545844:color==0x0f?0x35545844:
+        (color==0x06||color==0x07||color==0x0b||color==0x12)?21:0;
+    int vinyl=w==512 && h==512 && color==0x0b && vr_vinyls_revision(va&0x7fffffffu)!=0;
+    if(!fmt||(!vinyl&&!vr_texpacks_shape(w,h,fmt)))return 0;
+    const uint8_t *mem=(const uint8_t*)xbox_GetMemoryOffset();
+    if(fmt!=21)return vr_texpacks_find(mem+va,tex_bytes(color,w,h,0),w,h,fmt,s_have_bc,out);
+    if((size_t)w*h>s_decode_cap){
+        uint32_t *p=(uint32_t*)realloc(s_decode,(size_t)w*h*4);if(!p)return 0;
+        s_decode=p;s_decode_cap=(size_t)w*h;
+    }
+    if(!s_decode)return 0;
+    if(color==0x0b){if(!decode_indexed(va,w,h,s_decode))return 0;}
+    else if(color==0x12){if(pitch<w*4)return 0;for(unsigned y=0;y<h;y++)memcpy(s_decode+(size_t)y*w,mem+va+(size_t)y*pitch,w*4);}
+    else {const uint32_t *p=(const uint32_t*)(mem+va);for(unsigned y=0;y<h;y++)for(unsigned x=0;x<w;x++)
+        s_decode[(size_t)y*w+x]=p[swizzle_index(x,y,w,h)]|(color==0x07?0xff000000u:0);}
+    if(vinyl && vr_vinyls_find(va&0x7fffffffu,s_decode,(size_t)w*h,out))return 1;
+    return vr_texpacks_find(s_decode,(size_t)w*h*4,w,h,21,s_have_bc,out);
+}
+#endif
 static VkImageView tex_get(uint32_t va, uint32_t color, uint32_t w, uint32_t h, uint32_t pitch,
                            uint32_t face)
 {
@@ -1616,7 +1647,11 @@ static VkImageView tex_get(uint32_t va, uint32_t color, uint32_t w, uint32_t h, 
     hash = bytes_hash(va, face ? face * 6 : tex_bytes(color, w, h, pitch));
     if (color == 0x0B)
         hash ^= bytes_hash(s_palette_va, 1024) * 31u;
-    if (t && t->hash == hash) {
+    uint64_t vinyl_revision=0;
+#ifdef NFSU2_OPENXR
+    if(!face && w==512 && h==512 && color==0x0b)vinyl_revision=vr_vinyls_revision(va&0x7fffffffu);
+#endif
+    if (t && t->hash == hash && t->vinyl_revision==vinyl_revision) {
         t->used = t->checked = s_frame;
         return t->view;
     }
@@ -1642,7 +1677,17 @@ static VkImageView tex_get(uint32_t va, uint32_t color, uint32_t w, uint32_t h, 
     if (s_have_bc && color == 0x0C) fmt = VK_FORMAT_BC1_RGBA_UNORM_BLOCK;
     if (s_have_bc && color == 0x0E) fmt = VK_FORMAT_BC2_UNORM_BLOCK;
     if (s_have_bc && color == 0x0F) fmt = VK_FORMAT_BC3_UNORM_BLOCK;
-    if (t && (t->fmt != fmt || t->pitch != pitch)) {
+    uint32_t gpu_w=w,gpu_h=h;
+#ifdef NFSU2_OPENXR
+    VRTextureReplacement replacement={0};
+    int replaced=!face && tex_replacement(va,color,w,h,pitch,&replacement);
+    if(replaced){gpu_w=replacement.w;gpu_h=replacement.h;
+        fmt=replacement.format==0x31545844?VK_FORMAT_BC1_RGBA_UNORM_BLOCK:
+            replacement.format==0x33545844?VK_FORMAT_BC2_UNORM_BLOCK:
+            replacement.format==0x35545844?VK_FORMAT_BC3_UNORM_BLOCK:VK_FORMAT_B8G8R8A8_UNORM;
+    }
+#endif
+    if (t && (t->fmt != fmt || t->pitch != pitch || t->gpu_w!=gpu_w || t->gpu_h!=gpu_h)) {
         tex_free(t);
         t = NULL;
     }
@@ -1656,10 +1701,11 @@ static VkImageView tex_get(uint32_t va, uint32_t color, uint32_t w, uint32_t h, 
         if (t->image)
             tex_free(t);
         t->va = va; t->color = color; t->w = w; t->h = h; t->pitch = pitch; t->fmt = fmt;
+        t->gpu_w=gpu_w;t->gpu_h=gpu_h;
         t->face = face;
         VT("texture %08X fmt %02X %ux%u pitch %u%s\n", va, color, w, h, pitch,
            face ? " cube" : "");
-        if (!make_image_n(w, h, layers, fmt,
+        if (!make_image_n(gpu_w, gpu_h, layers, fmt,
                           VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
                           VK_IMAGE_ASPECT_COLOR_BIT, &t->image, &t->view, &t->mem)) {
             memset(t, 0, sizeof *t);
@@ -1674,17 +1720,24 @@ static VkImageView tex_get(uint32_t va, uint32_t color, uint32_t w, uint32_t h, 
                  face ? " cube" : "");
     }
     t->hash = hash;
+    t->vinyl_revision=vinyl_revision;
     t->used = t->checked = s_frame;
 
 #ifdef NFSU2_PCVR
     if(s_texture_profile) fill_start=hz_now();
 #endif
-    for (f = 0; f < layers; f++)
-        tex_fill(t, va + f * face, f);
+#ifdef NFSU2_OPENXR
+    if(replaced)tex_upload(t,replacement.data,(uint32_t)replacement.bytes,0,0);
+    else
+#endif
+        for (f = 0; f < layers; f++)tex_fill(t, va + f * face, f);
 #ifdef NFSU2_PCVR
     if(s_texture_profile) account_start=hz_now();
 #endif
     size = fmt != VK_FORMAT_B8G8R8A8_UNORM ? tex_bytes(color, w, h, 0) : w * h * 4;
+#ifdef NFSU2_OPENXR
+    if(replaced)size=(uint32_t)replacement.bytes;
+#endif
     tex_account(t, size * layers);
     if(s_hz_texs!=uploaded_before) {
         uint64_t end=hz_now();
@@ -1887,6 +1940,13 @@ static void bind_stage(const uint32_t *regs, int i, float scale[2], VkDescriptor
     }
     if (!w || !h || w > 4096 || h > 4096)
         return;
+#ifdef NFSU2_OPENXR
+    if(((w==512 && h==512) || (va&0x7fffffffu)>=0x04000000u) && getenv("NFSU2_VINYL_PROBE")) {
+        static uint32_t seen[80];static unsigned count;
+        unsigned j=0;while(j<count && seen[j]!=va)++j;
+        if(j==count && count<80){seen[count++]=va;fprintf(stderr,"[VR vinyl probe] sampled va=%08x size=%ux%u color=%x revision=%llu\n",va,w,h,color,(unsigned long long)vr_vinyls_revision(va&0x7fffffffu));}
+    }
+#endif
     s_palette_reg = regs[base + 8];
     s_palette_va = s_batch->pal_va[i];
     rt = cube ? NULL : surf_find(va);
@@ -3019,6 +3079,7 @@ static int create_swapchain(void)
 
 #ifdef NFSU2_OPENXR
 #include "quest_cockpit_vk.inc"
+#include "quest_copchase_vk.inc"
 #endif
 
 static int initialize_renderer(void)
@@ -3130,7 +3191,38 @@ static int initialize_renderer(void)
         s_pd = quest_xr_vk_physical(s_inst);
         if (!s_pd) return 0;
     }
+    else
 #endif
+    {
+        /* Explicit diagnostics override; OpenXR always owns its GPU choice.
+         * Leave the normal first-device default unchanged when unset. */
+        const char *requested=getenv("RECOMP_VK_DEVICE");
+        if(requested && *requested) {
+            char *end=NULL;
+            unsigned long index=strtoul(requested,&end,10);
+            uint32_t selected=UINT32_MAX,matches=0;
+            if(requested[0]>='0' && requested[0]<='9' && end && !*end) {
+                if(index<n){selected=(uint32_t)index;matches=1;}
+            } else {
+                for(uint32_t candidate=0;candidate<n;++candidate) {
+                    VkPhysicalDeviceProperties properties;
+                    vkGetPhysicalDeviceProperties(pds[candidate],&properties);
+                    if(!strcmp(requested,properties.deviceName)){selected=candidate;++matches;}
+                }
+            }
+            if(matches!=1) {
+                LOGE("RECOMP_VK_DEVICE '%s' must identify one device by exact name or numeric index\n",requested);
+                for(uint32_t candidate=0;candidate<n;++candidate) {
+                    VkPhysicalDeviceProperties properties;
+                    vkGetPhysicalDeviceProperties(pds[candidate],&properties);
+                    LOGE("Vulkan device %u: %s\n",candidate,properties.deviceName);
+                }
+                return 0;
+            }
+            s_pd=pds[selected];
+            LOGE("RECOMP_VK_DEVICE selected device %u: %s\n",selected,requested);
+        }
+    }
     vkGetPhysicalDeviceProperties(s_pd, &pp);
 #ifdef NFSU2_PCVR
     {
@@ -4812,6 +4904,10 @@ static void vk_draw_raw_eye(const Nv2aRawBatch *b)
     if (!s)
         return;
 #ifdef NFSU2_OPENXR
+    /* The retail 2D rim/mask belongs to the HUD, not to physical mirror glass.
+     * Identity and rear-target scoping preserve every other textured draw. */
+    if(s->w==256 && s->h==64 && s->eye==-1 && !r[0x30c/4] &&
+       quest_xr_mirror_mask(b->tex_va[0]))return;
     if(!s_eye && s_xr_trace && s->va==s_world_color_va && s->w==640 && s->h==480 && !r[0x30c/4]) {
         if(r[0x1e70/4]==0x5e1) dump_surface(s,"frames/xr-before-blur.bmp");
         if(r[0x1e70/4]==0x41e1) dump_surface(s,"frames/xr-before-grade.bmp");
@@ -4940,8 +5036,10 @@ static void vk_draw_raw_eye(const Nv2aRawBatch *b)
 #ifdef NFSU2_OPENXR
     if(s->w==256 && s->h==64 && s->eye==-1 && b->xform==2 && b->vp_const_count>=116 &&
        quest_projection_constants(&b->vp_consts[113][0],s->rear_projection)) {
-        if(s->rear_frame!=s_frame || !s->rear_camera_valid)
+        if(s->rear_frame!=s_frame || !s->rear_camera_valid) {
             s->rear_camera_valid=quest_xr_mirror_source(&s->rear_camera,&s->rear_vehicle);
+            if(quest_xr_cockpit_vehicle_snapshot(s->rear_windows)!=s->rear_vehicle)s->rear_camera_valid=0;
+        }
         s->rear_projection[2]=b->vp_consts[115][2];s->rear_projection[3]=b->vp_consts[115][3];
         s->rear_frame=s_frame;
         if(d && d->sample_depth)s->rear_depth_va=d->va;
@@ -5009,7 +5107,7 @@ static void vk_draw_raw_eye(const Nv2aRawBatch *b)
                 quest_projection_depth(&b->vp_consts[113][0],quest_xr_depth_coefficient(s_cockpit_frame),vb->vr_depth);
             if (s->w == 640) {
                 s_stereo_frame = 1;
-                if(r[0x30c/4] && r[0x35c/4]) s_world_color_va=s->va;
+                if(r[0x30c/4] && r[0x35c/4]) {s_world_color_va=s->va;copchase_world_depth(s,d);}
                 s_game_projection[0]=vb->vr_params[0]; s_game_projection[1]=vb->vr_params[1];
                 memcpy(s_game_depth,vb->vr_depth,sizeof s_game_depth);
                 if (sampled[1] && sampled[1]->w==320 && sampled[1]->h==240 &&
@@ -5087,8 +5185,13 @@ static void vk_draw_raw_eye(const Nv2aRawBatch *b)
         }
         cockpit_body=s_cockpit_frame && vb->vr_params[2]==1 && b->vp_const_count>=100 &&
             quest_cockpit_own_car(&b->vp_consts[96][0],vb->vr_params[0],vb->vr_params[1],quest_cockpit_vehicle(s_cockpit_vehicle)->seat);
-        if(quest_cockpit_window_draw(s_cockpit_windows,b->tex_va[0],r,
-                cockpit_body && s->w==640 && s->h==480 && s->aa_sx==1 && s->aa_sy==1)) {
+        int mirror_body=s->w==256 && s->h==64 && s->eye==-1 && s->rear_frame==s_frame &&
+            s->rear_camera_valid && b->xform==2 && b->vp_const_count>=116 &&
+            quest_mirror_own_car(&b->vp_consts[96][0],&s->rear_camera,s->rear_projection,
+                                 quest_cockpit_vehicle(s->rear_vehicle)->seat);
+        if(mirror_body)key.fragment_flags|=16; /* clip backfaces crossing the capture near plane */
+        if(quest_cockpit_window_draw(mirror_body?s->rear_windows:s_cockpit_windows,b->tex_va[0],r,
+                mirror_body || (cockpit_body && s->w==640 && s->h==480 && s->aa_sx==1 && s->aa_sy==1))) {
             static int reported;
             if(!reported) {
                 LOGE("Cockpit hides player window glass/tint; body, mirrors and exterior views retained\n");
@@ -5096,7 +5199,7 @@ static void vk_draw_raw_eye(const Nv2aRawBatch *b)
             }
             return;
         }
-        if(cockpit_body && s->w==640 && s->h==480 && r[0x30c/4] && r[0x35c/4] &&
+        if((mirror_body || (cockpit_body && s->w==640 && s->h==480)) && r[0x30c/4] && r[0x35c/4] &&
            !r[0x304/4] && (b->attr_present&1) && b->vertex_count==8 && n==12 &&
            topo==VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST) {
             float positions[8][4];
@@ -5113,7 +5216,7 @@ static void vk_draw_raw_eye(const Nv2aRawBatch *b)
         /* Retail exteriors are normally viewed from outside. Most vehicles
          * have one-sided roof/pillar meshes; keep those visible from the seat.
          * Apply only to the player's rigid shell, never track/other vehicles. */
-        if(cockpit_body && s_dyn.cull) {p_cull_mode(s_cb,VK_CULL_MODE_NONE);s_dyn.cull=0;}
+        if((cockpit_body || mirror_body) && s_dyn.cull) {p_cull_mode(s_cb,VK_CULL_MODE_NONE);s_dyn.cull=0;}
         if(!s_eye && cockpit_body && r[0x30c/4] && r[0x35c/4] &&
            (b->attr_present&1) && topo==VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
             cockpit_collect_mirrors(b,idx,n,vb->vr_params[0],vb->vr_params[1]);
@@ -5653,6 +5756,9 @@ static void vk_clear_eye(const Nv2aSurface *sf, const Nv2aRenderState *rs,
     VT("clear %08X %ux%u flags %X rect %d,%d %ux%u depth %p\n", s->va, s->pw, s->ph, flags,
        rect.rect.offset.x, rect.rect.offset.y, rect.rect.extent.width, rect.rect.extent.height, (void *)d);
 #ifdef NFSU2_OPENXR
+    VkImageAspectFlags cleared_aspects=0;
+    for(uint32_t i=0;i<nca;++i)cleared_aspects|=ca[i].aspectMask;
+    copchase_world_clear(s,d,cleared_aspects);
     static int load_clear=-1;
     if(load_clear<0) {
         const char *e=getenv("NFSU2_VR_LOAD_CLEAR");
@@ -5909,6 +6015,10 @@ static void vk_flip(void)
         LOGE("XR cockpit trace: frame=%u selected=%d active=%d tracked=%d\n",
              s_frame,quest_xr_cockpit_requested(),s_cockpit_frame,quest_xr_tracking());
     }
+    if(s_stereo_frame && quest_xr_tracking()) {
+        copchase_scene_draw(s,0);
+        if(!s_multiview && s_last_eye[1] && s_last_eye[1]!=s)copchase_scene_draw(s_last_eye[1],1);
+    }
     if(s_stereo_frame && s_cockpit_frame && quest_xr_tracking()) {
         cockpit_draw(s,0);
         if(!s_multiview && s_last_eye[1] && s_last_eye[1]!=s) cockpit_draw(s_last_eye[1],1);
@@ -5927,6 +6037,23 @@ static void vk_flip(void)
         }
 #endif
     }
+#ifdef NFSU2_OPENXR
+    {
+        static int surface_probe=-1;
+        if(surface_probe<0){const char *request=getenv("NFSU2_COPCHASE_SURFACE_PROBE"),*script=getenv("RECOMP_PAD_SCRIPT");
+            surface_probe=request && script && *script && dump_every?atoi(request):0;}
+        if(surface_probe>0 && s_frame>=(uint32_t)surface_probe){
+            surface_probe=0;
+            for(unsigned i=0;i<VK_MAX_SURF;++i){VkSurf *candidate=&s_surf[i];
+                if(!candidate->image || candidate->used+1<s_frame)continue;
+                char path[320];snprintf(path,sizeof path,"%s-surface-%05u-%02u.bmp",dump_prefix,s_frame,i);
+                LOGE("CopChase surface probe: slot=%u va=%08x selected=%d size=%ux%u layers=%u gen=%u draw=%u used=%u frame=%u\n",
+                    i,candidate->va,candidate==s,candidate->pw,candidate->ph,candidate->layers,candidate->gen,candidate->draw_frame,candidate->used,s_frame);
+                dump_surface(candidate,path);
+            }
+        }
+    }
+#endif
     barrier_all();
 
     VT("flip %u: surface %08X drew %d, acquiring\n", s_frame, s ? s->va : 0, s_drew_any);

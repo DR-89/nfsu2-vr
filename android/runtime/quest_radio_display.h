@@ -11,6 +11,7 @@ typedef struct {
     float scroll[2];
     uint32_t hover_mask,pressed_mask;
     float bands[QUEST_RADIO_BANDS];
+    float screen[4];
 } QuestRadioLCD;
 typedef struct { uint32_t bits[128][2]; } QuestRadioFont;
 

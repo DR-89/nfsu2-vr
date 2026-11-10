@@ -5,8 +5,8 @@
 /* Retail cars place a crossed, two-card driver proxy at their own seated
  * head position. From inside it the cards become large opaque bars. Match
  * the complete topology and geometry, not a texture address or car name.
- * Call only for the player's rigid shell in the tracked cockpit world pass;
- * other cameras, other drivers, mirrors and the original body stay intact.
+ * Call only for the player's rigid shell in the tracked cockpit or its rear
+ * capture; other cameras, other drivers and the original body stay intact.
  * Positions use retail car coordinates: forward, left, up, homogeneous W. */
 static inline int quest_cockpit_driver_cards(const float p[8][4],
                                             const uint32_t ix[12])

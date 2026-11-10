@@ -25,6 +25,10 @@
 #include <string.h>
 
 #include <xbox/xboxrecomp.h>
+#if defined(__ANDROID__) || defined(NFSU2_PCVR)
+#include "community/xyz_xbox_vehicle.h"
+extern int xbox_SetContiguousSize(uint32_t bytes);
+#endif
 
 #ifdef __SWITCH__
 /* libnx lives in switch_nx.c: <switch.h> and the Win32 vocabulary collide. */
@@ -38,6 +42,7 @@ int SDL_ShowSimpleMessageBox(uint32_t flags, const char *title, const char *mess
 
 extern RECOMP_TLS uint32_t g_eax, g_ecx, g_edx, g_esp;
 extern RECOMP_TLS uint32_t g_ebx, g_esi, g_edi;
+extern RECOMP_TLS uint32_t g_fs_base;
 extern ptrdiff_t g_xbox_mem_offset;
 extern volatile uint32_t g_icall_trace[16];
 extern volatile uint32_t g_icall_trace_idx;
@@ -88,8 +93,8 @@ void print_guest_state(void)
 {
     fprintf(stderr, "  guest: eax=%08X ecx=%08X edx=%08X ebx=%08X\n",
             g_eax, g_ecx, g_edx, g_ebx);
-    fprintf(stderr, "         esi=%08X edi=%08X esp=%08X\n",
-            g_esi, g_edi, g_esp);
+    fprintf(stderr, "         esi=%08X edi=%08X esp=%08X fs=%08X\n",
+            g_esi, g_edi, g_esp, g_fs_base);
 
     if (g_xbox_mem_offset && g_esp >= XBOX_STACK_BASE
             && g_esp < XBOX_STACK_BASE + XBOX_STACK_SIZE) {
@@ -371,6 +376,16 @@ static int game_main(void)
     }
     printf("XBE %s: %zu bytes\n", xbe_path, xbe_size);
 
+#if defined(__ANDROID__) || defined(NFSU2_PCVR)
+    /* Independent physical pages for online cars. The title still sees its
+     * retail low RAM. Explicit 64/0 is a diagnostic legacy comparison. */
+    const char *xyz_pool=getenv("NFSU2_XYZ_POOL_MB");
+    if(!xyz_pool || !*xyz_pool || !strcmp(xyz_pool,"128")) {
+        if(!xbox_SetContiguousSize(128u<<20) || !xyz_xbox_set_physical_size(128u<<20)) {
+            fatal("Could not reserve the online vehicle memory window.");free(xbe_data);return 1;
+        }
+    }
+#endif
     if (!xbox_MemoryLayoutInit(xbe_data, xbe_size)) {
         fatal("Failed to initialise the Xbox memory layout "
               "(the guest address range may be unavailable).");
@@ -452,7 +467,15 @@ static int game_main(void)
     xbox_kernel_init();
     nfsu2_text_patch_init();
     { extern void nfsu2_movie_crop_init(void); nfsu2_movie_crop_init(); }
-    xbox_path_init(game_dir, NFSU2_DEFAULT_SAVE_DIR);
+    /* Alternate disc overlays need their own raw cache partitions as well as
+     * their own files. Otherwise Xbox's sector cache can return a previous
+     * archive's MPF/geometry bytes even though the new ZDIR is already open.
+     * Normal installations retain their existing directory unless requested. */
+    const char *runtime_dir=getenv("NFSU2_RUNTIME_DIR");
+    xbox_path_init(game_dir, runtime_dir && *runtime_dir ? runtime_dir : NFSU2_DEFAULT_SAVE_DIR);
+#if defined(__ANDROID__) || defined(NFSU2_PCVR)
+    { extern void xyz_car_files_init(const char *); xyz_car_files_init(game_dir); }
+#endif
     xbox_kernel_bridge_init();
 
     g_esp = XBOX_STACK_TOP;

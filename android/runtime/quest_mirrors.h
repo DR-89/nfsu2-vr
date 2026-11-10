@@ -23,6 +23,20 @@ typedef struct {
 /* Rows of the actual retail rear camera in cabin space, with its position
  * expressed in the same space. Camera axes are right, down, forward. */
 typedef struct { float axis[3][3],origin[3]; } QuestMirrorCamera;
+/* A reflected eye is in front of the glass. Clip the opaque mirror backs
+ * out of its rear capture, otherwise they appear as a bar in the image.
+ * Bounds and camera must both be in fitted cabin space. */
+static inline float quest_mirror_capture_near(const QuestMirrorCamera *cam,const QuestMirrorMount mounts[3])
+{
+    float near_z=.18f;
+    for(int p=0;p<3;++p)if(mounts[p].valid) {
+        float z=0;
+        for(int k=0;k<3;++k)
+            z+=cam->axis[2][k]*(mounts[p].center[k]-cam->origin[k])+fabsf(cam->axis[2][k])*mounts[p].half[k];
+        if(isfinite(z))near_z=fmaxf(near_z,fminf(2.5f,z+.04f));
+    }
+    return near_z;
+}
 static inline float quest_mirror_dot(const float a[3],const float b[3])
 { return a[0]*b[0]+a[1]*b[1]+a[2]*b[2]; }
 static inline int quest_mirror_unit(float v[3])
@@ -114,6 +128,43 @@ static inline int quest_mirror_camera(QuestMirrorCamera *cam,const float front[1
     }
     for(int j=0;j<3;++j)if(!(fabsf(quest_mirror_dot(cam->axis[j],cam->axis[j])-1)<.015f) ||
         !(fabsf(quest_mirror_dot(cam->axis[j],cam->axis[(j+1)%3]))<.015f))return 0;
+    return 1;
+}
+/* Cabin -> rear clip space, with exactly the retail capture's depth A+B/Z.
+ * The added cabin must write the same depth as the body and traffic so both
+ * the occlusion and the per-eye mirror reprojection agree. */
+static inline int quest_mirror_capture_matrix(float out[16],const QuestMirrorCamera *cam,const float projection[4])
+{
+    if(!(projection[0]>.01f && projection[1]>.01f && projection[2]>=1.f && projection[3]<0.f))return 0;
+    float matrix[16];
+    for(int row=0;row<4;++row) {
+        int axis=row<2?row:2;
+        float scale=row<2?projection[row]:row==2?projection[2]:1.f;
+        for(int col=0;col<3;++col)matrix[4*col+row]=scale*cam->axis[axis][col];
+        matrix[12+row]=-scale*quest_mirror_dot(cam->axis[axis],cam->origin)+(row==2?projection[3]:0);
+    }
+    for(int i=0;i<16;++i)if(!isfinite(matrix[i]))return 0;
+    memcpy(out,matrix,sizeof matrix);return 1;
+}
+/* Match the rigid player's shell in the mono rear capture. Guest constants
+ * contain transposed clip rows and the pre-Vulkan Y sign. Never classify a
+ * nearby peer or a wheel merely by distance from the camera. */
+static inline int quest_mirror_own_car(const float m[16],const QuestMirrorCamera *cam,
+                                     const float projection[4],const float seat[3])
+{
+    float origin[3]={seat[1]-cam->origin[0],-seat[2]-cam->origin[1],seat[0]-cam->origin[2]};
+    const int axes[3]={2,0,1};const float signs[3]={-1,-1,1};
+    const int rows[3]={0,1,3};
+    for(int i=0;i<3;++i) {
+        int row=rows[i],axis=i;
+        float scale=i==0?projection[0]:i==1?-projection[1]:1.f;
+        if(!isfinite(scale) || fabsf(scale)<.01f)return 0;
+        for(int col=0;col<4;++col) {
+            float expected=col<3?signs[col]*cam->axis[axis][axes[col]]:quest_mirror_dot(cam->axis[axis],origin);
+            float delta=m[row*4+col]/scale-expected;
+            if(!isfinite(delta) || fabsf(delta)>(col==3?.025f:.008f))return 0;
+        }
+    }
     return 1;
 }
 static inline void quest_mirror_release(QuestMirrorGrip *g)

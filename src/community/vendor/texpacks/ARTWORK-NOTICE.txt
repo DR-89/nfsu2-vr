@@ -1,0 +1,15 @@
+Upscaled HUD: LunicAura106, https://nfsmods.xyz/mod/4319
+Detailed Map: JeansBig, https://nfsmods.xyz/mod/4485
+English Subtitles Fixed: VileStuff, https://nfsmods.xyz/mod/5286
+High Quality Vinyls & Doorlines: AdrienShadow, https://nfsmods.xyz/mod/8064
+
+Local optional packs use the NTXP conversion published by th0mk/nfsu2-web,
+https://github.com/th0mk/nfsu2-web, commit
+16b23865f09dc41b9533635180e6d3fd34c45a6d.
+Artwork remains the work of its respective authors, under their respective
+terms. The MIT license for the decoder does not relicense the artwork.
+Original game assets and converted artwork are not part of this source tree.
+
+Native vinyl packs decode the optional HQV1 artwork to losslessly compressed
+NHQ1 pixel planes. The native compositor follows the integer blending and
+original gloss preservation documented in nfsu2-web's web/src/gpu/hqskin.ts.

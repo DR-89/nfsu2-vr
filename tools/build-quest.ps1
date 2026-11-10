@@ -20,6 +20,8 @@ function Invoke-Checked([string]$Exe, [string[]]$Arguments) {
 }
 & "$PSScriptRoot/build-vr-vp6.ps1" -Target quest -Ndk $Ndk -Jobs $Jobs
 & "$PSScriptRoot/build-quest-runtime.ps1" -Ndk $Ndk -Jobs $Jobs
+Invoke-Checked "$repo/.venv/Scripts/python.exe" @("$repo/tools/prepare-community-audio.py")
+Invoke-Checked "$repo/.venv/Scripts/python.exe" @("$repo/tools/prepare-community-textures.py")
 Invoke-Checked cmake @('-S', "$repo/android/runtime", '-B', "$repo/build/quest-runtime", '-DNFSU2_ANDROID_GAME=ON')
 Invoke-Checked cmake @('--build', "$repo/build/quest-runtime", '--target', 'nfsu2_quest', '--parallel', "$Jobs")
 $jni = "$repo/build/quest-jni/arm64-v8a"

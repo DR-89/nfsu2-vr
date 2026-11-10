@@ -64,6 +64,7 @@ DWORD xbox_GuestTickCount(void)
 /* Actual mapped RAM for this run; see the header. Default retail 64 MB. */
 size_t g_xbox_total_ram = XBOX_TOTAL_RAM;
 size_t g_xbox_map_size = 0;   /* 0 = same as RAM */
+uint32_t g_xbox_contig_size = XBOX_CONTIG_SIZE;
 
 void xbox_SetTotalRam(size_t bytes)
 {
@@ -102,6 +103,14 @@ static void *g_tiled_view = NULL;
  * XBOX_CONTIG_BASE / XBOX_CONTIG_SIZE come from kernel.h - the bridges need
  * the same numbers for MmClaimGpuInstanceMemory. */
 static void *g_contig_memory = NULL;
+
+int xbox_SetContiguousSize(uint32_t bytes)
+{
+    if (g_memory_base || g_contig_memory ||
+        (bytes != XBOX_CONTIG_SIZE && bytes != 128u * 1024u * 1024u)) return 0;
+    g_xbox_contig_size = bytes;
+    return 1;
+}
 
 /* NV2A GPU register aperture (see MemoryLayoutInit). Backed as plain RAM so
  * that D3D8 code linked into the title can poke it without faulting. */
@@ -167,7 +176,7 @@ static size_t xbox_TiledApertureSize(void)
     uint64_t end = XBOX_NV2A_BASE < 0x100000000ULL
                  ? XBOX_NV2A_BASE : 0x100000000ULL;
     size_t max = (size_t)(end - XBOX_TILED_BASE);
-    return g_memory_size < max ? g_memory_size : max;
+    return g_xbox_contig_size < max ? g_xbox_contig_size : max;
 }
 
 static HANDLE g_nv2a_ack_thread = NULL;
@@ -722,7 +731,7 @@ static int fence_readable(uint32_t va, uint32_t bytes)
      * from -- so a chain ending in that window has to be followed, not
      * discarded. */
     if (va >= XBOX_CONTIG_BASE
-            && (uint64_t)va + bytes <= (uint64_t)XBOX_CONTIG_BASE + XBOX_CONTIG_SIZE)
+            && (uint64_t)va + bytes <= (uint64_t)XBOX_CONTIG_BASE + g_xbox_contig_size)
         return g_contig_memory != NULL;
     return (size_t)va + bytes <= g_memory_size;
 }
@@ -1674,9 +1683,13 @@ static unsigned  s_watchdog_secs;
  * inside the window and still faults. */
 static int peek_readable(uint32_t va)
 {
+    /* The loader maps the main TIB below the image, inside the same base
+     * view. It is a legitimate diagnostic target; page zero stays excluded. */
+    if(g_memory_base && XBOX_MAP_START==0 && va>=XBOX_TIB_MAIN && va+4u<=XBOX_TIB_MAIN+0x40u)
+        return 1;
     struct { const void *mapped; uint32_t base; uint64_t size; } win[] = {
         { g_memory_base,   XBOX_BASE_ADDRESS, (uint64_t)g_memory_size },
-        { g_contig_memory, XBOX_CONTIG_BASE,  XBOX_CONTIG_SIZE },
+        { g_contig_memory, XBOX_CONTIG_BASE,  g_xbox_contig_size },
         { g_nv2a_memory,   XBOX_NV2A_BASE,    XBOX_NV2A_SIZE },
         { g_mcpx_memory,   XBOX_MCPX_BASE,    XBOX_MCPX_SIZE },
         { g_flash_memory,  XBOX_FLASH_BASE,   XBOX_FLASH_SIZE },
@@ -2701,21 +2714,21 @@ BOOL xbox_MemoryLayoutInit(const void *xbe_data, size_t xbe_size)
         uintptr_t contig_native = XBOX_CONTIG_BASE + g_memory_offset;
         g_contig_mapping = CreateFileMappingW(
             INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE,
-            0, (DWORD)XBOX_CONTIG_SIZE, NULL);
+            0, (DWORD)g_xbox_contig_size, NULL);
         g_contig_memory = g_contig_mapping
             ? MapViewOfFileEx(g_contig_mapping, FILE_MAP_ALL_ACCESS,
-                              0, 0, XBOX_CONTIG_SIZE, (LPVOID)contig_native)
+                              0, 0, g_xbox_contig_size, (LPVOID)contig_native)
             : NULL;
         if (!g_contig_memory)
             g_contig_memory = VirtualAlloc(
                 (LPVOID)contig_native,
-                XBOX_CONTIG_SIZE,
+                g_xbox_contig_size,
                 MEM_RESERVE | MEM_COMMIT,
                 PAGE_READWRITE
             );
         if (g_contig_memory) {
             fprintf(stderr, "  Contiguous window: %u MB at Xbox VA 0x%08X\n",
-                    XBOX_CONTIG_SIZE / (1024 * 1024), XBOX_CONTIG_BASE);
+                    g_xbox_contig_size / (1024 * 1024), XBOX_CONTIG_BASE);
         } else {
             fprintf(stderr, "  WARNING: contiguous window at 0x%08X failed "
                     "(error %lu); pinned physical allocations will fault\n",
@@ -3097,8 +3110,8 @@ BOOL xbox_MemoryLayoutInit(const void *xbe_data, size_t xbe_size)
          * texture at 0x81C63000, and the sampler read zeros: 1.8 billion black
          * pixels rasterised, perfectly, from an empty texture.
          */
-        if (tiled_size > XBOX_CONTIG_SIZE)
-            tiled_size = XBOX_CONTIG_SIZE;
+        if (tiled_size > g_xbox_contig_size)
+            tiled_size = g_xbox_contig_size;
         g_tiled_view = g_contig_mapping
             ? MapViewOfFileEx(
                 g_contig_mapping,
@@ -3137,7 +3150,7 @@ BOOL xbox_MemoryLayoutInit(const void *xbe_data, size_t xbe_size)
             }
             fprintf(stderr, "  Tiled aperture: %u MB at Xbox VA 0x%08X"
                     " (aliases the contiguous window)\n",
-                    (unsigned)(g_memory_size / (1024 * 1024)),
+                    (unsigned)(tiled_size / (1024 * 1024)),
                     XBOX_TILED_BASE);
         } else {
             fprintf(stderr, "  WARNING: tiled aperture at 0x%08X failed"
@@ -3596,7 +3609,7 @@ uint32_t xbox_ContiguousAlloc(uint32_t size, uint32_t alignment)
 
         /* Leave the top of the window for GPU instance memory. */
         if ((uint64_t)result + size >
-                (uint64_t)XBOX_CONTIG_BASE + XBOX_CONTIG_SIZE
+                (uint64_t)XBOX_CONTIG_BASE + g_xbox_contig_size
                     - XBOX_GPU_INSTANCE_DEFAULT
             || g_contig_count + 2 > XBOX_CONTIG_MAX_BLOCKS) {
             uint32_t free_bytes = 0, largest = 0;
@@ -3610,7 +3623,7 @@ uint32_t xbox_ContiguousAlloc(uint32_t size, uint32_t alignment)
             fprintf(stderr, "  [CONTIG] arena exhausted (%u requested, %u of %u used, "
                     "%u free below the top in %d blocks, largest %u)\n",
                     size, g_contig_next - XBOX_CONTIG_BASE,
-                    (unsigned)XBOX_CONTIG_SIZE, free_bytes, g_contig_count, largest);
+                    (unsigned)g_xbox_contig_size, free_bytes, g_contig_count, largest);
             fflush(stderr);
             return 0;
         }
