@@ -122,13 +122,14 @@ braking graphs. Acceleration is derived from the local car's signed speed;
 the graph uses a +/-12 m/s² range. Stale or unavailable samples show **No Live
 Data**. This page does not interrupt music playback.
 
-Enable **Grab Dash Screen**, then hold Grip with either free hand on the
+**Grab Dash Screen** defaults to On. Hold Grip with either free hand on the
 screen to move it. Wrist movement adjusts pitch/yaw up to 45 degrees each.
-While holding the screen, right-stick up/down resizes it from 50–300%; that
-stick remains reserved until it returns to center after release. **Screen
-Opacity** ranges from 5–100%. Placement saves on release or interruption;
+While holding the screen, right-stick up/down resizes it from 50–300%.
+Right-stick left lowers opacity, and right raises it, within 5–100%.
+The stick remains reserved until it returns to center after release.
+Placement, size and opacity save on release or interruption;
 **Reset Screen** restores the fitted mount and screen defaults. The minimap
-retains its independent placement.
+retains its independent placement. A previously saved Off setting is retained.
 
 Validation: the PCVR interaction, settings, H-pattern, wheel, haptics, radio
 and music regressions pass. The shared XR/Vulkan code and interaction tests

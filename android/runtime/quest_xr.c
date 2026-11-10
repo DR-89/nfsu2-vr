@@ -1281,7 +1281,7 @@ static void poll_wheel_grips(void)
     int screen_active=cabin_input && visible && ui==QUEST_UI_HUD && screen_vehicle==cockpit_vehicle_index && frame_number-screen_draw_frame<=1;
     if(!screen_active)screen_stick_captured=0;
     save_map|=quest_screen_update(&screen_grip,&vr_settings.cockpit.screen,quest_cockpit_vehicle(cockpit_vehicle_index),
-        mirror_now,screen_active,hand_valid,hand_matrix,frame_squeeze,screen_busy,frame_sticks[3]);
+        mirror_now,screen_active,hand_valid,hand_matrix,frame_squeeze,screen_busy,frame_sticks[2],frame_sticks[3]);
     if(screen_grip.grip.hand){radio_busy[screen_grip.grip.hand-1]=1;screen_stick_captured=1;}
     if(screen_stick_captured) {
         if(!screen_grip.grip.hand && abs(frame_sticks[2])<8192 && abs(frame_sticks[3])<8192)screen_stick_captured=0;

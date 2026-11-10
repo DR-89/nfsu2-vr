@@ -46,6 +46,8 @@ the tree; the focus of this development publication is PCVR and Meta Quest 3.
 ## New in 0.7.1-dev (PCVR)
 
 Visible menu scrollbars reveal the remaining cockpit/community options.
+Screen grabbing defaults to On; while holding the screen, right-stick left/right
+changes opacity and up/down changes size.
 Right-stick career actions, brief menu inputs, lowercase profile text and the
 I-pattern grab area are corrected. Camera checks now accept valid objects in
 the expanded memory window after a session change. The PCVR preset retains

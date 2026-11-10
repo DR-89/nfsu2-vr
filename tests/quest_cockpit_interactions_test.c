@@ -105,7 +105,7 @@ static int screens(void)
 {
     for(int v=0;v<QUEST_COCKPIT_VEHICLES;++v)for(int h=0;h<2;++h) {
         const QuestCockpitVehicle *fit=quest_cockpit_vehicle(v);
-        QuestScreenSettings p=quest_cockpit_defaults().screen;p.movable=1;
+        QuestScreenSettings p=quest_cockpit_defaults().screen;CHECK(p.movable);
         QuestScreenGrip g={0};QuestMinimapMount mount=quest_screen_mount(fit);
         float matrix[16],point[3],original[3];quest_minimap_matrix(matrix,&mount,&p.placement);
         for(int corner=0;corner<4;++corner) {
@@ -116,25 +116,46 @@ static int screens(void)
         float pose[2][16]={{0}},squeeze[2]={0};int valid[2]={1,1},busy[2]={0};
         for(int i=0;i<2;++i){pose[i][0]=pose[i][5]=pose[i][10]=pose[i][15]=1;pose[i][12]=10;}
         memcpy(pose[h]+12,mount.center,12);
-        CHECK(!quest_screen_update(&g,&p,fit,1,1,valid,pose,squeeze,busy,0) && g.grip.hover[h]);
-        squeeze[h]=1;CHECK(!quest_screen_update(&g,&p,fit,11,1,valid,pose,squeeze,busy,0) && g.grip.hand==h+1);
+        CHECK(!quest_screen_update(&g,&p,fit,1,1,valid,pose,squeeze,busy,0,0) && g.grip.hover[h]);
+        squeeze[h]=1;CHECK(!quest_screen_update(&g,&p,fit,11,1,valid,pose,squeeze,busy,0,0) && g.grip.hand==h+1);
         pose[h][12]+=.12f;pose[h][14]+=.2f;
-        quest_screen_update(&g,&p,fit,111,1,valid,pose,squeeze,busy,32767);
-        CHECK(fabsf(p.placement.offset[0]-.12f)<1.e-5f && p.scale>1);
+        quest_screen_update(&g,&p,fit,111,1,valid,pose,squeeze,busy,0,32767);
+        CHECK(fabsf(p.placement.offset[0]-.12f)<1.e-5f && p.scale>1 && p.opacity==1);
         pose[h][0]=pose[h][10]=cosf(.4f);pose[h][2]=-sinf(.4f);pose[h][8]=sinf(.4f);
-        quest_screen_update(&g,&p,fit,121,1,valid,pose,squeeze,busy,0);
+        quest_screen_update(&g,&p,fit,121,1,valid,pose,squeeze,busy,0,0);
         CHECK(fabsf(p.placement.yaw-.4f)<1.e-5f);
-        valid[h]=0;CHECK(quest_screen_update(&g,&p,fit,131,1,valid,pose,squeeze,busy,0) && !g.grip.hand);
-        CHECK(!quest_screen_update(&g,&p,fit,141,1,valid,pose,squeeze,busy,0));
+        valid[h]=0;CHECK(quest_screen_update(&g,&p,fit,131,1,valid,pose,squeeze,busy,0,0) && !g.grip.hand);
+        CHECK(!quest_screen_update(&g,&p,fit,141,1,valid,pose,squeeze,busy,0,0));
         valid[h]=1;p.movable=0;squeeze[h]=0;
-        CHECK(!quest_screen_update(&g,&p,fit,151,1,valid,pose,squeeze,busy,0) && !g.grip.hover[h]);
+        CHECK(!quest_screen_update(&g,&p,fit,151,1,valid,pose,squeeze,busy,0,0) && !g.grip.hover[h]);
+        /* Horizontal input changes opacity only while held, including at
+         * both limits. An opacity-only edit must request a save on release. */
+        for(int direction=-1;direction<=1;direction+=2) {
+            g=(QuestScreenGrip){0};p=quest_cockpit_defaults().screen;p.opacity=.5f;
+            memset(pose[h],0,sizeof pose[h]);pose[h][0]=pose[h][5]=pose[h][10]=pose[h][15]=1;
+            memcpy(pose[h]+12,mount.center,12);squeeze[h]=0;
+            quest_screen_update(&g,&p,fit,200,1,valid,pose,squeeze,busy,direction*32767,0);
+            CHECK(p.opacity==.5f && p.scale==1);
+            squeeze[h]=1;quest_screen_update(&g,&p,fit,210,1,valid,pose,squeeze,busy,0,0);
+            CHECK(g.grip.hand==h+1);
+            quest_screen_update(&g,&p,fit,220,1,valid,pose,squeeze,busy,6000,-6000);
+            CHECK(p.opacity==.5f && p.scale==1); /* stick deadzone */
+            for(uint32_t tick=320;tick<=3320;tick+=100)
+                quest_screen_update(&g,&p,fit,tick,1,valid,pose,squeeze,busy,direction*32767,0);
+            CHECK(p.opacity==(direction<0?.05f:1.f) && p.scale==1);
+            CHECK(!memcmp(&p.placement,&g.grip.start,sizeof p.placement));
+            squeeze[h]=0;
+            CHECK(quest_screen_update(&g,&p,fit,3330,1,valid,pose,squeeze,busy,0,0));
+            CHECK(!g.grip.hand && !quest_screen_update(&g,&p,fit,3340,1,valid,pose,squeeze,busy,0,0));
+        }
     }
     return 0;
 }
 static int settings_and_steering(void)
 {
     QuestVRSettings s=quest_vr_defaults(),loaded=quest_vr_defaults();char text[4096];
-    CHECK(!s.cockpit.shift.mode && !s.cockpit.shift.gestures && !s.cockpit.screen.movable);
+    CHECK(!s.cockpit.shift.mode && !s.cockpit.shift.gestures && s.cockpit.screen.movable);
+    quest_vr_parse(&loaded,"screen_movable=0\n");CHECK(!loaded.cockpit.screen.movable);
     for(int i=0;i<QUEST_COCKPIT_OPTION_COUNT;++i)quest_option_set(&s.cockpit,i,quest_cockpit_options[i].high);
     int n=quest_vr_format(&s,text,sizeof text);CHECK(n>0 && n<(int)sizeof text);quest_vr_parse(&loaded,text);
     for(int i=0;i<QUEST_COCKPIT_OPTION_COUNT;++i)CHECK(fabsf(quest_option_get(&s.cockpit,i)-quest_option_get(&loaded.cockpit,i))<1e-5f);

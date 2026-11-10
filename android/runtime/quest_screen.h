@@ -3,7 +3,7 @@
 #include "quest_radio.h"
 
 typedef struct { QuestMinimapPlacement placement;float scale,opacity;int movable,page; } QuestScreenSettings;
-typedef struct { QuestMinimapGrip grip;float start_scale;uint32_t tick; } QuestScreenGrip;
+typedef struct { QuestMinimapGrip grip;float start_scale,start_opacity;uint32_t tick; } QuestScreenGrip;
 static inline QuestMinimapMount quest_screen_mount(const QuestCockpitVehicle *fit)
 {
     QuestMinimapMount m=quest_minimap_mount(fit);
@@ -21,12 +21,13 @@ static inline int quest_screen_contact(const float m[16],float width,const float
 }
 static inline int quest_screen_release(QuestScreenGrip *s,const QuestScreenSettings *p)
 {
-    int changed=s->grip.hand && fabsf(s->start_scale-p->scale)>.00001f;
+    int changed=s->grip.hand && (fabsf(s->start_scale-p->scale)>.00001f ||
+                                fabsf(s->start_opacity-p->opacity)>.00001f);
     changed|=quest_minimap_release(&s->grip,&p->placement);return changed;
 }
 static inline int quest_screen_update(QuestScreenGrip *s,QuestScreenSettings *p,
     const QuestCockpitVehicle *fit,uint32_t now,int active,const int valid[2],const float pose[2][16],
-    const float squeeze[2],const int busy[2],int16_t stick)
+    const float squeeze[2],const int busy[2],int16_t stick_x,int16_t stick_y)
 {
     uint32_t dt=now-s->tick;s->tick=now;
     if(!active || !p->movable)return quest_screen_release(s,p);
@@ -36,8 +37,11 @@ static inline int quest_screen_update(QuestScreenGrip *s,QuestScreenSettings *p,
         int h=g->hand-1;
         if(!valid[h] || busy[h] || !isfinite(squeeze[h]) || squeeze[h]<.15f)save=quest_screen_release(s,p);
         else {
-            float axis=fabsf(stick/32767.f)>.25f?stick/32767.f:0;
-            p->scale=fmaxf(.5f,fminf(3.f,p->scale+axis*fminf(dt,100)*.001f));
+            float horizontal=fabsf(stick_x/32767.f)>.25f?stick_x/32767.f:0;
+            float vertical=fabsf(stick_y/32767.f)>.25f?stick_y/32767.f:0;
+            float seconds=fminf(dt,100)*.001f;
+            p->scale=fmaxf(.5f,fminf(3.f,p->scale+vertical*seconds));
+            p->opacity=fmaxf(.05f,fminf(1.f,p->opacity+horizontal*seconds*.5f));
             float forward[3];for(int k=0;k<3;++k)forward[k]=pose[h][k]*g->wrist_forward[0]+pose[h][4+k]*g->wrist_forward[1]+pose[h][8+k]*g->wrist_forward[2];
             p->placement.pitch=fmaxf(-QUEST_MINIMAP_ANGLE_LIMIT,fminf(QUEST_MINIMAP_ANGLE_LIMIT,g->start.pitch+atan2f(-forward[1],hypotf(forward[0],forward[2]))));
             p->placement.yaw=fmaxf(-QUEST_MINIMAP_ANGLE_LIMIT,fminf(QUEST_MINIMAP_ANGLE_LIMIT,g->start.yaw+atan2f(forward[0],forward[2])));
@@ -55,7 +59,7 @@ static inline int quest_screen_update(QuestScreenGrip *s,QuestScreenSettings *p,
         float local[3];g->hover[h]=!g->hand && g->armed[h] && quest_screen_contact(matrix,quest_radio_screen_width(fit)*p->scale,pose[h]+12,local);
         if(squeeze[h]<.65f)continue;
         if(g->hover[h]) {
-            g->hand=h+1;g->start=p->placement;s->start_scale=p->scale;
+            g->hand=h+1;g->start=p->placement;s->start_scale=p->scale;s->start_opacity=p->opacity;
             memcpy(g->contact,local,sizeof local);
             for(int k=0;k<3;++k)g->wrist_forward[k]=pose[h][4*k+2];
         }

@@ -166,7 +166,10 @@ Cockpit Controls (VR Settings):
 - LED and PAGE > buttons below the stereo cycle ambient color and the monitor's
   video/music or live RPM, acceleration and brake graphs.
 - Wheel Deadzone adjusts the tracked steering wheel's center dead travel.
-- Enable Grab Dash Screen to move/tilt it with Grip. Right stick up/down while
-  holding resizes it; Screen Opacity and Reset Screen are in the same settings.
-- Gestures and screen grabbing default to Off. These controls still need a
-  headset playtest for feel and final visual placement.
+- Grab Dash Screen defaults to On. Hold Grip on the screen to move/tilt it.
+  While holding, right stick up/down changes size; left lowers opacity and
+  right raises it (5-100%). Changes save when you release the screen.
+  Reset Screen restores the fitted placement, size, opacity and grabbing defaults.
+  A previously saved Grab Dash Screen: Off setting is retained.
+- No-grip shifting gestures default to Off. These controls still need a headset
+  playtest for feel and final visual placement.

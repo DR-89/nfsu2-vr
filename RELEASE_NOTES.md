@@ -10,6 +10,7 @@ PCVR development update for Windows x64, including Quest 3 connected through Vir
 - Short vertical stick movements and D-pad taps remain active for at least 100 ms so the guest input poll can see them. Menus consume a single digital direction from either stick. Driving controls no longer depend on successful cockpit rendering, and a previous screen grab cannot keep blocking menu navigation.
 - The I-pattern lever can only be picked up within 6.5 cm of the knob. Its full travel remains available while held. Radio, LED, page and seat controls take priority over optional no-grip shifting gestures.
 - Names, rooms and keyphrases support lowercase input and display their actual case. The keyboard starts in lowercase; X toggles case, and holding Y still reveals a keyphrase.
+- **Grab Dash Screen defaults to On.** Hold the screen with Grip: right-stick left lowers opacity and right raises it (5-100%); up/down continues to resize it. Opacity, size and placement save on release. Previously saved Off settings are retained; enable the option once or use Reset Screen to apply its new default.
 
 ### Menus and camera recovery
 
@@ -26,7 +27,7 @@ PCVR development update for Windows x64, including Quest 3 connected through Vir
 
 Extract the [PCVR ZIP](https://github.com/DR-89/nfsu2-vr/releases/download/dev-2026-11-10-r2/NFSU2VR-PCVR-dev-2026-11-10-r2.zip) into a writable folder, keep your existing `game/` and `Music/` folders, and use **Start-PCVR.cmd** so the updated preset is loaded. For Steam Link, use **Start-PCVR.cmd -SteamVR**.
 
-The Windows build and focused input, profile keyboard, shifter, cockpit interaction, camera lifetime, mirror, radio and frame-timing checks passed. Menu rendering was inspected at the top, middle and bottom of the lists. Both mirror shader variants compile, and 200,000 numerical ray cases retain every visible reference sample. Exact checks and hashes are recorded in BUILD-INFO.json and SHA256SUMS.txt.
+The Windows build and focused input, profile keyboard, shifter, cockpit interaction, camera lifetime, mirror, radio and frame-timing checks passed. Screen tests cover both hands and all cars, independent size/opacity axes, deadzones, opacity limits and saving opacity-only edits. Menu rendering was inspected at the top, middle and bottom of the lists. Both mirror shader variants compile, and 200,000 numerical ray cases retain every visible reference sample. Exact checks and hashes are recorded in BUILD-INFO.json and SHA256SUMS.txt.
 
 This remains a development prerelease. CopChase remains unsupported and disabled by default; its known game-integration failure is not addressed here. Original game content, saves, credentials and optional community asset packs are excluded. Supply your own Xbox USA / NTSC-U game data. Matching port and FFmpeg source archives are included.
 

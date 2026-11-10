@@ -165,7 +165,7 @@ static inline void quest_vr_panel(uint32_t *pixels,const QuestVRSettings *s,
     }
     const char *hint="";
     if(cockpit)hint="GESTURES NEED NO GRIP. RETURN TO CENTER BETWEEN FLICKS.";
-    if(cockpit && m->row>=QUEST_VR_COCKPIT_FIRST+14)hint="HOLD SCREEN: RIGHT STICK UP/DOWN RESIZES. WRIST TILTS IT.";
+    if(cockpit && m->row>=QUEST_VR_COCKPIT_FIRST+14)hint="HOLD SCREEN: RIGHT STICK L/R: OPACITY. U/D: SIZE. WRIST TILTS.";
     if(m->row<2)hint="ROTATION IS TOTAL LOCK-TO-LOCK. HIGHER SENSITIVITY = QUICKER TURNS.";
     if(m->row==2 || m->row==3)hint="EACH STEP MOVES THE SEAT ONE CENTIMETER.";
     if(m->row==4)hint="EYE RESOLUTION CHANGES TAKE EFFECT ON THE NEXT GAME START.";

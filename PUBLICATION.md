@@ -128,7 +128,8 @@ failure. Exact checks, limitations and hashes are in BUILD-INFO.json.
 
 ## November 10 PCVR update (0.7.1-dev)
 
-The PCVR package and matching source include corrected career/menu input,
+The PCVR package and matching source include right-stick opacity adjustment
+while holding the screen, screen grabbing enabled by default, corrected career/menu input,
 lowercase profile entry, a smaller I-pattern pickup area, visible menu scrolling,
 camera guards for the 128 MB memory window and bounded mirror trace work.
 The PCVR preset now leaves display refresh to the runtime. The latest standalone

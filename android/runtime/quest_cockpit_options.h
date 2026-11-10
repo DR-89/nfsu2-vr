@@ -31,7 +31,7 @@ static const QuestCockpitOption quest_cockpit_options[]={
     QCHOICE2(shift_sound,"shift_sound","SHIFT SOUND",0,"OFF","ON"),
     QCHOICE2(shift_lights,"shift_lights","SHIFT LED CUES",1,"OFF","ON"),
     QOPT(steering_deadzone,"steering_deadzone","WHEEL DEADZONE (%)",0,.25f,.01f,0),
-    QCHOICE2(screen.movable,"screen_movable","GRAB DASH SCREEN",0,"OFF","ON"),
+    QCHOICE2(screen.movable,"screen_movable","GRAB DASH SCREEN",1,"OFF","ON"),
     QOPT(screen.opacity,"screen_opacity","SCREEN OPACITY (%)",.05f,1,.05f,1),
     QOPT(screen.scale,"screen_scale","SCREEN SIZE (%)",.5f,3,.1f,1),
     QCHOICE2(screen.page,"screen_page","DASH SCREEN PAGE",0,"VIDEO / MUSIC","TELEMETRY"),
