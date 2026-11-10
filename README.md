@@ -43,20 +43,22 @@ Other PC OpenXR runtimes and other Quest models have not been established as
 supported configurations. Inherited Linux and Nintendo Switch code remains in
 the tree; the focus of this development publication is PCVR and Meta Quest 3.
 
-## New in 0.7.1-dev (PCVR and Quest 3)
+## New in 0.7.2-dev (PCVR and Quest 3)
 
-Visible menu scrollbars reveal the remaining cockpit/community options.
-Screen grabbing defaults to On; while holding the screen, right-stick left/right
-changes opacity and up/down changes size.
-Right-stick career actions, brief menu inputs, lowercase profile text and the
-I-pattern grab area are corrected. Camera checks now accept valid objects in
-the expanded memory window after a session change. The PCVR preset retains
-the display rate selected in Virtual Desktop / OpenXR.
+Fixes the **60 FPS gameplay cap introduced by 0.7.1-dev**. Selecting the
+runtime's refresh rate had accidentally disabled XR game pacing. Race pacing
+now stays active independently of display-rate selection, allowing 120 FPS
+when Virtual Desktop / OpenXR uses 120 Hz and the hardware can keep up.
+Frontend and intro timing retain their existing behavior.
 
-Updated PCVR and standalone Quest packages are available in the same release.
-The Quest APK uses version code 11 and retains the previous signing certificate.
-A matching Quest 3 / VDXR gameplay check, restored 90 FPS and standalone Quest
-control/visual acceptance remain unverified.
+The 0.7.1 release has been withdrawn. This replacement includes all its
+control, lowercase keyboard, shifter, camera, menu scrollbar and screen fixes.
+Hold the screen: right-stick left/right changes opacity, up/down changes size.
+Screen grabbing defaults to On; existing saved preferences are retained.
+
+Both packages use the same source revision. Quest version code 12 keeps the
+previous signing certificate. Regression tests reproduce the old cap and pass
+with the fix; sustained 120 FPS has not been measured on the final build.
 [Full changes and validation](RELEASE_NOTES.md).
 
 ## 0.7.0-dev - Cockpit controls, telemetry and mirror fixes
@@ -75,18 +77,19 @@ and [online integration status](docs/nfsu2-xyz-integration.md) for details.
 
 ## Development downloads
 
-Latest downloads: [PCVR 0.7.1-dev](https://github.com/DR-89/nfsu2-vr/releases/tag/dev-2026-11-10-r2)
-and [standalone Quest 0.7.1-dev](https://github.com/DR-89/nfsu2-vr/releases/tag/dev-2026-11-10-r2).
+Latest downloads: [PCVR 0.7.2-dev](https://github.com/DR-89/nfsu2-vr/releases/tag/dev-2026-11-10-r3)
+and [standalone Quest 0.7.2-dev](https://github.com/DR-89/nfsu2-vr/releases/tag/dev-2026-11-10-r3).
 
-- [Meta Quest 3 APK (0.7.1-dev)](https://github.com/DR-89/nfsu2-vr/releases/download/dev-2026-11-10-r2/NFSU2VR-Quest3-dev-2026-11-10-r2.apk):
+- [Meta Quest 3 APK (0.7.2-dev)](https://github.com/DR-89/nfsu2-vr/releases/download/dev-2026-11-10-r3/NFSU2VR-Quest3-dev-2026-11-10-r3.apk):
   sideload the development APK, then use its setup panel to import your own
   supported Xbox USA ZIP, 7z or ISO/XISO.
   Follow the [Quest installation guide](#installing-on-meta-quest-3) below.
-- [Windows PCVR package (0.7.1-dev)](https://github.com/DR-89/nfsu2-vr/releases/download/dev-2026-11-10-r2/NFSU2VR-PCVR-dev-2026-11-10-r2.zip):
+- [Windows PCVR package (0.7.2-dev)](https://github.com/DR-89/nfsu2-vr/releases/download/dev-2026-11-10-r3/NFSU2VR-PCVR-dev-2026-11-10-r3.zip):
   extract the whole ZIP to a writable folder and run **Start-PCVR.cmd**.
   If game data is missing, **Game data setup** opens automatically. Select your
   Xbox USA ISO/XISO; progress and cancellation are available. All 12 required
   files are verified before VR starts. Saved games are preserved.
+- [PCVR update for an existing installation](https://github.com/DR-89/nfsu2-vr/releases/download/dev-2026-11-10-r3/NFSU2VR-PCVR-Update-0.7.2-dev.zip): extract it and run **Update-PCVR.cmd**. The updater backs up replaced files and preserves game data, saves, music and settings.
 - Matching source archive, build information and SHA-256 checksums.
 
 The PCVR ZIP includes the EXE, SDL/OpenXR loader DLLs, Visual C++ runtime DLLs,

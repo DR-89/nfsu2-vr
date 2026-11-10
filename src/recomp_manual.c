@@ -1677,16 +1677,17 @@ static int quest_60fps(void)
 }
 static int quest_xr_paced(void)
 {
-    static int option=-1;
-    if(option<0) option=quest_refresh_option(getenv("NFSU2_VR_REFRESH_HZ"),getenv("NFSU2_VR_72FPS"))!=0;
+    /* Refresh-rate selection is independent of game pacing. In particular,
+     * REFRESH_HZ=0 keeps the runtime's rate; it must not restore the retail
+     * 60 Hz flip wait or the simulation's minimum step during a race. */
     /* Only the race branch uses the adjustable minimum. Frontend/intro
      * timing retains the already tested 60 Hz path. */
-    return option && quest_xr_enabled() && MEM32(0x3A4C50)!=0;
+    return quest_xr_enabled() && MEM32(0x3A4C50)!=0;
 }
 #endif
 
 /* Keep the retail flip queue and its fences. The 60 FPS path caps interval
- * 2 to 1; the opt-in XR-paced race path requests an immediate flip. Neither
+ * 2 to 1; the XR-paced race path requests an immediate flip. Neither
  * changes the guest vblank clock. Callers hold the D3D dispatch lock. */
 extern void sub_002F2080_gen(void);
 void sub_002F2080(void)

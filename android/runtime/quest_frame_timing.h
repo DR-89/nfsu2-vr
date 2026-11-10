@@ -3,7 +3,8 @@
 #include <string.h>
 
 /* Explicit headset rate selection; the old option remains a 72 Hz alias.
- * Runtime support is checked by OpenXR before requesting a rate. */
+ * Runtime support is checked by OpenXR before requesting a rate. Zero means
+ * keep the runtime's rate, never disable XR game pacing. */
 static inline unsigned quest_refresh_option(const char *rate, const char *legacy)
 {
     if(rate && *rate) {
@@ -41,8 +42,8 @@ static inline uint32_t quest_present_xr(uint32_t command)
     return (command & 31) == 1 ? (command & ~(7u << 5)) | (1u << 8) : command;
 }
 
-/* OpenXR intervals can jitter around 1/72 s. Flooring each short interval to
- * 1/72 while keeping longer intervals advances time too fast. Let the retail
+/* OpenXR intervals can jitter around the selected display period. Flooring
+ * each short interval while keeping longer intervals advances time too fast. Let the retail
  * accumulator/quantizer consume elapsed time, retaining its maximum step. */
 static inline float quest_sim_minimum_xr(float original)
 {

@@ -425,6 +425,16 @@ stick for menu navigation, both stick clicks to recenter.
 
 ## Measuring game FPS
 
+Version 0.7.2 corrects a regression in 0.7.1: keeping the runtime's display
+rate (`NFSU2_VR_REFRESH_HZ=0`) also disabled XR game pacing, restoring the
+retail 60 Hz wait. Race presentation and simulation now use XR pacing whenever
+XR is active, independently of the optional refresh-rate request. Select
+120 Hz in Virtual Desktop to allow 120 FPS; frontend/intro timing is unchanged.
+The old release fails the synthetic guest-hook regression with its shipped
+preset; the fixed code passes automatic/explicit-rate and repeated-session
+cases. Run `python tests/quest_frame_timing_hooks_test.py` with a C compiler
+on PATH. Actual sustained 120 FPS still requires a matched hardware measurement.
+
 The 2026-11-10 PCVR preset retains the display rate selected in Virtual Desktop
 or the active OpenXR runtime (`NFSU2_VR_REFRESH_HZ=0`, `NFSU2_VR_72FPS=0`). It
 no longer requests 72 Hz. The reported regression compares 90 FPS in

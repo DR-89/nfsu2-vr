@@ -1,6 +1,55 @@
 # Release notes
 
-## 0.7.1-dev · Controls, screen opacity and menu scrolling
+## 0.7.2-dev · Restore XR gameplay pacing up to 120 FPS
+
+Replacement for the withdrawn **0.7.1-dev / dev-2026-11-10-r2** release.
+Windows PCVR and Quest standalone are rebuilt from the same source revision.
+
+### Cause and correction
+
+The 0.7.1 PCVR preset stopped requesting a fixed 72 Hz display rate. The game
+also used that refresh-rate option to decide whether to bypass its retail
+60 Hz presentation wait. Keeping the runtime's rate therefore disabled the
+XR timing path and restored the cap. This coupling was missed by the earlier
+helper-only timing tests.
+
+XR race pacing now depends on XR being active and the game being in a race,
+independently of any refresh-rate request. Both the immediate presentation
+path and the elapsed-time simulation path remain enabled at automatic,
+72, 80, 90 and 120 Hz. Frontend/intro timing and the guest vblank clock remain
+unchanged. This correction applies to both platforms.
+
+For **120 FPS on PCVR**, select **120 Hz in Virtual Desktop** before launch.
+The shipped `NFSU2_VR_REFRESH_HZ=0` preserves that rate. Sustained rendered FPS
+still depends on scene, PC performance and runtime behavior; the final build
+has not undergone a sustained 120 FPS gameplay measurement.
+
+All 0.7.1 control, camera, lowercase keyboard, shifter pickup, menu scrollbar,
+screen-opacity and default screen-grab changes are retained.
+
+### Downloads and validation
+
+- **Existing PCVR installation:** extract `NFSU2VR-PCVR-Update-0.7.2-dev.zip`, close the game, run **Update-PCVR.cmd** and choose the folder containing `nfsu2-pcvr.exe`. Replaced files are backed up; game data, saves, music and preferences are preserved.
+- **Full PCVR package:** extract the PCVR ZIP and run **Start-PCVR.cmd**.
+- **Quest:** install the new APK over the existing app. Package `org.nfsu2.quest`, version code **12**, retains the previous signing certificate.
+
+The new regression harness compiles the actual guest presentation hook with
+a synthetic runtime. The withdrawn source fails with the shipped preset;
+the fix passes eight option combinations, command payload preservation,
+XR disabled, and repeated menu/race transitions. Simulation checks pass at
+72/80/90/120 Hz on Windows and directly on Quest 3 ARM64. Nine additional
+Windows control/camera/cockpit regression executables pass.
+
+Builds, package inventories, signatures and checksums are verified. Exact
+checks are recorded in BUILD-INFO.json. This remains a development prerelease;
+the existing unsupported CopChase limitation remains. No retail game data,
+saves or optional community asset packs are included.
+
+---
+
+## 0.7.1-dev · Withdrawn: 60 FPS regression
+
+**Replaced by 0.7.2-dev above.** Historical control and camera changes below are retained in the replacement.
 
 Development update for **Windows PCVR** (including Quest 3 through Virtual Desktop / VDXR) and **Meta Quest 3 standalone**. Both builds contain the control, camera, screen and menu corrections below. The Quest APK was added to this same release with version code **11** and the same signing certificate as 0.7.0-dev. Its matching source is supplied in the separate Quest source archive; the original PCVR tag and archive remain unchanged.
 
@@ -25,9 +74,7 @@ Development update for **Windows PCVR** (including Quest 3 through Virtual Deskt
 
 ### Download and validation
 
-**Quest 3 standalone:** install the [0.7.1-dev APK](https://github.com/DR-89/nfsu2-vr/releases/download/dev-2026-11-10-r2/NFSU2VR-Quest3-dev-2026-11-10-r2.apk) over your existing installation. The package ID and signing certificate are unchanged. Your existing game import and saves remain in place.
-
-**Windows PCVR:** extract the [PCVR ZIP](https://github.com/DR-89/nfsu2-vr/releases/download/dev-2026-11-10-r2/NFSU2VR-PCVR-dev-2026-11-10-r2.zip) into a writable folder, keep your existing `game/` and `Music/` folders, and use **Start-PCVR.cmd** so the updated preset is loaded. For Steam Link, use **Start-PCVR.cmd -SteamVR**.
+The 0.7.1 downloads have been withdrawn. Use the 0.7.2 packages above.
 
 The Windows build and focused input, profile keyboard, shifter, cockpit interaction, camera lifetime, mirror, radio and frame-timing checks passed. Screen tests cover both hands and all cars, independent size/opacity axes, deadzones, opacity limits and saving opacity-only edits. Menu rendering was inspected at the top, middle and bottom of the lists. Both mirror shader variants compile, and 200,000 numerical ray cases retain every visible reference sample. Exact checks and hashes are recorded in BUILD-INFO.json and SHA256SUMS.txt.
 

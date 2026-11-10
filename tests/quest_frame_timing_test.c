@@ -34,9 +34,11 @@ int main(void)
     if (quest_sim_minimum_xr(1.0f/120.0f)!=0) ++failed;
     if (quest_sim_minimum_xr(0)!=0) ++failed;
     if (!isnan(quest_sim_minimum_xr(NAN))) ++failed;
-    /* Alternating early/late frames must not accelerate a 72 or 120 Hz race. */
+    /* Alternating early/late frames must not accelerate a race at any supported rate. */
+    const unsigned rates[]={72,80,90,120};
+    for(unsigned r=0;r<sizeof rates/sizeof rates[0];++r) {
+    unsigned rate=rates[r];
     double wall=0,sim=0;
-    for(unsigned rate=72;rate<=120;rate+=48) {
     for(unsigned i=0;i<7200;++i) {
         float dt=1.0f/rate+(i&1?0.002f:-0.002f);
         wall+=dt; sim+=fmaxf(dt,quest_sim_minimum_xr(1.0f/30.0f));

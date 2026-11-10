@@ -157,3 +157,17 @@ unchanged Java unit tests retain passing Gradle results. No headset was
 connected for standalone control/visual acceptance. The original PCVR tag and
 source archive are retained, with a separate Quest source archive identifying
 the follow-up commit and its package metadata/build instructions.
+
+## November 10 replacement (0.7.2-dev)
+
+The 0.7.1 release was withdrawn after its runtime-selected display preset
+exposed a coupling between refresh selection and game pacing, limiting
+gameplay to 60 FPS. The replacement decouples these decisions and rebuilds
+both platforms from one source commit. Quest advances to version code 12
+with the same certificate. Old source tags remain intact.
+
+The real presentation hook is now regression-tested with the shipped preset,
+explicit rates through 120 Hz, disabled XR and repeated menu/race transitions.
+The prior source fails the new test; the correction passes. Simulation timing
+passes on Windows and on the connected Quest 3. No sustained 120 FPS gameplay
+measurement is claimed. The replacement also supplies a checked PCVR updater.

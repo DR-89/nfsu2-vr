@@ -139,6 +139,10 @@ Retry. This recovery path still needs broader PCVR headset testing.
 The PCVR preset keeps the display rate selected in Virtual Desktop / OpenXR.
 It no longer requests 72 Hz. NFSU2_VR_REFRESH_HZ=0 in pcvr.env keeps the runtime
 rate; an explicit 72, 80, 90 or 120 requests that supported rate instead.
+Version 0.7.2 fixes the 0.7.1 regression that limited gameplay to 60 FPS when
+the runtime rate was retained. XR now paces races independently of that option.
+For 120 FPS, select 120 Hz in Virtual Desktop before starting the game.
+Frontend/intro timing retains its existing 60 Hz path.
 Display refresh is not a guarantee of the game's rendered frame rate.
 
 If startup fails, read logs/stderr.log. Logs from the previous launch are
