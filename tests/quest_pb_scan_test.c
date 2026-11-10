@@ -1,6 +1,8 @@
 /* Run the real scanner against a synthetic ring/call buffer. Compare each
  * executed method AND the published DMA_GET with inventory on/off. */
 #include <stdint.h>
+/* The standalone scanner links without the kernel memory implementation. */
+uint32_t g_xbox_contig_size=0x04000000u;
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>

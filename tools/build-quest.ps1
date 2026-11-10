@@ -3,7 +3,8 @@ param(
     [string]$Ndk = $env:ANDROID_NDK_HOME,
     [string]$Gradle = 'gradle',
     [string]$JavaHome = $env:JAVA_HOME,
-    [int]$Jobs = 4
+    [int]$Jobs = 4,
+    [switch]$ReleaseAssetsOnly
 )
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path $PSScriptRoot -Parent
@@ -20,8 +21,10 @@ function Invoke-Checked([string]$Exe, [string[]]$Arguments) {
 }
 & "$PSScriptRoot/build-vr-vp6.ps1" -Target quest -Ndk $Ndk -Jobs $Jobs
 & "$PSScriptRoot/build-quest-runtime.ps1" -Ndk $Ndk -Jobs $Jobs
-Invoke-Checked "$repo/.venv/Scripts/python.exe" @("$repo/tools/prepare-community-audio.py")
-Invoke-Checked "$repo/.venv/Scripts/python.exe" @("$repo/tools/prepare-community-textures.py")
+if (-not $ReleaseAssetsOnly) {
+    Invoke-Checked "$repo/.venv/Scripts/python.exe" @("$repo/tools/prepare-community-audio.py")
+    Invoke-Checked "$repo/.venv/Scripts/python.exe" @("$repo/tools/prepare-community-textures.py")
+}
 Invoke-Checked cmake @('-S', "$repo/android/runtime", '-B', "$repo/build/quest-runtime", '-DNFSU2_ANDROID_GAME=ON')
 Invoke-Checked cmake @('--build', "$repo/build/quest-runtime", '--target', 'nfsu2_quest', '--parallel', "$Jobs")
 $jni = "$repo/build/quest-jni/arm64-v8a"
@@ -32,6 +35,8 @@ Copy-Item -LiteralPath "$repo/build/quest-runtime/openxr/src/loader/libopenxr_lo
 Copy-Item -LiteralPath "$Ndk/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/lib/aarch64-linux-android/libc++_shared.so" -Destination $jni
 Invoke-Checked "$Ndk/toolchains/llvm/prebuilt/windows-x86_64/bin/llvm-strip.exe" @('--strip-unneeded', "$jni/libnfsu2_quest.so")
 Invoke-Checked "$repo/.venv/Scripts/python.exe" @("$repo/tools/collect-runtime-notices.py", '--ndk', $Ndk)
-Invoke-Checked $Gradle @('-p', "$repo/android", 'assembleDebug', '--console=plain')
+$gradleArgs = @('-p', "$repo/android", 'assembleDebug', '--console=plain')
+if ($ReleaseAssetsOnly) { $gradleArgs += '-PexcludeOptionalAssets=true' }
+Invoke-Checked $Gradle $gradleArgs
 Write-Host "APK: $repo/android/app/build/outputs/apk/debug/app-debug.apk"
 Write-Host 'Development build. Native game boot and VR functionality must be validated on hardware.'

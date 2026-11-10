@@ -43,7 +43,7 @@ Other PC OpenXR runtimes and other Quest models have not been established as
 supported configurations. Inherited Linux and Nintendo Switch code remains in
 the tree; the focus of this development publication is PCVR and Meta Quest 3.
 
-## New in 0.7.1-dev (PCVR)
+## New in 0.7.1-dev (PCVR and Quest 3)
 
 Visible menu scrollbars reveal the remaining cockpit/community options.
 Screen grabbing defaults to On; while holding the screen, right-stick left/right
@@ -53,9 +53,10 @@ I-pattern grab area are corrected. Camera checks now accept valid objects in
 the expanded memory window after a session change. The PCVR preset retains
 the display rate selected in Virtual Desktop / OpenXR.
 
-This is a PCVR binary update with shared source changes. The latest standalone
-Quest APK remains 0.7.0-dev and does not contain these new fixes. A matching
-Quest 3 / VDXR gameplay check and restored 90 FPS remain unverified.
+Updated PCVR and standalone Quest packages are available in the same release.
+The Quest APK uses version code 11 and retains the previous signing certificate.
+A matching Quest 3 / VDXR gameplay check, restored 90 FPS and standalone Quest
+control/visual acceptance remain unverified.
 [Full changes and validation](RELEASE_NOTES.md).
 
 ## 0.7.0-dev - Cockpit controls, telemetry and mirror fixes
@@ -75,9 +76,9 @@ and [online integration status](docs/nfsu2-xyz-integration.md) for details.
 ## Development downloads
 
 Latest downloads: [PCVR 0.7.1-dev](https://github.com/DR-89/nfsu2-vr/releases/tag/dev-2026-11-10-r2)
-and [standalone Quest 0.7.0-dev](https://github.com/DR-89/nfsu2-vr/releases/tag/dev-2026-11-10).
+and [standalone Quest 0.7.1-dev](https://github.com/DR-89/nfsu2-vr/releases/tag/dev-2026-11-10-r2).
 
-- [Meta Quest 3 APK (0.7.0-dev)](https://github.com/DR-89/nfsu2-vr/releases/download/dev-2026-11-10/NFSU2VR-Quest3-dev-2026-11-10.apk):
+- [Meta Quest 3 APK (0.7.1-dev)](https://github.com/DR-89/nfsu2-vr/releases/download/dev-2026-11-10-r2/NFSU2VR-Quest3-dev-2026-11-10-r2.apk):
   sideload the development APK, then use its setup panel to import your own
   supported Xbox USA ZIP, 7z or ISO/XISO.
   Follow the [Quest installation guide](#installing-on-meta-quest-3) below.

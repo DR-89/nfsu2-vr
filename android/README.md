@@ -357,6 +357,15 @@ uses a local debug signature and packages ARM64 game/runtime libraries, SDL,
 OpenXR loader and the shared C++ runtime. Retail data remains separate.
 `build-quest-runtime.ps1` builds only the runtime and regression executables;
 `build-quest.ps1` also links the generated game and packages the APK.
+Use `-ReleaseAssetsOnly` when preparing a public APK: it skips local optional
+asset preparation and passes `-PexcludeOptionalAssets=true` to Gradle. The
+release then contains only runtime/importer notices and authored cockpit/glove
+assets, not the contents of `build/mod-assets`.
+
+Version 0.7.1-dev uses Android version code 11. Screen grabbing defaults to On;
+while holding the screen with Grip, right-stick left/right adjusts opacity
+and up/down changes size. Existing saved Off settings remain respected.
+Long cockpit/community lists show a scrollbar and remaining-option counts.
 
 ## Install
 

@@ -132,11 +132,28 @@ The PCVR package and matching source include right-stick opacity adjustment
 while holding the screen, screen grabbing enabled by default, corrected career/menu input,
 lowercase profile entry, a smaller I-pattern pickup area, visible menu scrolling,
 camera guards for the 128 MB memory window and bounded mirror trace work.
-The PCVR preset now leaves display refresh to the runtime. The latest standalone
-Quest APK is still 0.7.0-dev; no older APK is relabeled as this update.
+The PCVR preset now leaves display refresh to the runtime. This update was
+initially published for PCVR; the standalone Quest addition is described below.
 
 Focused Windows regression tests and shader compilation passed; menu images
 were inspected at multiple scroll positions. In-headset call answering, repeated
 session transitions and a matched 90 FPS comparison on Quest 3 / VDXR remain
 pending. The known experimental CopChase limitation remains unchanged. The
 release ships only audited runtime files, source, notices and hashes.
+
+## Quest addition to 0.7.1-dev
+
+A fresh Quest ARM64 build is added to the same dev-2026-11-10-r2 release,
+with version code 11 and the original 0.7.0-dev signing certificate. It includes
+all shared control, camera, lowercase keyboard, screen opacity and menu fixes.
+The isolated scanner regression now defines its synthetic physical RAM size
+so clean ARM64 regression builds link without the game's kernel implementation.
+The build script's -ReleaseAssetsOnly option explicitly excludes optional
+local mod packs from public APK assets.
+
+The APK's native library matches the freshly stripped build. Its exact asset
+and ABI inventories, identity, signature and checksums are verified; the 37
+unchanged Java unit tests retain passing Gradle results. No headset was
+connected for standalone control/visual acceptance. The original PCVR tag and
+source archive are retained, with a separate Quest source archive identifying
+the follow-up commit and its package metadata/build instructions.

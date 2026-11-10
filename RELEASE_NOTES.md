@@ -1,8 +1,8 @@
 # Release notes
 
-## 0.7.1-dev · PCVR controls, cockpit recovery and visible menu scrolling
+## 0.7.1-dev · Controls, screen opacity and menu scrolling
 
-PCVR development update for Windows x64, including Quest 3 connected through Virtual Desktop / VDXR. This release contains the updated PCVR ZIP and matching source. The latest standalone Quest APK remains [0.7.0-dev](https://github.com/DR-89/nfsu2-vr/releases/tag/dev-2026-11-10); it does not contain these new fixes.
+Development update for **Windows PCVR** (including Quest 3 through Virtual Desktop / VDXR) and **Meta Quest 3 standalone**. Both builds contain the control, camera, screen and menu corrections below. The Quest APK was added to this same release with version code **11** and the same signing certificate as 0.7.0-dev. Its matching source is supplied in the separate Quest source archive; the original PCVR tag and archive remain unchanged.
 
 ### Controls and cockpit interaction
 
@@ -21,13 +21,17 @@ PCVR development update for Windows x64, including Quest 3 connected through Vir
 
 - The preset keeps the display rate selected in Virtual Desktop / OpenXR instead of requesting 72 Hz. `NFSU2_VR_REFRESH_HZ=0` retains the runtime rate; an explicit supported rate can still be selected in `pcvr.env`.
 - Mirror tracing skips off-texture samples while preserving its sample grid, hit refinement and silhouette validation. Repeated environment lookups for the vinyl diagnostic switch are cached.
-- **Stable 90 FPS has not been confirmed.** Both 0.6.1-dev and 0.7.0-dev requested 72 Hz in their presets, so that setting alone does not establish the reported regression's cause. A matched Quest 3 / VDXR comparison and in-headset confirmation of call answering and session transitions remain pending.
+- **Stable 90 FPS has not been confirmed.** Both 0.6.1-dev and 0.7.0-dev requested 72 Hz in their presets, so that setting alone does not establish the reported regression's cause. A matched Quest 3 / VDXR comparison and in-headset confirmation of call answering and session transitions remain pending. Standalone Quest control and visual acceptance also require an in-headset test.
 
 ### Download and validation
 
-Extract the [PCVR ZIP](https://github.com/DR-89/nfsu2-vr/releases/download/dev-2026-11-10-r2/NFSU2VR-PCVR-dev-2026-11-10-r2.zip) into a writable folder, keep your existing `game/` and `Music/` folders, and use **Start-PCVR.cmd** so the updated preset is loaded. For Steam Link, use **Start-PCVR.cmd -SteamVR**.
+**Quest 3 standalone:** install the [0.7.1-dev APK](https://github.com/DR-89/nfsu2-vr/releases/download/dev-2026-11-10-r2/NFSU2VR-Quest3-dev-2026-11-10-r2.apk) over your existing installation. The package ID and signing certificate are unchanged. Your existing game import and saves remain in place.
+
+**Windows PCVR:** extract the [PCVR ZIP](https://github.com/DR-89/nfsu2-vr/releases/download/dev-2026-11-10-r2/NFSU2VR-PCVR-dev-2026-11-10-r2.zip) into a writable folder, keep your existing `game/` and `Music/` folders, and use **Start-PCVR.cmd** so the updated preset is loaded. For Steam Link, use **Start-PCVR.cmd -SteamVR**.
 
 The Windows build and focused input, profile keyboard, shifter, cockpit interaction, camera lifetime, mirror, radio and frame-timing checks passed. Screen tests cover both hands and all cars, independent size/opacity axes, deadzones, opacity limits and saving opacity-only edits. Menu rendering was inspected at the top, middle and bottom of the lists. Both mirror shader variants compile, and 200,000 numerical ray cases retain every visible reference sample. Exact checks and hashes are recorded in BUILD-INFO.json and SHA256SUMS.txt.
+
+The Quest ARM64 runtime/game was rebuilt from the current shared code. APK identity is `org.nfsu2.quest`, version code 11 / 0.7.1-dev; signature verification matches 0.7.0-dev. Its packaged game library matches the freshly stripped build, and the APK contains only the six intended notices/cockpit assets plus four ARM64 libraries. The unchanged Java importer/WebSocket suite remains green (37 tests, cached Gradle results). No headset was connected for a new standalone playtest.
 
 This remains a development prerelease. CopChase remains unsupported and disabled by default; its known game-integration failure is not addressed here. Original game content, saves, credentials and optional community asset packs are excluded. Supply your own Xbox USA / NTSC-U game data. Matching port and FFmpeg source archives are included.
 
