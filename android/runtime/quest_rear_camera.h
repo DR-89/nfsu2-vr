@@ -16,26 +16,30 @@ typedef struct {
     int main_active,rear_valid,rear_linked,rear_empty;
 } QuestRearSnapshot;
 
+static int quest_rear_pointer_range(uint32_t address,uint32_t bytes,uint32_t physical_size)
+{
+    if(physical_size!=0x04000000u && physical_size!=0x08000000u)return 0;
+    uint64_t end=(uint64_t)address+bytes;
+    return (address>=0x10000u && end<=0x04000000u) ||
+        (address>=0x80000000u && end<=0x80000000ull+physical_size);
+}
 static int quest_rear_pointer(uint32_t address,uint32_t bytes)
+{ return quest_rear_pointer_range(address,bytes,0x04000000u); }
+static int quest_rear_read32(QuestRearRead read,void *ctx,uint32_t address,uint32_t *out,uint32_t physical_size)
 {
-    uint32_t low=address&0x7fffffffu;
-    return low>=0x10000 && low<=0x04000000u-bytes;
+    return quest_rear_pointer_range(address,4,physical_size) && read(ctx,address,out,4);
 }
-static int quest_rear_read32(QuestRearRead read,void *ctx,uint32_t address,uint32_t *out)
-{
-    return quest_rear_pointer(address,4) && read(ctx,address,out,4);
-}
-static int quest_rear_snapshot(QuestRearRead read,void *ctx,QuestRearSnapshot *s)
+static int quest_rear_snapshot_range(QuestRearRead read,void *ctx,QuestRearSnapshot *s,uint32_t physical_size)
 {
     uint32_t phase,count,manager,registered,player,view,rear_view,main_camera,head,vtable,id,camera,car;
     memset(s,0,sizeof *s);
-#define REAR_READ(a,v) do { if(!quest_rear_read32(read,ctx,(a),&(v)))return 0; } while(0)
+#define REAR_READ(a,v) do { if(!quest_rear_read32(read,ctx,(a),&(v),physical_size))return 0; } while(0)
     REAR_READ(0x00428e34u,phase);
     if(phase!=6)return 0;
     REAR_READ(0x0044941cu,count);
     if(count<1 || count>2)return 0;
     REAR_READ(0x0044940cu,manager); /* Local player 0, not an AI or old owner. */
-    if(!quest_rear_pointer(manager,0x248))return 0;
+    if(!quest_rear_pointer_range(manager,0x248,physical_size))return 0;
     int found=0;
     for(unsigned i=0;i<count;++i) {
         REAR_READ(0x00449414u+4*i,registered);
@@ -47,8 +51,8 @@ static int quest_rear_snapshot(QuestRearRead read,void *ctx,QuestRearSnapshot *s
     s->camera.manager=manager;
     REAR_READ(manager+4,s->camera.car);REAR_READ(manager+0x238,s->camera.main_mover);
     REAR_READ(manager+0x244,s->camera.rear_mover);
-    if(!quest_rear_pointer(s->camera.car,0x558) ||
-       !quest_rear_pointer(s->camera.main_mover,0x50))return 0;
+    if(!quest_rear_pointer_range(s->camera.car,0x558,physical_size) ||
+       !quest_rear_pointer_range(s->camera.main_mover,0x50,physical_size))return 0;
     REAR_READ(s->camera.main_mover,vtable);REAR_READ(s->camera.main_mover+0x10,id);
     REAR_READ(s->camera.main_mover+0x1c,camera);REAR_READ(s->camera.main_mover+0x2c,car);
     REAR_READ(0x003f5b70u,main_camera);
@@ -58,7 +62,7 @@ static int quest_rear_snapshot(QuestRearRead read,void *ctx,QuestRearSnapshot *s
     REAR_READ(0x003f5c54u,head);
     s->rear_empty=head==0 || head==0x003f5c54u;
     s->rear_linked=s->camera.rear_mover && head==s->camera.rear_mover+4;
-    if(s->camera.rear_mover && quest_rear_pointer(s->camera.rear_mover,0x30)) {
+    if(s->camera.rear_mover && quest_rear_pointer_range(s->camera.rear_mover,0x30,physical_size)) {
         REAR_READ(s->camera.rear_mover,vtable);REAR_READ(s->camera.rear_mover+0x10,id);
         REAR_READ(s->camera.rear_mover+0x1c,camera);REAR_READ(s->camera.rear_mover+0x2c,car);
         s->rear_valid=vtable==0x003446f0u && id==3 && camera==0x003efb20u && car==s->camera.car;
@@ -66,6 +70,8 @@ static int quest_rear_snapshot(QuestRearRead read,void *ctx,QuestRearSnapshot *s
 #undef REAR_READ
     return 1;
 }
+static int quest_rear_snapshot(QuestRearRead read,void *ctx,QuestRearSnapshot *s)
+{ return quest_rear_snapshot_range(read,ctx,s,0x04000000u); }
 static int quest_rear_same_owner(const QuestRearCamera *a,const QuestRearCamera *b)
 {
     return a->manager==b->manager && a->car==b->car && a->main_mover==b->main_mover;
@@ -75,17 +81,17 @@ static int quest_rear_same_owner(const QuestRearCamera *a,const QuestRearCamera 
  * Restart/next-race can destroy the mover while cockpit remains selected.
  * Return +1 for a newly attached camera, -1 for our camera detached, 0 otherwise.
  * Existing retail/profile cameras remain owned and managed by the game. */
-static int quest_rear_update(QuestRearCamera *owned,QuestRearRead read,void *ctx,
-    QuestRearControl control,int selected)
+static int quest_rear_update_range(QuestRearCamera *owned,QuestRearRead read,void *ctx,
+    QuestRearControl control,int selected,uint32_t physical_size)
 {
     QuestRearSnapshot s;
-    if(!quest_rear_snapshot(read,ctx,&s)) {memset(owned,0,sizeof *owned);return 0;}
+    if(!quest_rear_snapshot_range(read,ctx,&s,physical_size)) {memset(owned,0,sizeof *owned);return 0;}
     if(!quest_rear_same_owner(owned,&s.camera) || owned->rear_mover!=s.camera.rear_mover)
         memset(owned,0,sizeof *owned);
     if(selected && s.main_active && !s.camera.rear_mover && s.rear_empty) {
         control(ctx,s.camera.manager,1);
         QuestRearSnapshot next;
-        if(quest_rear_snapshot(read,ctx,&next) && quest_rear_same_owner(&s.camera,&next.camera) &&
+        if(quest_rear_snapshot_range(read,ctx,&next,physical_size) && quest_rear_same_owner(&s.camera,&next.camera) &&
            next.rear_valid && next.rear_linked) {
             *owned=next.camera;return 1;
         }
@@ -95,4 +101,7 @@ static int quest_rear_update(QuestRearCamera *owned,QuestRearRead read,void *ctx
     }
     return 0;
 }
+static int quest_rear_update(QuestRearCamera *owned,QuestRearRead read,void *ctx,
+    QuestRearControl control,int selected)
+{ return quest_rear_update_range(owned,read,ctx,control,selected,0x04000000u); }
 #endif

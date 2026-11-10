@@ -37,6 +37,7 @@ def main():
     parser.add_argument('--source-dir', type=Path, required=True, help='Clean, published source checkout')
     parser.add_argument('--crt-dir', type=Path, required=True, help='Visual Studio x64 Microsoft.VC143.CRT redistributable directory')
     parser.add_argument('--pcvr-exe', type=Path, help='Release executable when staged separately from an active PCVR session')
+    parser.add_argument('--pcvr-only', action='store_true', help='Publish a PCVR update without copying an older Quest APK')
     parser.add_argument('--output', type=Path, required=True, help='New output directory')
     parser.add_argument('--version', required=True)
     parser.add_argument('--validation', type=Path, required=True, help='JSON list of checks actually completed for this release')
@@ -74,25 +75,27 @@ def main():
         target = package / name
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(path, target)
-    apk_source = ROOT / 'android/app/build/outputs/apk/debug/app-debug.apk'
-    with zipfile.ZipFile(apk_source) as apk:
-        names = apk.namelist()
-        assets = {n for n in names if n.startswith('assets/') and not n.endswith('/')}
-        expected_assets = {'assets/importer-third-party-notices.txt', 'assets/runtime-third-party-notices.txt',
-                           'assets/cockpits/shared.ncpk', 'assets/cockpits/shared.json',
-                           'assets/cockpits/driver-gloves.nghv', 'assets/cockpits/driver-gloves.json'}
-        if assets != expected_assets:
-            raise ValueError(f'Unexpected APK assets: {sorted(assets)}')
-        for asset in ('shared.ncpk', 'shared.json', 'driver-gloves.nghv', 'driver-gloves.json'):
-            if apk.read('assets/cockpits/' + asset) != (ROOT / 'assets/cockpits/runtime/cockpits' / asset).read_bytes():
-                raise ValueError(f'APK cockpit asset differs from release source: {asset}; rebuild APK')
-        libraries = {n for n in names if n.startswith('lib/') and n.endswith('.so')}
-        if libraries != {'lib/arm64-v8a/' + n for n in ('libSDL2.so', 'libnfsu2_quest.so', 'libopenxr_loader.so', 'libc++_shared.so')}:
-            raise ValueError('Unexpected APK native libraries')
-        if any('nfsunder' in n.lower() or n.lower().endswith(('.xbe', '.iso', '.xiso', '.7z', '.mp4')) for n in names):
-            raise ValueError('Private game content in APK')
-    apk_name = f'NFSU2VR-Quest3-{args.version}.apk'
-    shutil.copyfile(apk_source, args.output / apk_name)
+    apk_name = None
+    if not args.pcvr_only:
+        apk_source = ROOT / 'android/app/build/outputs/apk/debug/app-debug.apk'
+        with zipfile.ZipFile(apk_source) as apk:
+            names = apk.namelist()
+            assets = {n for n in names if n.startswith('assets/') and not n.endswith('/')}
+            expected_assets = {'assets/importer-third-party-notices.txt', 'assets/runtime-third-party-notices.txt',
+                               'assets/cockpits/shared.ncpk', 'assets/cockpits/shared.json',
+                               'assets/cockpits/driver-gloves.nghv', 'assets/cockpits/driver-gloves.json'}
+            if assets != expected_assets:
+                raise ValueError(f'Unexpected APK assets: {sorted(assets)}')
+            for asset in ('shared.ncpk', 'shared.json', 'driver-gloves.nghv', 'driver-gloves.json'):
+                if apk.read('assets/cockpits/' + asset) != (ROOT / 'assets/cockpits/runtime/cockpits' / asset).read_bytes():
+                    raise ValueError(f'APK cockpit asset differs from release source: {asset}; rebuild APK')
+            libraries = {n for n in names if n.startswith('lib/') and n.endswith('.so')}
+            if libraries != {'lib/arm64-v8a/' + n for n in ('libSDL2.so', 'libnfsu2_quest.so', 'libopenxr_loader.so', 'libc++_shared.so')}:
+                raise ValueError('Unexpected APK native libraries')
+            if any('nfsunder' in n.lower() or n.lower().endswith(('.xbe', '.iso', '.xiso', '.7z', '.mp4')) for n in names):
+                raise ValueError('Private game content in APK')
+        apk_name = f'NFSU2VR-Quest3-{args.version}.apk'
+        shutil.copyfile(apk_source, args.output / apk_name)
     source_name = f'NFSU2VR-Source-{commit[:12]}.zip'
     subprocess.run(['git', '-C', str(source), 'archive', '--format=zip', '--prefix=nfsu2-vr/',
                     '-o', str((args.output / source_name).resolve()), commit], check=True)
@@ -105,13 +108,14 @@ def main():
     info = {'project': 'Need For Speed Underground 2 VR', 'version': args.version,
             'development_build': True, 'not_fully_tested': True,
             'source_commit': commit, 'source_url': f'https://github.com/DR-89/nfsu2-vr/tree/{commit}',
-            'source_archive': source_name, 'platforms': ['Windows x64 PCVR', 'Meta Quest 3 standalone'],
+            'source_archive': source_name, 'platforms': ['Windows x64 PCVR'] + ([] if args.pcvr_only else ['Meta Quest 3 standalone']),
             'dependencies': dependencies, 'ffmpeg_source_archive': codec_source.name,
             'game_assets_included': False,
             'generated_cockpit_and_glove_assets_included': True,
             'pcvr_files': {n: {'bytes': (package / n).stat().st_size, 'sha256': sha256(package / n)} for n in inputs},
-            'quest_apk': {'name': apk_name, 'bytes': apk_source.stat().st_size, 'sha256': sha256(apk_source)},
             'validation': validation}
+    if apk_name:
+        info['quest_apk'] = {'name': apk_name, 'bytes': apk_source.stat().st_size, 'sha256': sha256(apk_source)}
     for target in (package / 'BUILD-INFO.json', args.output / 'BUILD-INFO.json'):
         target.write_text(json.dumps(info, indent=2) + '\n', encoding='utf-8')
     zip_name = f'NFSU2VR-PCVR-{args.version}.zip'
@@ -122,7 +126,8 @@ def main():
                 if relative not in inputs and relative != 'BUILD-INFO.json':
                     raise ValueError(f'Unexpected PCVR package file: {relative}')
                 archive.write(path, 'NFSU2VR-PCVR/' + relative)
-    artifacts = [args.output / n for n in (zip_name, apk_name, source_name, 'BUILD-INFO.json')] + [codec_source]
+    names = [zip_name, source_name, 'BUILD-INFO.json'] + ([apk_name] if apk_name else [])
+    artifacts = [args.output / n for n in names] + [codec_source]
     (args.output / 'SHA256SUMS.txt').write_text(''.join(f'{sha256(p)}  {p.name}\n' for p in artifacts), encoding='ascii')
     print(json.dumps({'source_commit': commit, 'files': [{'name': p.name, 'bytes': p.stat().st_size} for p in artifacts]}, indent=2))
 

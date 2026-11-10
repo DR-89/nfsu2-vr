@@ -1,5 +1,6 @@
 #include "../android/runtime/quest_cockpit_controls.h"
 #include "../android/runtime/quest_minimap.h"
+#include "../android/runtime/quest_shift_modes.h"
 #include <stdio.h>
 
 #define CHECK(x) do { if(!(x)) {fprintf(stderr,"radio test failed at %d: %s\n",__LINE__,#x);return 1;} } while(0)
@@ -58,6 +59,34 @@ int main(void)
             CHECK(!quest_touch_update(&touch,fit,1,radio,pose,tip,0).action);
             CHECK(!quest_touch_update(&touch,fit,0,radio,pose,tip,0).action && !touch.pointing);
             CHECK(!quest_touch_update(&touch,fit,1,radio,pose,tip,0).action);
+        }
+        /* Match XR ownership: the I lever must leave fingertip approach and
+         * contact usable, including with an existing 30 cm gesture setting. */
+        for(int id=QUEST_RADIO_VOLUME;id<=QUEST_COCKPIT_PAGE;++id) {
+            QuestShiftConfig c=quest_shift_defaults();c.mode=1;c.gestures=1;c.zone=.30f;
+            QuestShifter lever={0};QuestShiftMotion motion={0};QuestCockpitTouch control={0};
+            float p[3],positions[2][3]={{0}},poses[2][16]={{0}},squeeze[2]={0};
+            int valid[2]={0},busy[2]={0};valid[hand]=1;
+            if(id<=QUEST_RADIO_NEXT)quest_radio_point(p,fit,u[id-1],.5f);
+            else if(id<=QUEST_SEAT_DOWN)quest_seat_point(p,fit,.5f,(id-QUEST_SEAT_FORWARD+.5f)/4);
+            else quest_radio_point(p,fit,id==QUEST_COCKPIT_LED?.275f:.725f,2.2f);
+            for(int step=0;step<2;++step) {
+                point_at(poses[hand],p,hand);
+                if(!step) {
+                    if(id>=QUEST_SEAT_FORWARD && id<=QUEST_SEAT_DOWN)poses[hand][13]+=.045f;
+                    else {
+                        float norm=sqrtf(1.f+.16f*fit->front_depth*fit->front_depth);
+                        poses[hand][13]+=.045f*.4f*fit->front_depth/norm;poses[hand][14]+=.045f/norm;
+                    }
+                }
+                memcpy(positions[hand],poses[hand]+12,12);
+                CHECK(!quest_shift_touch_blocked(&lever,&c,vehicle,positions[hand]));
+                QuestRadioCommand cmd=quest_touch_update(&control,fit,1,1,poses[hand],tip,0);
+                CHECK(cmd.action==(step?id:0) && control.pointing==id);
+                busy[hand]=control.pointing;
+                CHECK(quest_shift_motion(&motion,&lever,&c,1+step*10,vehicle,6,3,valid,positions,poses,squeeze,busy)==QUEST_SHIFT_NONE);
+                CHECK(!lever.hand && !motion.hand);
+            }
         }
         float p[3];quest_radio_point(p,fit,.55f,1.15f);
         CHECK(!quest_radio_hit(quest_radio_position(p,fit)).control);
@@ -123,6 +152,7 @@ int main(void)
     CHECK(quest_radio_mix_gain(0)>0 && lrintf(32767.f*quest_radio_mix_gain(0))==0);
     CHECK(quest_radio_mix_gain(.8f)==.8f && quest_radio_volume_changed(.00005f,0) && quest_radio_volume_changed(0,.00005f));
     QuestRadioFont font;quest_radio_font_init(&font);
+    for(int c='A';c<='Z';++c)CHECK(!memcmp(font.bits[c],font.bits[c+32],sizeof font.bits[c]));
     QuestRadioLCD lcd;QuestRadioSong song={"12345678901234567890 & (Remix)","Artist"};
     quest_radio_lcd(&lcd,&font,&song,0);
     CHECK(lcd.cells[0][0]==font.bits['1'][0] && lcd.cells[0][2]==font.bits['A'][0] && lcd.scroll[0]==0);

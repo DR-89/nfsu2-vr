@@ -4,7 +4,7 @@
 #include "xyz_game_api.h"
 
 typedef struct {
-    int open, row, key, editing, confirming, held, action, index,main_menu,races_active,name_guide;
+    int open, row, key, editing, confirming, held, action, index,main_menu,races_active,name_guide,uppercase;
     uint32_t repeat;
     char text[64];
     char guide_notice[96];
@@ -12,6 +12,11 @@ typedef struct {
     XYZOnlineStatus online;
 } QuestXYZProfiles;
 enum { QUEST_XYZ_REVEAL=128,QUEST_XYZ_ACTIONS=10 };
+static inline char quest_xyz_key_char(const QuestXYZProfiles *m,int key) {
+    static const char chars[]="abcdefghijklmnopqrstuvwxyz0123456789_-";
+    if(key<0 || key>=38)return 0;
+    char c=chars[key];return m->uppercase && c>='a' && c<='z'?(char)(c-'a'+'A'):c;
+}
 static inline int quest_xyz_can_open_website(const QuestXYZProfiles *m) {
     return m->open && m->name_guide && m->main_menu && !m->races_active &&
         m->list.selected>=0 && m->list.selected<m->list.count && m->list.count<=8 &&
@@ -38,7 +43,7 @@ static inline void quest_xyz_display_text(const QuestXYZProfiles *m,char out[64]
  * refreshes the snapshot and clears it. Holding A never repeats a mutation. */
 static inline void quest_xyz_open(QuestXYZProfiles *m,int held) {
     m->open=1;m->row=m->list.selected>=0?m->list.selected:0;
-    m->key=m->editing=m->confirming=m->action=m->name_guide=0;m->held=held;
+    m->key=m->editing=m->confirming=m->action=m->name_guide=m->uppercase=0;m->held=held;
     m->guide_notice[0]=0;
     quest_xyz_clear_text(m);
 }
@@ -52,6 +57,7 @@ static inline void quest_xyz_step(QuestXYZProfiles *m,uint32_t now,int paused,in
         quest_xyz_clear_text(m);
         return;
     }
+    if(m->editing && (edge&QUEST_VR_OPEN))m->uppercase=!m->uppercase;
     int nav=keys&15;
     if(nav && ((edge&15) || (int32_t)(now-m->repeat)>=0)) {
         m->repeat=now+((edge&15)?350:140);
@@ -76,7 +82,7 @@ static inline void quest_xyz_step(QuestXYZProfiles *m,uint32_t now,int paused,in
         if(m->key==0){if(quest_xyz_can_open_website(m))m->action=XYZ_PROFILE_WEBSITE;return;}
         int selected=m->list.selected;
         if(selected>=0 && selected<m->list.count && selected<8 && !m->list.auth_busy[selected]){
-            m->name_guide=0;m->editing=XYZ_PROFILE_AUTH;quest_xyz_clear_text(m);m->key=0;
+            m->name_guide=0;m->editing=XYZ_PROFILE_AUTH;quest_xyz_clear_text(m);m->key=m->uppercase=0;
         }
         return;
     }
@@ -85,9 +91,9 @@ static inline void quest_xyz_step(QuestXYZProfiles *m,uint32_t now,int paused,in
         m->confirming=0;return;
     }
     if(m->editing) {
-        static const char chars[]="ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-";
         size_t len=strlen(m->text),max=(m->editing==XYZ_PROFILE_ROOM || m->editing==XYZ_PROFILE_AUTH)?63:15;
-        if(m->key<38 && len<max) {m->text[len]=chars[m->key];m->text[len+1]=0;}
+        char c=quest_xyz_key_char(m,m->key);
+        if(c && len<max) {m->text[len]=c;m->text[len+1]=0;}
         if(m->key==38 && len)m->text[len-1]=0;
         if(m->key==39) {m->action=m->editing;m->index=m->list.selected;m->editing=0;}
         return;
@@ -96,17 +102,17 @@ static inline void quest_xyz_step(QuestXYZProfiles *m,uint32_t now,int paused,in
     int choice=m->row-m->list.count;
     if(choice==9) {m->open=0;quest_xyz_clear_text(m);return;}
     if(choice==6) {m->action=XYZ_PROFILE_DISCONNECT;return;}
-    if(choice==0) {m->editing=XYZ_PROFILE_CREATE;quest_xyz_clear_text(m);m->key=0;return;}
+    if(choice==0) {m->editing=XYZ_PROFILE_CREATE;quest_xyz_clear_text(m);m->key=m->uppercase=0;return;}
     if(m->list.selected<0)return;
     if(choice==8){m->name_guide=1;m->key=0;m->guide_notice[0]=0;quest_xyz_clear_text(m);return;}
     if(choice==7) {
         if(m->list.auth_busy[m->list.selected])return;
-        m->editing=XYZ_PROFILE_AUTH;quest_xyz_clear_text(m);m->key=0;return;
+        m->editing=XYZ_PROFILE_AUTH;quest_xyz_clear_text(m);m->key=m->uppercase=0;return;
     }
     if(choice==4) {if(!m->main_menu && !m->races_active){m->action=XYZ_PROFILE_CONNECT;m->index=m->list.selected;}return;}
     if(choice==5) {m->action=XYZ_PROFILE_RACES;m->index=m->list.selected;return;}
     if(choice==3) {m->confirming=1;m->key=0;return;}
-    m->editing=choice==1?XYZ_PROFILE_RENAME:XYZ_PROFILE_ROOM;m->key=0;
+    m->editing=choice==1?XYZ_PROFILE_RENAME:XYZ_PROFILE_ROOM;m->key=m->uppercase=0;
     snprintf(m->text,sizeof m->text,"%s",choice==1?m->list.name[m->list.selected]:m->list.room[m->list.selected]);
 }
 static inline void quest_xyz_panel(uint32_t *pixels,const QuestXYZProfiles *m) {
@@ -117,7 +123,7 @@ static inline void quest_xyz_panel(uint32_t *pixels,const QuestXYZProfiles *m) {
         char line[80];int selected=m->list.selected;
         const char *name=selected>=0 && selected<m->list.count && selected<8?m->list.name[selected]:"SELECT A PROFILE";
         quest_vr_text(pixels,40,100,4,"RESERVE / MANAGE NAME",0xffffffffu);
-        snprintf(line,sizeof line,"YOUR LOCAL NAME: %.15s",name);quest_vr_text(pixels,40,150,3,line,0xffffd79fu);
+        snprintf(line,sizeof line,"YOUR LOCAL NAME: %.15s",name);quest_vr_text_case(pixels,40,150,3,line,0xffffd79fu);
         static const char *const steps[]={
             "1. OPEN THE OFFICIAL SITE AND SELECT THE ONLINE TAB.",
             "2. SET YOUR NAME AND CHOOSE CLAIM / CHANGE NAME.",
@@ -140,19 +146,19 @@ static inline void quest_xyz_panel(uint32_t *pixels,const QuestXYZProfiles *m) {
         int auth=m->editing==XYZ_PROFILE_AUTH;
         quest_vr_text(pixels,40,106,3,auth?"EXISTING NFSU2.XYZ KEYPHRASE":m->editing==XYZ_PROFILE_CREATE?"NEW PLAYER NAME":m->editing==XYZ_PROFILE_RENAME?"RENAME PLAYER":"ROOM - EMPTY USES THE PUBLIC WORLD",0xffc8beb4u);
         char shown[64],line[33];quest_xyz_display_text(m,shown);snprintf(line,sizeof line,"%.32s",shown);
-        quest_vr_text(pixels,40,154,4,line,0xffffd79fu);
-        if(strlen(shown)>32)quest_vr_text(pixels,40,194,4,shown+32,0xffffd79fu);
+        quest_vr_text_case(pixels,40,154,4,line,0xffffd79fu);
+        if(strlen(shown)>32)quest_vr_text_case(pixels,40,194,4,shown+32,0xffffd79fu);
         {volatile char *p=shown;for(size_t i=0;i<sizeof shown;++i)p[i]=0;
          p=line;for(size_t i=0;i<sizeof line;++i)p[i]=0;}
-        static const char chars[]="ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-";
         for(int i=0;i<40;++i) {
             int x=40+(i%10)*94,y=268+(i/10)*68;
             quest_vr_rect(pixels,x,y,82,54,i==m->key?0xff214171u:0xff2b3038u);
-            char key[2]={i<38?chars[i]:0,0};
-            quest_vr_text(pixels,x+12,y+15,3,i==38?"DEL":i==39?"OK":key,0xffffffffu);
+            char key[2]={quest_xyz_key_char(m,i),0};
+            quest_vr_text_case(pixels,x+12,y+15,3,i==38?"DEL":i==39?"OK":key,0xffffffffu);
         }
+        quest_vr_text_case(pixels,40,552,2,m->uppercase?"X: Aa - UPPERCASE (ABC)":"X: Aa - lowercase (abc)",0xffffd79fu);
         if(auth) {
-            quest_vr_text(pixels,40,568,2,"ENTER YOUR EIGHT WORDS, SEPARATED WITH -.",0xffc8beb4u);
+            quest_vr_text(pixels,40,576,2,"ENTER YOUR EIGHT WORDS, SEPARATED WITH -.",0xffc8beb4u);
             quest_vr_text(pixels,40,596,2,"HOLD Y TO SHOW. EMPTY + OK REMOVES SAVED SIGN-IN.",0xffc8beb4u);
             quest_vr_text(pixels,40,624,2,"OK SAVES SIGN-IN ON THIS DEVICE. B CANCELS.",0xffc8beb4u);
         } else quest_vr_text(pixels,40,592,2,"CHOOSE OK TO SAVE. B CANCELS THE EDIT.",0xffc8beb4u);
@@ -168,7 +174,7 @@ static inline void quest_xyz_panel(uint32_t *pixels,const QuestXYZProfiles *m) {
             if(m->row==i)quest_vr_rect(pixels,24,y-3,976,23,0xff214171u);
             static const char *const actions[]={"CREATE PROFILE","RENAME SELECTED","EDIT ROOM","DELETE SELECTED","CONNECT FREE ROAM","BROWSE RACES","DISCONNECT","LINK KEYPHRASE","RESERVE / MANAGE NAME","BACK"};
             const char *label=i<m->list.count?m->list.name[i]:actions[i-m->list.count];
-            quest_vr_text(pixels,40,y,3,label,(m->main_menu || m->races_active) && i==m->list.count+4?0xff808080u:0xffffffffu);
+            quest_vr_text_case(pixels,40,y,3,label,(m->main_menu || m->races_active) && i==m->list.count+4?0xff808080u:0xffffffffu);
             if(i==m->list.selected)quest_vr_text(pixels,660,y,3,"SELECTED",0xffffd79fu);
             if(i<m->list.count && (m->list.auth_busy[i] || m->list.auth_linked[i]))
                 quest_vr_text(pixels,828,y,3,m->list.auth_busy[i]?"BUSY":"LINKED",0xffffd79fu);
@@ -193,7 +199,7 @@ static inline void quest_xyz_panel(uint32_t *pixels,const QuestXYZProfiles *m) {
         if(m->list.selected>=0 && m->list.selected<m->list.count) {
             const char *room=m->list.room[m->list.selected];
             snprintf(line,sizeof line,"ROOM: %.63s",*room?room:"PUBLIC (MAIN WORLD)");
-            quest_vr_text(pixels,40,522,2,line,0xffc8beb4u);
+            quest_vr_text_case(pixels,40,522,2,line,0xffc8beb4u);
         }
         if(m->online.notice[0]) {snprintf(line,sizeof line,"%.76s",m->online.notice);quest_vr_text(pixels,40,662,2,line,0xff8888ffu);}
     }

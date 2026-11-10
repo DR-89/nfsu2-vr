@@ -77,10 +77,21 @@ release Grip and grasp the rim again.
 
 ### Shifting, cockpit feedback and dash screen
 
+The **Online Profiles** keyboard starts with lowercase letters. Press **X**
+to toggle uppercase/lowercase while editing a name, room or keyphrase.
+Names and typed text display their actual case; hold **Y** to reveal a keyphrase.
+
+Long **Cockpit Controls** and **Community Mods** lists show a proportional
+scrollbar, active up/down arrows and a visible count of options above/below.
+Scroll with the stick or D-pad; descriptions stay below the scroll hint.
+
 Open **VR Settings > Cockpit Controls** to choose **H-pattern** or
 **I-pattern**. Sequential mode defaults to pull back to upshift and push
 forward to downshift; reverse it and adjust lever travel there. Select Manual
 transmission in the game. Return the lever to center before another shift.
+The I-pattern pickup radius is 6.5 cm around the knob. Once held, the lever
+allows the full configured stroke. The separate gesture radius does not
+enlarge this grab area or block fingertip use of the radio and cockpit keys.
 
 Optional **No-grip Gestures** activate inside the fitted shifter zone without
 pressing a button. Choose **Single Both** (one flick for either direction) or
@@ -129,11 +140,23 @@ Mapped SDL USB/Bluetooth gamepads feed the same driving controls as Touch.
 The active input device is selected by use; a held VR wheel has priority.
 Left stick steers, triggers brake/accelerate, A is nitro, B is handbrake,
 right stick click cycles cameras, and left stick click holds rear view only
-outside the cockpit. Start pauses. Right stick up/down shifts with manual
-transmission; **left reads SMS and right enters a race/shop**, one action per
-sideways deflection. Return to center between actions. Menus retain their
-normal navigation and A/B behavior. Gamepad rumble follows the game effects
+outside the cockpit. Start pauses. **Right stick up challenges a rival or enters
+an event/shop; down opens career status. Left reads SMS and right enters a
+race/shop.** Each deflection sends one action; return to center between actions.
+Driving input mode follows the live player independently of cabin rendering,
+so camera transitions cannot silently change the career-action bindings.
+The right stick never shifts gears. Either stick or the D-pad navigates menus;
+short taps remain active for at least 100 ms for the guest input poll. Only
+one digital direction is sent per stick gesture. Menu A/B behavior is unchanged.
+Gamepad rumble follows the game effects
 when the controller supports it; enable the game's Vibration option.
+
+Camera restore, cockpit cycling and rear-camera ownership use the configured
+64/128 MB physical memory window. The former fixed 64 MB checks rejected
+valid camera allocations after a session change. Regression tests cover
+repeated sessions with camera objects above `0x84000000`, old owner disposal
+and 128 MB boundaries. Quest 3 / VDXR confirmation of the reported sequence
+still requires a connected-headset run.
 
 This revision also caches original mirror geometry, uploads immutable cabin
 and glove geometry to device-local GPU memory, and defers pipeline-cache disk
@@ -222,9 +245,10 @@ grip/control tests pass on Windows and Quest; PCVR hand interaction is untested.
 Stick-click actions use the game's analog White/Black buttons. Grips no longer
 send those buttons, so gripping cannot change cameras, and the right click
 remains usable to leave the cockpit while steering.
-While driving, Touch A is nitro, B is handbrake, and right stick up/down shifts
-gears once per deflection (return to center to shift again). Use the game's
-manual transmission setting. In Cockpit View, either hand can hold Grip on the
+While driving, Touch A is nitro, B is handbrake, and right stick up/down sends
+challenge/event and career-status commands. X/Y retain their retail shift
+actions. Use the game's manual transmission setting for the physical shifter.
+In Cockpit View, either hand can hold Grip on the
 shift knob while the other steers. Pull the lever into neutral, move across,
 then push forward for 1/3/5 or pull back for 2/4. On a five-speed, reverse is
 directly behind fifth. On a six-speed, sixth is behind fifth and reverse has
@@ -400,9 +424,18 @@ stick for menu navigation, both stick clicks to recenter.
 
 ## Measuring game FPS
 
-The current target is stable **72 game FPS**; the user replaced the earlier
-120-FPS target and set Virtual Desktop to 72 FPS on 2026-10-14. The comparison
-configuration uses 1680×1760 per eye, a 1920×1440 menu texture
+The 2026-11-10 PCVR preset retains the display rate selected in Virtual Desktop
+or the active OpenXR runtime (`NFSU2_VR_REFRESH_HZ=0`, `NFSU2_VR_72FPS=0`). It
+no longer requests 72 Hz. The reported regression compares 90 FPS in
+`dev-2026-11-06-r3` with about 72 FPS after updating, at unchanged VD settings;
+both published presets requested 72 Hz, so that setting alone does not establish
+the regression's cause. A matched Quest 3 / VDXR measurement is still pending.
+The current mirror shader skips samples outside the rear texture while keeping
+the original sample grid, refinement and silhouette validation. The vinyl
+diagnostic switch is also cached outside repeated environment lookups on
+texture binding. These changes have not established a measured FPS gain yet.
+
+Historical comparisons below used 1680×1760 per eye, a 1920×1440 menu texture
 and a requested 72 Hz display rate. Runtime refresh and newly rendered game
 FPS are separate measurements. Foveated shading is used only if the PC driver
 supports the renderer's required Vulkan capability; check the startup log.

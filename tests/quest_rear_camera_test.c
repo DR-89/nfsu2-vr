@@ -118,6 +118,24 @@ int main(void)
     CHECK(!update(&g,&owned,1));CHECK(!owned.manager);
     g.fail_create=0;CHECK(update(&g,&owned,1)==1);
     CHECK(update(&g,&owned,0)==-1);
+    /* 128-MB physical allocations become reachable after returning to the
+     * frontend and starting another session. Low RAM remains only 64 MB. */
+    for(unsigned session=0;session<6;++session) {
+        Guest high=race(0x400+session); /* 0x85000000 and above */
+        QuestRearSnapshot snapshot;
+        CHECK(!quest_rear_snapshot(read_guest,&high,&snapshot));
+        CHECK(quest_rear_snapshot_range(read_guest,&high,&snapshot,0x08000000u));
+        CHECK(snapshot.main_active && snapshot.camera.main_mover==high.main);
+        CHECK(quest_rear_update_range(&owned,read_guest,&high,retail_camera,1,0x08000000u)==1);
+        CHECK(owned.car==high.car && high.attached==1 && !high.missing);
+        CHECK(quest_rear_update_range(&owned,read_guest,&high,retail_camera,0,0x08000000u)==-1);
+        Guest frontend={0};put(&frontend,0x00428e34,3);
+        CHECK(!quest_rear_update_range(&owned,read_guest,&frontend,retail_camera,1,0x08000000u) && !owned.manager);
+    }
+    CHECK(quest_rear_pointer_range(0x87fffff0u,16,0x08000000u));
+    CHECK(!quest_rear_pointer_range(0x87fffff0u,17,0x08000000u));
+    CHECK(!quest_rear_pointer_range(0x05000000u,16,0x08000000u));
+    CHECK(!quest_rear_pointer_range(0xfffffff0u,32,0x08000000u));
     puts("PASS: 10000 stable frames; restart, next race, loading, address reuse, profile ownership, intro and invalid-owner guards.");
     return 0;
 }

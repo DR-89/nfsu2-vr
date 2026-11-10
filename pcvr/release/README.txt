@@ -35,7 +35,7 @@ development preset, launcher and dependency license notices. The original
 Xbox executable, disc images, game assets and saves are NOT included.
 
 Controls (Touch controllers):
-- Left menu button: pause/Start. Right stick navigates menus.
+- Left menu button: pause/Start. Either stick or D-pad navigates menus.
 - Steam Link: hold Y on the left Touch controller for 0.65 seconds while
   driving to pause. Tap Y for its usual action. Gamepad Start also pauses.
 - Right stick click: cycle cameras, including entering/leaving Cockpit View.
@@ -44,8 +44,9 @@ Controls (Touch controllers):
 - Left stick click: hold rear view outside the cockpit; disabled inside it.
 - Both stick clicks: recenter the view and release wheel grips.
 - A: nitro while driving. B: handbrake while driving.
-- Right stick up/down: shift up/down with Manual transmission; return it to
-  center between shifts. Right stick left reads SMS; right enters a race/shop.
+- Right stick up: contextual action (rival challenge / enter event or shop).
+  Down: career status. Left: SMS. Right: event/shop shortcut.
+  Return to center between actions. The right stick does not shift gears.
 - With Manual transmission in Cockpit View, hold Grip on the shift knob and
   move it through neutral into a slot. Five-speed reverse is behind fifth.
   Six-speed reverse is one lane to the right of sixth. Either hand can shift.
@@ -120,6 +121,8 @@ of all changes on both platforms and every tuning combination is pending.
 VR Settings:
 - Pause during a race, then press X. The entry is available only at the root
   pause menu. Use a stick/D-pad to select and adjust; B saves and returns.
+- Cockpit Controls and Community Mods show a scrollbar, direction arrows and
+  the number of options above/below. Use stick/D-pad up/down to scroll.
 - Steering Sensitivity: 50-300%; Wheel Rotation: 180-1080 degrees total.
 - Seat Height: +/-35 cm; Seat Distance: +/-40 cm. Positive distance moves back.
 - Render Resolution: select a per-eye preset, then save and restart to apply.
@@ -132,6 +135,11 @@ Physical gamepad/headset combinations still need broader hardware testing.
 Connect Virtual Desktop before starting. Transient OpenXR startup failures
 are retried; if a connection dialog appears, reconnect the headset and choose
 Retry. This recovery path still needs broader PCVR headset testing.
+
+The PCVR preset keeps the display rate selected in Virtual Desktop / OpenXR.
+It no longer requests 72 Hz. NFSU2_VR_REFRESH_HZ=0 in pcvr.env keeps the runtime
+rate; an explicit 72, 80, 90 or 120 requests that supported rate instead.
+Display refresh is not a guarantee of the game's rendered frame rate.
 
 If startup fails, read logs/stderr.log. Logs from the previous launch are
 replaced. Performance and streaming quality depend on your PC and connection.

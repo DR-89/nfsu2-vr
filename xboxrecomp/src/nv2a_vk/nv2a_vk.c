@@ -1941,7 +1941,9 @@ static void bind_stage(const uint32_t *regs, int i, float scale[2], VkDescriptor
     if (!w || !h || w > 4096 || h > 4096)
         return;
 #ifdef NFSU2_OPENXR
-    if(((w==512 && h==512) || (va&0x7fffffffu)>=0x04000000u) && getenv("NFSU2_VINYL_PROBE")) {
+    static int vinyl_probe=-1;
+    if(vinyl_probe<0)vinyl_probe=getenv("NFSU2_VINYL_PROBE")!=NULL;
+    if(vinyl_probe && ((w==512 && h==512) || (va&0x7fffffffu)>=0x04000000u)) {
         static uint32_t seen[80];static unsigned count;
         unsigned j=0;while(j<count && seen[j]!=va)++j;
         if(j==count && count<80){seen[count++]=va;fprintf(stderr,"[VR vinyl probe] sampled va=%08x size=%ux%u color=%x revision=%llu\n",va,w,h,color,(unsigned long long)vr_vinyls_revision(va&0x7fffffffu));}

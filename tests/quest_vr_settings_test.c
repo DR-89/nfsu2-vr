@@ -222,7 +222,7 @@ static int minimap_shortcut_test(void)
         CHECK(analog[1]==(h?0:255) && analog[2]==(h?255:0));
         sticks[3]=24000;
         quest_driving_input(&shift,5,1,&digital,analog,sticks);
-        CHECK(analog[2]==255); /* right-stick upshift has its own input */
+        CHECK(analog[2]==(h?255:0) && (digital&1)); /* challenge without an extra shift */
         grip.hover[h]=0;
         CHECK(quest_minimap_shortcut(&key,103,1,&grip,both,button));
         CHECK(!quest_minimap_shortcut(&key,104,1,&grip,both,button) && key.captured==button);
@@ -382,8 +382,63 @@ static int seat_mirror_test(void)
     printf("Seat/mirror alignment: %u stereo configurations, physical-camera reference, hands and culling passed.\n",cases);
     return 0;
 }
+static int navigation_test(void)
+{
+    /* A 20-ms stick flick or D-pad tap must survive a slower guest poll;
+     * neither stick may emit a second analog navigation event. */
+    const int directions[4]={1,2,4,8};
+    for(int source=0;source<3;++source)for(int d=0;d<4;++d) {
+        QuestShiftInput input={0};int observed=0;
+        for(unsigned t=0;t<=240;t+=10) {
+            int pressed=t>=10 && t<30;
+            uint16_t buttons=0x10;uint8_t analog[8]={123,45};int16_t sticks[4]={0};
+            if(pressed) {
+                if(source==2)buttons|=directions[d];
+                else sticks[2*source+(d<2?1:0)]=(d==1 || d==2)?-14000:14000;
+            }
+            quest_driving_input(&input,0xffffffc0u+t,0,&buttons,analog,sticks);
+            CHECK(analog[0]==123 && analog[1]==45 && !analog[2] && !analog[3]);
+            CHECK(!sticks[0] && !sticks[1] && !sticks[2] && !sticks[3]);
+            CHECK(buttons==0x10 || buttons==(0x10|directions[d]));
+            if(t==50 || t==100){CHECK((buttons&15)==directions[d]);observed|=buttons&15;}
+            if(t>=120)CHECK(buttons==0x10);
+        }
+        CHECK(observed==directions[d]);
+    }
+    CHECK(quest_stick_direction(6000,15000,0)==1);
+    CHECK(quest_stick_direction(6000,10000,1)==1);
+    CHECK(!quest_stick_direction(6000,6000,1));
+    CHECK(quest_stick_direction(15000,-15000,0)==2); /* no diagonal pair */
+    /* Preserve retail hold/repeat, then switch directions without waiting
+     * for the old pulse. Entering gameplay must discard menu ownership. */
+    QuestShiftInput held={0};
+    for(unsigned t=0;t<=600;t+=10) {
+        uint16_t buttons=0;uint8_t analog[8]={0};int16_t sticks[4]={0,0,0,t<510?14000:0};
+        quest_driving_input(&held,t,0,&buttons,analog,sticks);
+        CHECK(buttons==(t<510?1:0));
+    }
+    for(unsigned t=610;t<630;t+=10) {
+        uint16_t buttons=0;uint8_t analog[8]={0};int16_t sticks[4]={0,0,0,t==610?14000:-14000};
+        quest_driving_input(&held,t,0,&buttons,analog,sticks);
+        CHECK(buttons==(t==610?1:2));
+    }
+    {
+        uint16_t buttons=0;uint8_t analog[8]={0};int16_t sticks[4]={7000,0,0,0};
+        quest_driving_input(&held,630,1,&buttons,analog,sticks);
+        CHECK(!buttons && sticks[0]==7000);
+    }
+    QuestShiftInput input={0};
+    for(int i=0;i<3;++i) {
+        uint16_t buttons=0;uint8_t analog[8]={0};int16_t sticks[4]={7000,0,0,i==1?14000:0};
+        quest_driving_input(&input,10*i,1,&buttons,analog,sticks);
+        CHECK(sticks[0]==7000 && !analog[2] && !analog[3]);
+        CHECK(buttons==(i?1:0)); /* north reaches the career action at 43% */
+    }
+    return 0;
+}
 int main(int argc,char **argv)
 {
+    CHECK(!navigation_test());
     CHECK(community_menu_test()==0);
     CHECK(copchase_menu_test()==0);
     CHECK(online_car_setting_test()==0);
@@ -492,16 +547,29 @@ int main(int argc,char **argv)
         CHECK(fabsf(local[12]-cosf(.9f)*(.185f+.027f))<1e-5f);
         CHECK(fabsf(local[13]-sinf(.9f)*(.185f+.027f))<1e-5f);
     }
-    /* Horizontal actions are edge-triggered and never trigger shifts. */
-    for(int side=-1;side<=1;side+=2) {
+    /* All four career directions pulse once, preserve face buttons and
+     * require full neutral even when sliding directly to another direction. */
+    const int expected_actions[4]={8,1,2,1};
+    for(int direction=0;direction<4;++direction) {
         QuestShiftInput input={0};int count=0,previous=0;
         for(int t=0;t<800;t+=10) {
-            uint16_t buttons=0;uint8_t analog[8]={0};int16_t sticks[4]={0,0,t>50?side*25000:0,0};
+            uint16_t buttons=0;uint8_t analog[8]={0};int16_t sticks[4]={0};
+            if(t>50)sticks[direction<2?2:3]=(direction&1)?25000:-25000;
             quest_driving_input(&input,t,1,&buttons,analog,sticks);
             if(buttons && !previous)++count;previous=buttons;
-            CHECK(!analog[2] && !analog[3]);CHECK(!buttons || buttons==(side<0?8:1));
+            CHECK(!analog[2] && !analog[3]);CHECK(!buttons || buttons==expected_actions[direction]);
         }
         CHECK(count==1);
+        for(int t=800;t<1000;t+=10) {
+            uint16_t buttons=0;uint8_t analog[8]={0,0,123,231};int16_t sticks[4]={0,0,25000,25000};
+            quest_driving_input(&input,t,1,&buttons,analog,sticks);
+            CHECK(!buttons && analog[2]==123 && analog[3]==231);
+        }
+        for(int step=0;step<2;++step) {
+            uint16_t buttons=0;uint8_t analog[8]={0};int16_t sticks[4]={0,0,0,step?25000:0};
+            quest_driving_input(&input,1000+step*10,1,&buttons,analog,sticks);
+            CHECK(buttons==step && !analog[2] && !analog[3]);
+        }
     }
     /* Reset this car's mirrors is a distinct edge-triggered menu action. */
     s=quest_vr_defaults();s.sensitivity=1.5f;s.height=.04f;

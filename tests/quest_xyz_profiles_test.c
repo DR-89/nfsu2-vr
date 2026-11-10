@@ -10,8 +10,12 @@ int main(int argc,char **argv) {
     quest_xyz_open(&m,QUEST_VR_ACCEPT);
     quest_xyz_step(&m,1,1,QUEST_VR_ACCEPT);CHECK(!m.editing);
     press(&m,QUEST_VR_ACCEPT);CHECK(m.editing==XYZ_PROFILE_CREATE);
-    press(&m,QUEST_VR_ACCEPT);CHECK(!strcmp(m.text,"A"));
-    quest_xyz_step(&m,800,1,QUEST_VR_ACCEPT);CHECK(!strcmp(m.text,"A"));
+    press(&m,QUEST_VR_ACCEPT);CHECK(!strcmp(m.text,"a"));
+    quest_xyz_step(&m,800,1,QUEST_VR_ACCEPT);CHECK(!strcmp(m.text,"a"));
+    press(&m,QUEST_VR_OPEN);CHECK(m.uppercase && m.editing==XYZ_PROFILE_CREATE && !m.action);
+    quest_xyz_step(&m,900,1,QUEST_VR_OPEN);CHECK(m.uppercase); /* held X toggles once */
+    press(&m,QUEST_VR_ACCEPT);CHECK(!strcmp(m.text,"aA"));
+    press(&m,QUEST_VR_OPEN);m.key=1;press(&m,QUEST_VR_ACCEPT);CHECK(!strcmp(m.text,"aAb"));
     m.key=39;press(&m,QUEST_VR_ACCEPT);CHECK(m.action==XYZ_PROFILE_CREATE && !m.editing);
     m.list.count=1;m.list.selected=0;strcpy(m.list.name[0],"Driver");m.row=0;
     press(&m,QUEST_VR_ACCEPT);CHECK(m.action==XYZ_PROFILE_SELECT && m.index==0);
@@ -31,7 +35,13 @@ int main(int argc,char **argv) {
     m.main_menu=0;
     press(&m,QUEST_VR_ACCEPT);CHECK(m.action==XYZ_PROFILE_RACES && m.index==0);
     m.row=7;press(&m,QUEST_VR_ACCEPT);CHECK(m.action==XYZ_PROFILE_DISCONNECT);
-    m.list.selected=0;m.row=8;press(&m,QUEST_VR_ACCEPT);CHECK(m.editing==XYZ_PROFILE_AUTH && !m.text[0]);
+    m.list.selected=0;m.row=8;press(&m,QUEST_VR_ACCEPT);CHECK(m.editing==XYZ_PROFILE_AUTH && !m.text[0] && !m.uppercase);
+    press(&m,QUEST_VR_ACCEPT);m.key=2;press(&m,QUEST_VR_ACCEPT);m.key=8;press(&m,QUEST_VR_ACCEPT);m.key=3;press(&m,QUEST_VR_ACCEPT);
+    m.key=37;press(&m,QUEST_VR_ACCEPT);CHECK(!strcmp(m.text,"acid-"));
+    press(&m,QUEST_VR_OPEN);m.key=0;press(&m,QUEST_VR_ACCEPT);CHECK(!strcmp(m.text,"acid-A"));
+    quest_xyz_step(&m,901,1,QUEST_XYZ_REVEAL);char mixed[64];quest_xyz_display_text(&m,mixed);CHECK(!strcmp(mixed,"acid-A"));
+    CHECK(m.uppercase); /* Y reveals without toggling case */
+    quest_xyz_step(&m,902,1,0);
     strcpy(m.text,"ACID-ACORN-ACRE-ACTS-AFAR-AFFIX-AGED-AGENT");
     char display[64];quest_xyz_display_text(&m,display);CHECK(!strcmp(display,"****-*****-****-****-****-*****-****-*****"));
     quest_xyz_step(&m,1000,1,QUEST_XYZ_REVEAL);quest_xyz_display_text(&m,display);CHECK(!strcmp(display,m.text));
@@ -68,13 +78,25 @@ int main(int argc,char **argv) {
     QuestVRMenu menu={0};QuestVRSettings settings=quest_vr_defaults();menu.open=1;menu.row=QUEST_VR_PROFILES_ROW;
     CHECK(quest_vr_menu_step(&menu,&settings,1,1,QUEST_VR_ACCEPT)==(4|QUEST_VR_OPEN_PROFILES));
     CHECK(quest_vr_menu_step(&menu,&settings,2,1,QUEST_VR_ACCEPT)==4);
+    /* Lowercase must also remain distinguishable in the rendered keyboard. */
+    uint32_t *lower=calloc(1024*768,4),*upper=calloc(1024*768,4);CHECK(lower && upper);
+    quest_vr_text_case(lower,0,0,1,"abcdefghijklmnopqrstuvwxyz",1);
+    quest_vr_text_case(upper,0,0,1,"ABCDEFGHIJKLMNOPQRSTUVWXYZ",1);
+    for(int c=0;c<26;++c) {
+        int ink=0,different=0;
+        for(int y=0;y<7;++y)for(int x=0;x<5;++x) {
+            size_t i=y*1024+c*6+x;ink|=lower[i];different|=lower[i]!=upper[i];
+        }
+        CHECK(ink && different);
+    }
+    free(lower);free(upper);
     for(int page=1;page<argc && page<=6;++page) {
         uint32_t *pixels=malloc(1024*768*4);CHECK(pixels);
         memset(&m,0,sizeof m);m.open=1;m.list.count=8;m.list.selected=0;m.row=8;
         for(int i=0;i<8;++i)snprintf(m.list.name[i],16,"VR_DRIVER_%d",i+1);
-        if(page==2) {m.editing=XYZ_PROFILE_CREATE;m.key=39;strcpy(m.text,"VR_DRIVER");}
+        if(page==2) {m.editing=XYZ_PROFILE_CREATE;m.key=39;strcpy(m.text,"Dirk_VR");}
         if(page==3) {m.confirming=1;m.key=0;}
-        if(page==4) {m.editing=XYZ_PROFILE_AUTH;m.key=39;strcpy(m.text,"ACID-ACORN-ACRE-ACTS-AFAR-AFFIX-AGED-AGENT");}
+        if(page==4) {m.editing=XYZ_PROFILE_AUTH;m.key=39;strcpy(m.text,"acid-acorn-acre-acts-afar-affix-aged-agent");}
         if(page>=5){m.name_guide=1;m.main_menu=page==5;strcpy(m.guide_notice,"Browser requested. Finish on the site, then return here.");}
         quest_xyz_panel(pixels,&m);
         FILE *f=fopen(argv[page],"wb");CHECK(f);fprintf(f,"P6\n1024 768\n255\n");

@@ -20,6 +20,9 @@ static inline void quest_radio_font_init(QuestRadioFont *font)
     memset(font,0,sizeof *font);
     for(size_t i=0;i<sizeof quest_vr_font/sizeof *quest_vr_font;++i) {
         unsigned c=(unsigned char)quest_vr_font[i].c;
+        /* The stereo LCD keeps its uppercase aliases. Lowercase glyphs are
+         * used by profile text, and must not be ORed into these aliases. */
+        if(c>='a' && c<='z')continue;
         const char *rows=quest_vr_font[i].rows;
         for(int y=0;y<7;++y) {
             char hex[]={rows[2*y],rows[2*y+1],0};

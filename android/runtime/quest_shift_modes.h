@@ -20,6 +20,25 @@ static inline int quest_shift_zone(int vehicle,const float pos[3],float radius)
     float d=0;for(int k=0;k<3;++k){if(!isfinite(pos[k]))return 0;float a=pos[k]-p[k];d+=a*a;}
     return d<=radius*radius;
 }
+/* Sequential pickup stays at the neutral knob, independent of saved gesture
+ * radius. Once held, allow the configured stroke along Z, not toward the radio. */
+static inline int quest_shift_grip_zone(int vehicle,const float pos[3],float travel,int held)
+{
+    QuestShifter neutral={0};float p[3];quest_shifter_knob(&neutral,vehicle,p);
+    float d=0;
+    for(int k=0;k<3;++k) {
+        if(!isfinite(pos[k]))return 0;
+        float a=fabsf(pos[k]-p[k]);
+        if(held && k==2)a=fmaxf(0,a-travel);
+        d+=a*a;
+    }
+    return d<=QUEST_SHIFT_GRAB_RADIUS*QUEST_SHIFT_GRAB_RADIUS;
+}
+static inline int quest_shift_touch_blocked(const QuestShifter *lever,const QuestShiftConfig *c,
+    int vehicle,const float pos[3])
+{
+    return c->mode?quest_shift_grip_zone(vehicle,pos,c->travel,0):quest_shifter_in_reach(lever,vehicle,pos);
+}
 static inline int quest_shift_step(int actual,int count,int direction,int first_only)
 {
     int next=actual+direction;
@@ -36,7 +55,11 @@ static inline int quest_shift_motion(QuestShiftMotion *m,QuestShifter *lever,
 {
     int h=-1,old=m->hand;
     for(int i=0;i<2;++i) {
-        m->zone[i]=valid[i] && !busy[i] && quest_shift_zone(vehicle,pos[i],c->zone);
+        int no_grip=!isfinite(squeeze[i]) || squeeze[i]<.65f;
+        int gesture_zone=c->gestures && no_grip && quest_shift_zone(vehicle,pos[i],c->zone);
+        int grip_zone=c->mode?quest_shift_grip_zone(vehicle,pos[i],c->travel,lever->hand==i+1):
+            quest_shift_zone(vehicle,pos[i],c->zone); /* retain H-pattern proximity feedback */
+        m->zone[i]=valid[i] && !busy[i] && (gesture_zone || grip_zone);
         if(m->zone[i] && (old==i+1 || h<0))h=i;
     }
     int gesture=c->gestures && h>=0 && (!isfinite(squeeze[h]) || squeeze[h]<.65f);

@@ -4,7 +4,17 @@
 #include <stdlib.h>
 #include <string.h>
 
-typedef struct { uint32_t tick; int driving,armed,pulse; uint32_t action_tick; int action_armed,action; } QuestShiftInput;
+typedef struct { int driving; uint32_t action_tick; int action_armed,action,menu_direction; uint32_t menu_tick; } QuestShiftInput;
+
+/* One dominant direction with hysteresis. VR thumbsticks need not reach
+ * the old 55% throw, and small diagonal wobble must not emit two menu keys. */
+static inline int quest_stick_direction(int x,int y,int previous)
+{
+    const int on=11500,off=6500;
+    if(abs(x)<off && abs(y)<off)return 0;
+    if(abs(x)<on && abs(y)<on)return previous;
+    return abs(y)>=abs(x)?(y>0?1:2):(x<0?4:8);
+}
 
 /* Tap B/Circle for the VR timeline. A deliberate hold still reaches the
  * retail replay controls. Arm on release when entering or regaining focus. */
@@ -63,37 +73,41 @@ static inline int quest_steamvr_y(QuestPauseGesture *s,uint32_t now,int valid,in
 
 /* Xbox retail layout: A handbrake, B nitrous, X upshift, Y downshift.
  * Touch A/B swap only in gameplay. Keep menu buttons and D-pad navigation.
- * A shift is one 100-ms button pulse, rearmed only near stick center. */
+ * Right-stick directions send career actions, never gear buttons. */
 static inline void quest_driving_input(QuestShiftInput *s,uint32_t now,int driving,
                                        uint16_t *buttons,uint8_t analog[8],int16_t sticks[4])
 {
     int x=sticks[2],y=sticks[3];
     if(!driving) {
-        memset(s,0,sizeof *s);
-        if(x< -16000)*buttons|=4; if(x>16000)*buttons|=8;
-        if(y< -16000)*buttons|=2; if(y>16000)*buttons|=1;
+        if(s->driving)memset(s,0,sizeof *s);
+        if(abs(sticks[0])+abs(sticks[1])>abs(x)+abs(y)){x=sticks[0];y=sticks[1];}
+        int direction=*buttons&15;
+        if(!direction)direction=quest_stick_direction(x,y,s->menu_direction);
+        /* Stretch quick flicks/D-pad taps across the guest USB poll. Holding
+         * still reaches retail auto-repeat. Consume the source axis so the
+         * same gesture cannot also arrive as an analog navigation event. */
+        if(direction && direction!=s->menu_direction) {
+            s->menu_direction=direction;s->menu_tick=now;
+        } else if(!direction && now-s->menu_tick>=100)s->menu_direction=0;
+        *buttons=(*buttons&~15u)|(uint16_t)s->menu_direction;
+        memset(sticks,0,4*sizeof *sticks);
         return;
     }
     if(!s->driving) { memset(s,0,sizeof *s);s->driving=1; }
     uint8_t a=analog[0];analog[0]=analog[1];analog[1]=a;
-    int released=s->pulse && (uint32_t)(now-s->tick)>=100;
-    if(released) s->pulse=0;
-    if(abs(y)<8192) s->armed=1;
-    if(!released && !s->pulse && s->armed && abs(y)>18000 && abs(y)>abs(x)) {
-        s->pulse=y>0?1:-1;s->tick=now;s->armed=0;
-    }
-    if(s->pulse) analog[s->pulse>0?2:3]=255;
-    /* Xbox career actions: D-pad right opens SMS, up enters an event/shop.
-     * One pulse per horizontal deflection, with dominant-axis selection to
-     * avoid shifting and opening SMS at the same time. */
+    /* Xbox D-pad up challenges a rival / enters an event or shop; down
+     * opens career status. Preserve left=SMS and right=event shortcuts.
+     * One pulse per deflection; both axes must center before another. */
     int action_released=s->action && (uint32_t)(now-s->action_tick)>=100;
     if(action_released)s->action=0;
-    if(abs(x)<8192)s->action_armed=1;
-    if(!action_released && !s->action && s->action_armed && abs(x)>18000 && abs(x)>abs(y)) {
-        s->action=x<0?8:1;s->action_tick=now;s->action_armed=0;
+    if(abs(x)<6500 && abs(y)<6500)s->action_armed=1;
+    int direction=quest_stick_direction(x,y,0);
+    if(!action_released && !s->action && s->action_armed && direction) {
+        s->action=direction==4?8:direction==8?1:direction;
+        s->action_tick=now;s->action_armed=0;
     }
     *buttons|=(uint16_t)s->action;
     /* The retail right axis can also apply throttle/brake. Consume it, so
-     * a downshift cannot brake and an upshift cannot accelerate the car. */
+     * a career action cannot brake or accelerate the car. */
     sticks[2]=sticks[3]=0;
 }

@@ -21,6 +21,8 @@ connection profiles with a controller keyboard. Select, rename, edit the room,
 or delete a profile there; each successful change is saved immediately beside
 `vr-settings.ini` in the app's private `xyz-profiles.json`. Game careers stay
 separate. This does not yet reserve a website name or enable online gameplay.
+The keyboard starts with lowercase letters; **X** toggles uppercase/lowercase
+for names, rooms and keyphrases. **Y** still reveals a keyphrase while held.
 The shared protocol and Android WebSocket bridge have local tests; Xbox
 vehicle/race integration and headset checks are ongoing.
 
@@ -79,9 +81,10 @@ Mapped SDL USB/Bluetooth gamepads feed the same driving controls as Touch.
 The active input device is selected by use; a held VR wheel has priority.
 Left stick steers, triggers brake/accelerate, A is nitro, B is handbrake,
 right stick click cycles cameras, and left stick click holds rear view only
-outside the cockpit. Start pauses. Right stick up/down shifts with manual
-transmission; **left reads SMS and right enters a race/shop**, one action per
-sideways deflection. Return to center between actions. Menus retain their
+outside the cockpit. Start pauses. **Right stick up challenges a rival or enters
+an event/shop; down opens career status. Left reads SMS and right enters a
+race/shop.** Each deflection sends one action; return to center between actions.
+The right stick never shifts gears. Menus retain their
 normal navigation and A/B behavior. Gamepad rumble follows the game effects
 when the controller supports it; enable the game's Vibration option.
 
@@ -458,9 +461,9 @@ boot actually begins. Regular Android screenshots do not capture this VR layer.
 
 ## Controls and diagnostics
 
-- While driving: Touch A = nitro, B = handbrake; right stick up = shift up,
-  down = shift down. Return the stick to center before another shift.
-  Select manual transmission in the game to use manual shifting.
+- While driving: Touch A = nitro, B = handbrake; right stick up = challenge
+  rival / enter event or shop, down = career status. Return the stick to center
+  before another action. Use the physical shifter or X/Y for manual shifting.
 - Menus retain A to confirm, B to go back and right-stick D-pad navigation.
   X/Y retain their original actions (also secondary gear buttons in gameplay).
 - Left menu button maps to Start; right stick also supplies the menu D-pad.
@@ -479,6 +482,10 @@ boot actually begins. Regular Android screenshots do not capture this VR layer.
   hand can stay on the wheel. The installed gearbox determines the layout.
   Manual standing starts use neutral until you push the lever to the front
   stop of the left rail. First gear can be selected during the countdown.
+- I-pattern pickup is limited to 6.5 cm around the knob, independently of the
+  saved gesture radius. The full configured stroke remains available once
+  grabbed. Radio, LED, page and seat controls retain fingertip priority over
+  optional no-grip gestures.
 - Press both sticks together to recenter the seated origin.
 
 The stick-click actions map to the retail **analog White/Black buttons**,
@@ -495,9 +502,9 @@ still gripping the wheel.
 The driving mapping follows the [original Xbox manual](https://oldgamesdownload.com/wp-content/uploads/manuals/need-for-speed-underground-2_xbox_manual_en_5rt.pdf):
 retail A/B are handbrake/nitrous, X/Y are shift up/down. OpenXR swaps only A/B
 while an unpaused driving camera is active. The right axis produces bounded
-100-ms X/Y pulses with separate activation/release thresholds, and its analog
-throttle/brake and D-pad outputs are consumed in gameplay. Menu/focus transitions
-reset the shift latch and require neutral before the next gear command. Packet
+100-ms career-action D-pad pulses with separate activation/release thresholds;
+its analog throttle/brake output is consumed in gameplay. Menu/focus transitions
+reset the action latch and require neutral before the next command. Packet
 tests cover held input, entry from menus, axis noise, timers wrapping and
 25–125 Hz polling. Gameplay state is published from the guest thread.
 

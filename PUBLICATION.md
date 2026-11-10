@@ -125,3 +125,17 @@ signing certificate. Optional local mod assets and all original game content
 are excluded from both downloads. Disabled CopChase source is retained to
 match the runtime, but it is unsupported; its game-integration test has a known
 failure. Exact checks, limitations and hashes are in BUILD-INFO.json.
+
+## November 10 PCVR update (0.7.1-dev)
+
+The PCVR package and matching source include corrected career/menu input,
+lowercase profile entry, a smaller I-pattern pickup area, visible menu scrolling,
+camera guards for the 128 MB memory window and bounded mirror trace work.
+The PCVR preset now leaves display refresh to the runtime. The latest standalone
+Quest APK is still 0.7.0-dev; no older APK is relabeled as this update.
+
+Focused Windows regression tests and shader compilation passed; menu images
+were inspected at multiple scroll positions. In-headset call answering, repeated
+session transitions and a matched 90 FPS comparison on Quest 3 / VDXR remain
+pending. The known experimental CopChase limitation remains unchanged. The
+release ships only audited runtime files, source, notices and hashes.

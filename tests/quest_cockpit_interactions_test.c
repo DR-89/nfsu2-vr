@@ -64,6 +64,43 @@ static int shifting(void)
     CHECK(quest_shift_motion(&m,&lever,&config,1001,0,6,4,valid,pos,pose,squeeze,busy)==QUEST_SHIFT_NONE && m.pending);
     return 0;
 }
+static int sequential_pickup(void)
+{
+    for(int v=0;v<QUEST_COCKPIT_VEHICLES;++v)for(int h=0;h<2;++h)for(int dir=-1;dir<=1;dir+=2) {
+        QuestShiftConfig c=quest_shift_defaults();c.mode=1;c.zone=.30f;c.travel=.10f;
+        QuestShiftMotion m={0};QuestShifter lever={0};
+        int valid[2]={0},busy[2]={0};float pos[2][3]={{0}},pose[2][16]={{0}},squeeze[2]={0};
+        valid[h]=1;squeeze[h]=1;pose[h][0]=pose[h][5]=pose[h][10]=pose[h][15]=1;
+        quest_shifter_knob(&lever,v,pos[h]);float center=pos[h][2];
+        pos[h][2]=center+.12f;
+        for(int t=1;t<201;t+=10)CHECK(quest_shift_motion(&m,&lever,&c,t,v,6,3,valid,pos,pose,squeeze,busy)==QUEST_SHIFT_NONE);
+        CHECK(!m.hand && !lever.hand && !m.zone[h]); /* old wide zone cannot grab */
+        CHECK(!quest_shift_touch_blocked(&lever,&c,v,pos[h]));
+        pos[h][2]=center;pos[h][0]+=.06f; /* pickup near the edge */
+        for(int t=201;t<361;t+=10)quest_shift_motion(&m,&lever,&c,t,v,6,3,valid,pos,pose,squeeze,busy);
+        CHECK(m.armed && lever.hand==h+1);
+        pos[h][2]=center+dir*.101f;
+        CHECK(quest_shift_motion(&m,&lever,&c,361,v,6,3,valid,pos,pose,squeeze,busy)==3+dir);
+        CHECK(lever.hand==h+1); /* long strokes retain the grip */
+        pos[h][2]=center;quest_shift_motion(&m,&lever,&c,371,v,6,3+dir,valid,pos,pose,squeeze,busy);
+        CHECK(m.armed);
+        squeeze[h]=0;quest_shift_motion(&m,&lever,&c,381,v,6,3+dir,valid,pos,pose,squeeze,busy);
+        CHECK(!lever.hand);
+        pos[h][0]-=.06f;pos[h][2]=center+.12f;squeeze[h]=1;
+        quest_shift_motion(&m,&lever,&c,391,v,6,3+dir,valid,pos,pose,squeeze,busy);
+        CHECK(!lever.hand && !m.hand); /* release restores compact pickup */
+        c.gestures=1;squeeze[h]=0;
+        quest_shift_motion(&m,&lever,&c,401,v,6,3,valid,pos,pose,squeeze,busy);
+        CHECK(m.zone[h] && m.gesture && !lever.hand); /* optional gesture zone survives */
+        CHECK(!quest_shift_touch_blocked(&lever,&c,v,pos[h]));
+        busy[h]=1;quest_shift_motion(&m,&lever,&c,411,v,6,3,valid,pos,pose,squeeze,busy);
+        CHECK(!m.hand && !m.zone[h]); /* pointing at controls wins over gestures */
+        busy[h]=0;c.mode=c.gestures=0;
+        quest_shift_motion(&m,&lever,&c,421,v,6,3,valid,pos,pose,squeeze,busy);
+        CHECK(m.zone[h] && !m.hand); /* H-pattern proximity rumble stays available */
+    }
+    return 0;
+}
 static int screens(void)
 {
     for(int v=0;v<QUEST_COCKPIT_VEHICLES;++v)for(int h=0;h<2;++h) {
@@ -133,7 +170,7 @@ static int controls(void)
 }
 int main(int argc,char **argv)
 {
-    CHECK(!shifting());CHECK(!screens());CHECK(!settings_and_steering());CHECK(!controls());
+    CHECK(!shifting());CHECK(!sequential_pickup());CHECK(!screens());CHECK(!settings_and_steering());CHECK(!controls());
     QuestTelemetry t={0};
     quest_telemetry_sample(&t,1000,1,3000,6000,10,.25f);
     quest_telemetry_sample(&t,1050,1,3500,6000,10.2f,.5f);CHECK(fabsf(t.accel-4)<.001f && t.count==2);

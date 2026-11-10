@@ -1,5 +1,37 @@
 # Release notes
 
+## 0.7.1-dev · PCVR controls, cockpit recovery and visible menu scrolling
+
+PCVR development update for Windows x64, including Quest 3 connected through Virtual Desktop / VDXR. This release contains the updated PCVR ZIP and matching source. The latest standalone Quest APK remains [0.7.0-dev](https://github.com/DR-89/nfsu2-vr/releases/tag/dev-2026-11-10); it does not contain these new fixes.
+
+### Controls and cockpit interaction
+
+- Right-stick up/down now send career/context actions instead of shifting gears. Up challenges a rival or enters an event/shop; down opens career status. Left reads SMS and right retains the event/shop shortcut. Return the stick to center between actions. Manual shifting remains available through X/Y or the physical lever.
+- Short vertical stick movements and D-pad taps remain active for at least 100 ms so the guest input poll can see them. Menus consume a single digital direction from either stick. Driving controls no longer depend on successful cockpit rendering, and a previous screen grab cannot keep blocking menu navigation.
+- The I-pattern lever can only be picked up within 6.5 cm of the knob. Its full travel remains available while held. Radio, LED, page and seat controls take priority over optional no-grip shifting gestures.
+- Names, rooms and keyphrases support lowercase input and display their actual case. The keyboard starts in lowercase; X toggles case, and holding Y still reveals a keyphrase.
+
+### Menus and camera recovery
+
+- Cockpit Controls and Community Mods display a proportional scrollbar, direction arrows and explicit counts such as **10 MORE BELOW**. Scroll with stick/D-pad up/down. Explanatory text stays clear of the scroll indicator.
+- Camera restore, cockpit cycling and rear-camera ownership now respect the configured 64/128 MB memory window. The old 64 MB checks rejected valid camera objects after session changes. Regression checks cover repeated sessions and allocations in the expanded window.
+
+### PCVR performance settings
+
+- The preset keeps the display rate selected in Virtual Desktop / OpenXR instead of requesting 72 Hz. `NFSU2_VR_REFRESH_HZ=0` retains the runtime rate; an explicit supported rate can still be selected in `pcvr.env`.
+- Mirror tracing skips off-texture samples while preserving its sample grid, hit refinement and silhouette validation. Repeated environment lookups for the vinyl diagnostic switch are cached.
+- **Stable 90 FPS has not been confirmed.** Both 0.6.1-dev and 0.7.0-dev requested 72 Hz in their presets, so that setting alone does not establish the reported regression's cause. A matched Quest 3 / VDXR comparison and in-headset confirmation of call answering and session transitions remain pending.
+
+### Download and validation
+
+Extract the [PCVR ZIP](https://github.com/DR-89/nfsu2-vr/releases/download/dev-2026-11-10-r2/NFSU2VR-PCVR-dev-2026-11-10-r2.zip) into a writable folder, keep your existing `game/` and `Music/` folders, and use **Start-PCVR.cmd** so the updated preset is loaded. For Steam Link, use **Start-PCVR.cmd -SteamVR**.
+
+The Windows build and focused input, profile keyboard, shifter, cockpit interaction, camera lifetime, mirror, radio and frame-timing checks passed. Menu rendering was inspected at the top, middle and bottom of the lists. Both mirror shader variants compile, and 200,000 numerical ray cases retain every visible reference sample. Exact checks and hashes are recorded in BUILD-INFO.json and SHA256SUMS.txt.
+
+This remains a development prerelease. CopChase remains unsupported and disabled by default; its known game-integration failure is not addressed here. Original game content, saves, credentials and optional community asset packs are excluded. Supply your own Xbox USA / NTSC-U game data. Matching port and FFmpeg source archives are included.
+
+---
+
 ## 0.7.0-dev · Cockpit controls, telemetry and mirror fixes
 
 Development prerelease for **Windows PCVR** and **Meta Quest 3 standalone**.

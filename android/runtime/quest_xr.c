@@ -330,8 +330,9 @@ static int driving_input_active(void)
 {
     uint32_t now=SDL_GetTicks();
     pthread_mutex_lock(&input_lock);
-    int active=driving_active && cockpit_available &&
-        (uint32_t)(now-driving_tick)<500 && (uint32_t)(now-cockpit_tick)<500;
+    /* Input belongs to the live player, not to successful cabin rendering.
+     * A camera transition must not switch career actions back to menu axes. */
+    int active=driving_active && (uint32_t)(now-driving_tick)<500;
     pthread_mutex_unlock(&input_lock);
     return active;
 }
@@ -1113,6 +1114,7 @@ static void poll_input(void)
         int settings_consumed=vr_settings_input(buttons,analog,sticks);
         if(settings_consumed) {
             frame_map_valid=0;
+            memset(&shift_input,0,sizeof shift_input);
             memset(analog,0,8);memset(sticks,0,8);buttons=0;
             memset(pressed,0,sizeof pressed);quest_wheel_reset(&wheel_grip);
         }
@@ -1136,7 +1138,7 @@ static void poll_input(void)
         }
         static int previous_driving=-1;
         if(driving!=previous_driving) {
-            fprintf(stderr,"[XR] input mode: %s\n",driving?"driving (A nitro, B handbrake, right stick gears)":"menu (original face buttons and D-pad)");
+            fprintf(stderr,"[XR] input mode: %s\n",driving?"driving (A nitro, B handbrake, right stick career actions)":"menu (original face buttons and D-pad)");
             previous_driving=driving;
         }
         frame_driving=driving;
@@ -1277,6 +1279,7 @@ static void poll_wheel_grips(void)
     int screen_busy[2]={radio_busy[0] || map_grip.hand==1 || cabin_touch[0].control,
                         radio_busy[1] || map_grip.hand==2 || cabin_touch[1].control};
     int screen_active=cabin_input && visible && ui==QUEST_UI_HUD && screen_vehicle==cockpit_vehicle_index && frame_number-screen_draw_frame<=1;
+    if(!screen_active)screen_stick_captured=0;
     save_map|=quest_screen_update(&screen_grip,&vr_settings.cockpit.screen,quest_cockpit_vehicle(cockpit_vehicle_index),
         mirror_now,screen_active,hand_valid,hand_matrix,frame_squeeze,screen_busy,frame_sticks[3]);
     if(screen_grip.grip.hand){radio_busy[screen_grip.grip.hand-1]=1;screen_stick_captured=1;}
@@ -1300,8 +1303,7 @@ static void poll_wheel_grips(void)
     for(int h=0;h<2;++h) {
         /* A fingertip can reach the keys while the palm approaches or leaves
          * the knob. Give this hand the same pickup zone as the gear lever. */
-        int at_knob=manual_lever && (quest_shifter_in_reach(&shifter,mirror_vehicle,position[h]) ||
-            ((vr_settings.cockpit.shift.mode || vr_settings.cockpit.shift.gestures) && quest_shift_zone(mirror_vehicle,position[h],vr_settings.cockpit.shift.zone)));
+        int at_knob=manual_lever && quest_shift_touch_blocked(&shifter,&vr_settings.cockpit.shift,mirror_vehicle,position[h]);
         QuestRadioCommand cmd=quest_touch_update(&cabin_touch[h],quest_cockpit_vehicle(mirror_vehicle),
             touch_active && hand_valid[h] && !radio_busy[h] && !at_knob && !(replay_bare_hands&(1u<<h)),radio_active,hand_matrix[h],index_tip,
             cabin_touch[1-h].control);
@@ -1352,7 +1354,7 @@ static void poll_wheel_grips(void)
                                         frame_map_valid,frame_map_down);
     if(!vr_gamepad_selected)quest_minimap_mask_buttons(map_shortcut.captured,frame_analog);
     /* Resolve Touch buttons using this frame's hands before the driving
-     * layout swaps A/B and adds its independent right-stick gear shifts. */
+     * layout swaps A/B and adds right-stick career actions. */
     if(frame_focused)
         quest_driving_input(&shift_input,mirror_now,frame_driving,&frame_buttons,frame_analog,frame_sticks);
     if(open_map)frame_buttons|=0x0004; /* retail D-pad left */

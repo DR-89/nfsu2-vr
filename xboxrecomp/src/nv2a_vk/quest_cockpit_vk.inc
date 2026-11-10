@@ -296,9 +296,20 @@ static VkPipeline cockpit_pipeline(int multiview,int ghost)
             "float prev=1./nearZ;float farInv=max(0.,(1.-m.proj.z)/m.proj.w);"
             "float pixels=length(offset*vec2(textureSize(depths,0).xy));"
             "int steps=int(clamp(ceil(pixels*(1./nearZ-farInv)),16.,128.));"
-            "for(int i=0;i<=steps;i++){float inv=mix(1./nearZ,farInv,float(i)/float(steps));vec2 p=farUV+offset*inv;"
-            "if(inside(p)&&inv<=(depth(p)-m.proj.z)/m.proj.w){"
-            "float surface=(depth(p)-m.proj.z)/m.proj.w;vec2 candidate=farUV+offset*surface;"
+            /* Clip only the sample-index interval outside the rear texture.
+             * Keep the original sample grid, density, hit refinement and
+             * silhouette checks. One guard sample covers boundary roundoff. */
+            "vec2 firstUV=farUV+offset/nearZ;vec2 stride=offset*(farInv-1./nearZ)/float(steps);"
+            "float first=0.,last=float(steps);for(int k=0;k<2;k++){"
+            "if(stride[k]==0.){if(firstUV[k]<0.||firstUV[k]>1.)last=-1.;}"
+            "else{vec2 ends=vec2(-firstUV[k],1.-firstUV[k])/stride[k];"
+            "first=max(first,min(ends.x,ends.y));last=min(last,max(ends.x,ends.y));}}"
+            "int begin=int(clamp(floor(first)-1.,0.,float(steps)));int end=int(clamp(ceil(last)+1.,0.,float(steps)));"
+            "if(last+2.<first)end=begin-1;"
+            "if(begin>0)prev=mix(1./nearZ,farInv,float(begin-1)/float(steps));"
+            "for(int i=begin;i<=end;i++){float inv=mix(1./nearZ,farInv,float(i)/float(steps));vec2 p=farUV+offset*inv;"
+            "if(!inside(p)){prev=inv;continue;}float surface=(depth(p)-m.proj.z)/m.proj.w;"
+            "if(inv<=surface){vec2 candidate=farUV+offset*surface;"
             "if(surface<=prev&&inside(candidate)&&abs((depth(candidate)-m.proj.z)/m.proj.w-surface)*pixels<=.75){uv=candidate;break;}"
             "float a=prev,b=inv;for(int j=0;j<6;j++){float mid=(a+b)*.5;vec2 q=farUV+offset*mid;"
             "if(inside(q)&&mid<=(depth(q)-m.proj.z)/m.proj.w)b=mid;else a=mid;}"

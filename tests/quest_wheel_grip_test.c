@@ -148,7 +148,7 @@ int main(int argc,char **argv)
     CHECK(!held_contact_test());
     CHECK(!steering_response_test());
     uint32_t test_tick=0;
-    /* Real Xbox packets: gameplay face-button swap, discrete gear shifts,
+    /* Real Xbox packets: gameplay face-button swap, discrete career actions,
      * no throttle/brake axis leakage, and unchanged menu navigation. */
     for(unsigned frame_ms=8;frame_ms<=40;frame_ms+=8) {
         QuestShiftInput shift={0};int up=0,down=0;uint8_t prev_up=0,prev_down=0;
@@ -159,13 +159,15 @@ int main(int argc,char **argv)
             int16_t axes[4]={-1234,5678,0,(int16_t)y};
             quest_driving_input(&shift,0xfffffc00u+t,driving,&digital,a,axes); /* timer wrap */
             CHECK(a[0]==(driving?0:255) && a[1]==(driving?255:0));
-            CHECK(a[5]==255 && a[6]==123 && a[7]==231 && axes[0]==-1234 && axes[1]==5678);
+            CHECK(a[5]==255 && a[6]==123 && a[7]==231);
+            CHECK(axes[0]==(driving?-1234:0) && axes[1]==(driving?5678:0));
             if(driving) {
-                CHECK(digital==0x10 && axes[2]==0 && axes[3]==0);
-                if(t<400)CHECK(!a[2] && !a[3]); /* held on entry is not a shift */
-                up+=a[2] && !prev_up;down+=a[3] && !prev_down;
-            } else CHECK(digital==(y>16000?0x11:0x10) && axes[3]==y && !a[2] && !a[3]);
-            prev_up=a[2];prev_down=a[3];
+                CHECK((digital==0x10 || digital==0x11 || digital==0x12) && axes[2]==0 && axes[3]==0);
+                CHECK(!a[2] && !a[3]); /* career commands never shift */
+                if(t<400)CHECK(digital==0x10); /* held on entry needs center */
+                up+=(digital&1) && !prev_up;down+=(digital&2) && !prev_down;
+            } else CHECK(digital==(y>16000?0x11:0x10) && !axes[2] && !axes[3] && !a[2] && !a[3]);
+            prev_up=digital&1;prev_down=digital&2;
         }
         CHECK(up==2 && down==1);
     }

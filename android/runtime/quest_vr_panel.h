@@ -8,10 +8,10 @@ static inline void quest_vr_rect(uint32_t *pixels,int x,int y,int w,int h,uint32
     for(int j=y;j<y+h && j<768;++j)for(int i=x;i<x+w && i<1024;++i)
         if(i>=0 && j>=0)pixels[j*1024+i]=color;
 }
-static inline void quest_vr_text(uint32_t *pixels,int x,int y,int scale,const char *text,uint32_t color)
+static inline void quest_vr_draw_text(uint32_t *pixels,int x,int y,int scale,const char *text,uint32_t color,int preserve_case)
 {
     for(;*text;++text,x+=6*scale) {
-        char c=*text;if(c>='a' && c<='z')c-=32;
+        char c=*text;if(!preserve_case && c>='a' && c<='z')c-=32;
         const char *rows=NULL;
         for(unsigned i=0;i<sizeof quest_vr_font/sizeof *quest_vr_font;++i)
             if(quest_vr_font[i].c==c){rows=quest_vr_font[i].rows;break;}
@@ -21,6 +21,36 @@ static inline void quest_vr_text(uint32_t *pixels,int x,int y,int scale,const ch
             for(int i=0;i<5;++i)if(bits&(1u<<(4-i)))quest_vr_rect(pixels,x+i*scale,y+j*scale,scale,scale,color);
         }
     }
+}
+static inline void quest_vr_text(uint32_t *pixels,int x,int y,int scale,const char *text,uint32_t color)
+{ quest_vr_draw_text(pixels,x,y,scale,text,color,0); }
+static inline void quest_vr_text_case(uint32_t *pixels,int x,int y,int scale,const char *text,uint32_t color)
+{ quest_vr_draw_text(pixels,x,y,scale,text,color,1); }
+static inline void quest_vr_scroll_indicator(uint32_t *pixels,int first,int visible,int total)
+{
+    const uint32_t accent=0xff4da3ffu,muted=0xff465566u;
+    int above=first,below=total-first-visible;
+    /* Reserve the right edge for a proportional thumb and both arrows.
+     * This is a position indicator; navigation stays on the stick/D-pad. */
+    quest_vr_rect(pixels,968,88,32,314,0xff1b2939u);
+    for(int line=0;line<7;++line) {
+        quest_vr_rect(pixels,984-line,94+line,1+2*line,2,above?accent:muted);
+        quest_vr_rect(pixels,978+line,389+line,13-2*line,2,below?accent:muted);
+    }
+    const int track_y=114,track_h=260;
+    int thumb_h=track_h*visible/total;
+    if(thumb_h<24)thumb_h=24;
+    int thumb_y=track_y+(track_h-thumb_h)*first/(total-visible);
+    quest_vr_rect(pixels,979,track_y,10,track_h,muted);
+    quest_vr_rect(pixels,975,thumb_y,18,thumb_h,accent);
+    quest_vr_rect(pixels,978,thumb_y+thumb_h/2-3,12,2,0xffffffffu);
+    quest_vr_rect(pixels,978,thumb_y+thumb_h/2+2,12,2,0xffffffffu);
+    quest_vr_rect(pixels,24,410,976,36,0xff1b2939u);
+    quest_vr_text(pixels,40,418,3,"UP / DOWN: SCROLL",0xffffffffu);
+    char remaining[40];
+    if(above && below)snprintf(remaining,sizeof remaining,"%d ABOVE / %d BELOW",above,below);
+    else snprintf(remaining,sizeof remaining,"%d MORE %s",above?above:below,above?"ABOVE":"BELOW");
+    quest_vr_text(pixels,960-(int)strlen(remaining)*18,418,3,remaining,accent);
 }
 static inline void quest_vr_panel(uint32_t *pixels,const QuestVRSettings *s,
                                   const QuestVRMenu *m,int saved,int restart_pending)
@@ -41,14 +71,16 @@ static inline void quest_vr_panel(uint32_t *pixels,const QuestVRSettings *s,
         "COPCHASE","PURSUIT STYLE","STARTING HEAT","POLICE AGGRESSION","MAX CHASERS","PURSUIT IN SPRINT","BACK"};
     int first=cockpit?QUEST_VR_COCKPIT_FIRST:mods?QUEST_VR_HIDDEN_RACES_ROW:haptics?QUEST_VR_ENGINE_ROW:0;
     int end=cockpit?QUEST_VR_END:mods?QUEST_VR_MODS_BACK+1:haptics?QUEST_VR_HAPTICS_BACK+1:QUEST_VR_ROWS;
-    if((mods || cockpit) && end-first>10){int total=end-first,offset=m->row-first-9;if(offset<0)offset=0;
+    int scrolling=(mods || cockpit) && end-first>10;
+    if(scrolling){int total=end-first,offset=m->row-first-9;if(offset<0)offset=0;
         first+=offset;if(end>first+10)end=first+10;
         char range[32];snprintf(range,sizeof range,"%d-%d / %d",offset+1,offset+end-first,total);
         quest_vr_text(pixels,780,46,2,range,0xffc8beb4u);
+        quest_vr_scroll_indicator(pixels,offset,end-first,total);
     }
     for(int row=first;row<end;++row) {
         int y=91+(row-first)*((mods || cockpit)?32:haptics?54:26);char value[64]={0};
-        if(row==m->row)quest_vr_rect(pixels,24,y-3,976,25,0xff214171u);
+        if(row==m->row)quest_vr_rect(pixels,24,y-3,scrolling?936:976,25,0xff214171u);
         const char *label=cockpit?(row==QUEST_VR_COCKPIT_BACK?"BACK":row==QUEST_VR_COCKPIT_RESET?"RESET SCREEN":quest_cockpit_options[row-QUEST_VR_COCKPIT_FIRST].label):labels[row];
         quest_vr_text(pixels,40,y,3,label,0xffffffffu);
         if(cockpit && row<QUEST_VR_COCKPIT_RESET) {
@@ -158,75 +190,75 @@ static inline void quest_vr_panel(uint32_t *pixels,const QuestVRSettings *s,
     if(m->row==QUEST_VR_STANCE_ROW)hint="ADJUST YOUR CAR'S CAMBER, WHEEL OFFSETS AND TIRE WIDTH.";
     if(m->row==QUEST_VR_GPS_ROW)hint="STRAIGHT-LINE DISTANCE BELOW THE VR MAP. USES SPEEDOMETER UNITS.";
     if(m->row==QUEST_VR_UHUD_ROW || m->row==QUEST_VR_DETAILED_MAP_ROW){
-        quest_vr_text(pixels,40,416,3,m->row==QUEST_VR_UHUD_ROW?"SHARPER HUD AND MENU TEXTURES BY LUNICAURA106.":"DETAILED ROADS AND SHORTCUTS BY JEANSBIG.",0xffc8beb4u);
-        quest_vr_text(pixels,40,458,3,"HIGHER RESOLUTION USES MORE TEXTURE MEMORY.",0xffc8beb4u);
+        quest_vr_text(pixels,40,460,3,m->row==QUEST_VR_UHUD_ROW?"SHARPER HUD AND MENU TEXTURES BY LUNICAURA106.":"DETAILED ROADS AND SHORTCUTS BY JEANSBIG.",0xffc8beb4u);
+        quest_vr_text(pixels,40,502,3,"HIGHER RESOLUTION USES MORE TEXTURE MEMORY.",0xffc8beb4u);
         hint="SAVE AND RESTART THE GAME TO APPLY CHANGES.";
     }
     if(m->row==QUEST_VR_LIGHTS_ROW)hint="LAMPS AND ROAD BEAM. APPLIES NOW; SHARED IN ONLINE FREE ROAM.";
     if(m->row==QUEST_VR_SPECIAL_VINYLS_ROW)hint="REOPEN THE VINYL SHOP. ORIGINAL UNLOCKS AND PRICES STILL APPLY.";
     if(m->row==QUEST_VR_VINYLS_ROW){
-        quest_vr_text(pixels,40,416,3,"1024 VINYLS AND DOORLINES BY ADRIENSHADOW.",0xffc8beb4u);
-        quest_vr_text(pixels,40,458,3,"OPTIONAL PACKS. USES MORE TEXTURE MEMORY.",0xffc8beb4u);
+        quest_vr_text(pixels,40,460,3,"1024 VINYLS AND DOORLINES BY ADRIENSHADOW.",0xffc8beb4u);
+        quest_vr_text(pixels,40,502,3,"OPTIONAL PACKS. USES MORE TEXTURE MEMORY.",0xffc8beb4u);
         hint="SAVE AND RESTART THE GAME TO APPLY CHANGES.";
     }
     if(m->row==QUEST_VR_REGIONAL_ROW){
-        quest_vr_text(pixels,40,416,3,"VAUXHALL CORSA AND PEUGEOT 106. OPTIONAL CAR PACK.",0xffc8beb4u);
-        quest_vr_text(pixels,40,458,3,"FOR CAR SELECTION AND ONLINE FREE ROAM.",0xffc8beb4u);
+        quest_vr_text(pixels,40,460,3,"VAUXHALL CORSA AND PEUGEOT 106. OPTIONAL CAR PACK.",0xffc8beb4u);
+        quest_vr_text(pixels,40,502,3,"FOR CAR SELECTION AND ONLINE FREE ROAM.",0xffc8beb4u);
         hint="SAVE AND RESTART THE GAME TO APPLY CHANGES.";
     }
     if(m->row==QUEST_VR_DAMAGE_ROW){
-        quest_vr_text(pixels,40,416,3,"DENTS, SCRATCHES AND LOOSE PARTS BY FRS MODS.",0xffc8beb4u);
-        quest_vr_text(pixels,40,458,3,"VISUAL DAMAGE. SHARED WITH NEARBY FREE ROAM PLAYERS.",0xffc8beb4u);
+        quest_vr_text(pixels,40,460,3,"DENTS, SCRATCHES AND LOOSE PARTS BY FRS MODS.",0xffc8beb4u);
+        quest_vr_text(pixels,40,502,3,"VISUAL DAMAGE. SHARED WITH NEARBY FREE ROAM PLAYERS.",0xffc8beb4u);
         hint="SAVE AND RESTART THE GAME TO APPLY CHANGES.";
     }
     if(m->row>=QUEST_VR_COPCHASE_ROW && m->row<=QUEST_VR_COPCHASE_SPRINT_ROW){
-        quest_vr_text(pixels,40,416,3,"COPCHASE BY VITORINI MODS.",0xffc8beb4u);
-        quest_vr_text(pixels,40,458,3,"POLICE PURSUITS IN OFFLINE CAREER FREE ROAM.",0xffc8beb4u);
+        quest_vr_text(pixels,40,460,3,"COPCHASE BY VITORINI MODS.",0xffc8beb4u);
+        quest_vr_text(pixels,40,502,3,"POLICE PURSUITS IN OFFLINE CAREER FREE ROAM.",0xffc8beb4u);
         if(s->copchase && m->copchase_data==QUEST_COPCHASE_DATA_MISSING)
-            quest_vr_text(pixels,40,500,3,"COPCHASE DATA MISSING OR INVALID. REINSTALL PACK.",0xff8888ffu);
+            quest_vr_text(pixels,40,544,3,"COPCHASE DATA MISSING OR INVALID. REINSTALL PACK.",0xff8888ffu);
         hint=m->row==QUEST_VR_COPCHASE_ROW || (s->copchase && m->copchase_data!=QUEST_COPCHASE_DATA_READY)?quest_vr_copchase_data_hint(s,m):
              m->row==QUEST_VR_COPCHASE_LIMIT_ROW?"UPPER LIMIT. HEAT AND NEARBY PATROLS DETERMINE THE ACTIVE COUNT.":
              "ADJUST PURSUIT DIFFICULTY WITH LEFT / RIGHT.";
         if(m->row==QUEST_VR_COPCHASE_SPRINT_ROW){
-            quest_vr_rect(pixels,24,448,976,100,0xff141b24u);
-            quest_vr_text(pixels,40,458,3,"QUICK RACE: SELECT SPRINT, THEN YOUR TRACK AND CAR.",0xffc8beb4u);
-            quest_vr_text(pixels,40,500,3,"OFFLINE ONLY. BUSTED ENDS THE RACE WITHOUT A FINE.",0xffc8beb4u);
+            quest_vr_rect(pixels,24,492,976,100,0xff141b24u);
+            quest_vr_text(pixels,40,502,3,"QUICK RACE: SELECT SPRINT, THEN YOUR TRACK AND CAR.",0xffc8beb4u);
+            quest_vr_text(pixels,40,544,3,"OFFLINE ONLY. BUSTED ENDS THE RACE WITHOUT A FINE.",0xffc8beb4u);
             hint=!s->copchase || m->copchase_data!=QUEST_COPCHASE_DATA_READY?quest_vr_copchase_data_hint(s,m):
                 s->copchase_style==0?"APPLIES TO YOUR NEXT SPRINT. SLOW USES MOST WANTED.":"APPLIES TO YOUR NEXT SPRINT. USES YOUR STYLE AND HEAT.";
         }
     }
     if(m->row==QUEST_VR_SOUNDTRACK_ROW){
-        quest_vr_text(pixels,40,416,3,"UNCENSORED AND RESTORED SONGS BY XGMVX.",0xffc8beb4u);
-        quest_vr_text(pixels,40,458,3,"OPTIONAL PACK. SELECT ORIGINAL UNDER RADIO SOUNDTRACK.",0xffc8beb4u);
+        quest_vr_text(pixels,40,460,3,"UNCENSORED AND RESTORED SONGS BY XGMVX.",0xffc8beb4u);
+        quest_vr_text(pixels,40,502,3,"OPTIONAL PACK. SELECT ORIGINAL UNDER RADIO SOUNDTRACK.",0xffc8beb4u);
         hint="SAVE AND RESTART THE GAME TO APPLY CHANGES.";
     }
     if(m->row==QUEST_VR_SUBTITLES_ROW){
-        quest_vr_text(pixels,40,416,3,"COMPLETE MOVIE TEXTS BY VILESTUFF.",0xffc8beb4u);
-        quest_vr_text(pixels,40,458,3,"ORIGINAL MOVIE TIMING AND SCREEN PLACEMENT.",0xffc8beb4u);
+        quest_vr_text(pixels,40,460,3,"COMPLETE MOVIE TEXTS BY VILESTUFF.",0xffc8beb4u);
+        quest_vr_text(pixels,40,502,3,"ORIGINAL MOVIE TIMING AND SCREEN PLACEMENT.",0xffc8beb4u);
         hint="SAVE AND RESTART THE GAME TO APPLY CHANGES.";
     }
     if(m->row==QUEST_VR_PROFILES_ROW)hint="CREATE AND SELECT LOCAL PROFILES FOR NFSU2.XYZ.";
     if(m->row==QUEST_VR_ONLINE_CARS_ROW)hint="APPLIES NOW. MORE CARS USE MORE MEMORY AND MAY LOWER FRAME RATE.";
     if(m->row==QUEST_VR_HIDDEN_RACES_ROW) {
-        quest_vr_text(pixels,40,416,3,"SHOW THE 33 HIDDEN RACES ON THE MAP.",0xffc8beb4u);
-        quest_vr_text(pixels,40,458,3,"BASED ON MAXHWOY'S SHOW HIDDEN RACES MOD.",0xffc8beb4u);
+        quest_vr_text(pixels,40,460,3,"SHOW THE 33 HIDDEN RACES ON THE MAP.",0xffc8beb4u);
+        quest_vr_text(pixels,40,502,3,"BASED ON MAXHWOY'S SHOW HIDDEN RACES MOD.",0xffc8beb4u);
         hint="SAVE AND RESTART THE GAME TO APPLY CHANGES.";
     }
     if(m->row==QUEST_VR_VISUAL_REP_ROW) {
-        quest_vr_text(pixels,40,416,3,"CAREER STARS FOLLOW YOUR STAGE.",0xffc8beb4u);
-        quest_vr_text(pixels,40,458,3,"CHOOSE CAR PARTS FOR THE LOOK YOU WANT.",0xffc8beb4u);
-        quest_vr_text(pixels,40,500,3,"BASED ON THELINK2012'S MOD.",0xffc8beb4u);
+        quest_vr_text(pixels,40,460,3,"CAREER STARS FOLLOW YOUR STAGE.",0xffc8beb4u);
+        quest_vr_text(pixels,40,502,3,"CHOOSE CAR PARTS FOR THE LOOK YOU WANT.",0xffc8beb4u);
+        quest_vr_text(pixels,40,544,3,"BASED ON THELINK2012'S MOD.",0xffc8beb4u);
         hint="SAVE AND RESTART THE GAME TO APPLY CHANGES.";
     }
     if(m->row==QUEST_VR_CATCHUP_ROW){
-        quest_vr_text(pixels,40,416,3,"NO BOOST: OPPONENTS AHEAD STILL WAIT.",0xffc8beb4u);
-        quest_vr_text(pixels,40,458,3,"OFF: NO WAITING AND NO EXTRA POWER.",0xffc8beb4u);
-        quest_vr_text(pixels,40,500,3,"APPLIES TO CAREER RACES ONLY.",0xffc8beb4u);
+        quest_vr_text(pixels,40,460,3,"NO BOOST: OPPONENTS AHEAD STILL WAIT.",0xffc8beb4u);
+        quest_vr_text(pixels,40,502,3,"OFF: NO WAITING AND NO EXTRA POWER.",0xffc8beb4u);
+        quest_vr_text(pixels,40,544,3,"APPLIES TO CAREER RACES ONLY.",0xffc8beb4u);
         hint="SAVE AND RESTART THE GAME TO APPLY CHANGES.";
     }
     if(m->row==QUEST_VR_WHINE_ROW){
-        quest_vr_text(pixels,40,458,3,"ROPI'S TRANSMISSION WHINE, WITH GEAR SHIFTS.",0xffc8beb4u);
-        quest_vr_text(pixels,40,500,3,"USES THE GAME'S MASTER AND ENGINE VOLUMES.",0xffc8beb4u);
+        quest_vr_text(pixels,40,502,3,"ROPI'S TRANSMISSION WHINE, WITH GEAR SHIFTS.",0xffc8beb4u);
+        quest_vr_text(pixels,40,544,3,"USES THE GAME'S MASTER AND ENGINE VOLUMES.",0xffc8beb4u);
         hint="APPLIES NOW. HEARD ON YOUR OWN CAR.";
     }
     if(restart_pending && m->row==QUEST_VR_SAVE_ROW)hint="SAVE AND RESTART THE GAME TO APPLY PENDING CHANGES.";

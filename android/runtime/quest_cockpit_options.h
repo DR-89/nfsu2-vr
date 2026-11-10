@@ -23,7 +23,7 @@ static const QuestCockpitOption quest_cockpit_options[]={
     QCHOICE(shift.gestures,"shift_gestures","NO-GRIP GESTURES",0,"OFF","SINGLE BOTH","DOUBLE DOWN"),
     QCHOICE2(shift.gesture_reverse,"gesture_reverse","GESTURE UPSHIFT",1,"BACK / UP","FORWARD / DOWN"),
     QCHOICE2(shift.gesture_axis,"gesture_axis","GESTURE AXIS",0,"FORWARD-BACK","UP-DOWN"),
-    QOPT(shift.zone,"shift_zone","ACTIVE ZONE (CM)",.10f,.30f,.01f,.18f),
+    QOPT(shift.zone,"shift_zone","GESTURE ZONE (CM)",.10f,.30f,.01f,.18f),
     QOPT(shift.gesture_travel,"gesture_travel","FLICK DEADZONE (CM)",.02f,.12f,.005f,.045f),
     QOPT(shift.gesture_angle,"gesture_angle","WRIST DEADZONE (DEG)",10,60,5,20),
     QOPT(shift.gesture_speed,"gesture_speed","FLICK SPEED (M/S)",.1f,1.5f,.05f,.35f),

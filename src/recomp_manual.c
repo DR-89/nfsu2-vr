@@ -178,7 +178,7 @@ static void cockpit_restore_camera(uint32_t mover,uint32_t car)
 {
     if((restored_mover==mover && restored_car==car) || !quest_xr_cockpit_enabled())return;
     uint32_t manager=MEM32(0x0044940cu);
-    if(!quest_rear_pointer(manager,0x248) || MEM32(manager+4)!=car ||
+    if(!xyz_xbox_address(manager,0x248) || MEM32(manager+4)!=car ||
        MEM32(manager+0x238)!=mover || MEM32(manager+0x10)!=0)return;
     unsigned last=cockpit_last_slot(),slot=MEM32(0x00406d34u);
     int choice=quest_xr_camera_choice();
@@ -201,29 +201,29 @@ static int cockpit_ui_read(void *context,uint32_t address,void *out,size_t size)
 static uint32_t cockpit_local_car(void)
 {
     uint32_t manager=MEM32(0x44940cu);
-    return quest_rear_pointer(manager,0x14) && MEM32(manager+0x10)==0?MEM32(manager+4):0;
+    return xyz_xbox_address(manager,0x14) && MEM32(manager+0x10)==0?MEM32(manager+4):0;
 }
 static VrReplay cockpit_replay;
 static uint32_t cockpit_replay_manager(void)
 {
     uint32_t manager=MEM32(0x428930u);
-    return quest_rear_pointer(manager,0x90)?manager:0;
+    return xyz_xbox_address(manager,0x90)?manager:0;
 }
 static int cockpit_replay_open(void)
 {
     uint32_t owner=MEM32(0x3f9c64u);
-    return quest_rear_pointer(owner,0xd0) && MEM32(owner)==0x34d7a4u;
+    return xyz_xbox_address(owner,0xd0) && MEM32(owner)==0x34d7a4u;
 }
 static int cockpit_current_race_stage(void)
 {
     uint32_t director=MEM32(0x449478u);
-    return quest_rear_pointer(director,4)?(int)MEM32(director):0;
+    return xyz_xbox_address(director,4)?(int)MEM32(director):0;
 }
 static int cockpit_replay_camera_context(uint32_t manager)
 {
     uint32_t director=MEM32(0x449438u);
-    return manager && manager==MEM32(0x449414u) && quest_rear_pointer(manager,0x250) &&
-           MEM32(0x428e34u)==6 && quest_rear_pointer(director,4) && MEM32(director)==5 &&
+    return manager && manager==MEM32(0x449414u) && xyz_xbox_address(manager,0x250) &&
+           MEM32(0x428e34u)==6 && xyz_xbox_address(director,4) && MEM32(director)==5 &&
            cockpit_replay_open();
 }
 static int cockpit_replay_camera_selected(uint32_t manager)
@@ -234,7 +234,7 @@ static int cockpit_replay_camera_selected(uint32_t manager)
 static uint32_t cockpit_replay_track_mover(uint32_t manager)
 {
     uint32_t mover=MEM32(manager+0x238);
-    return quest_rear_pointer(mover,0x60) && MEM32(mover)==0x344880u &&
+    return xyz_xbox_address(mover,0x60) && MEM32(mover)==0x344880u &&
            MEM32(mover+0x1c)==MEM32(0x3f5b70u)?mover:0;
 }
 static void cockpit_replay_camera_apply(uint32_t manager,int change)
@@ -248,7 +248,7 @@ static void cockpit_replay_camera_apply(uint32_t manager,int change)
     MEM32(manager+0x21c)=native_slot;
     uint32_t mover=cockpit_replay_track_mover(manager);
     if(change || !mover) {
-        if(!quest_rear_pointer(MEM32(manager+4),0x600))return;
+        if(!xyz_xbox_address(MEM32(manager+4),0x600))return;
         cockpit_guest_call(sub_001EB230,manager,0x1eba5du,1,1,0);
         mover=cockpit_replay_track_mover(manager);
     }
@@ -296,22 +296,22 @@ static VrReplayFrame *cockpit_replay_frame(uint32_t manager)
 static float cockpit_engine_rumble(void)
 {
     uint32_t car=cockpit_local_car();
-    if(!quest_rear_pointer(car,0x444))return 0;
+    if(!xyz_xbox_address(car,0x444))return 0;
     uint32_t spec=MEM32(car+0x20);
-    if(!quest_rear_pointer(spec,0x1fc))return 0;
+    if(!xyz_xbox_address(spec,0x1fc))return 0;
     /* Retail reads idle at 0x177E1 and divides current RPM by this car's
      * rev limit at 0x1E67C6. +0x438 is the processed accelerator. */
     uint32_t control=MEM32(car+0x30);
-    float brake=quest_rear_pointer(control,0x218)?MEMF(control+0x214):0;
+    float brake=xyz_xbox_address(control,0x218)?MEMF(control+0x214):0;
     quest_xr_telemetry_publish(car,MEMF(car+0x440),MEMF(spec+0x1f8),MEMF(car+0x42c),brake);
     return quest_engine_rumble(MEMF(car+0x440),MEMF(spec+0x1f0),MEMF(spec+0x1f8),MEMF(car+0x438));
 }
 static int cockpit_grid_gears(uint32_t car)
 {
-    if(!quest_rear_pointer(car,0x438))return 0;
+    if(!xyz_xbox_address(car,0x438))return 0;
     uint32_t driver=MEM32(car+0x30),spec=MEM32(car+0x20);
-    if(!quest_rear_pointer(driver,0x314) || MEM32(driver+0x2a8)!=car ||
-       !quest_rear_pointer(spec,0x1cc))return 0;
+    if(!xyz_xbox_address(driver,0x314) || MEM32(driver+0x2a8)!=car ||
+       !xyz_xbox_address(spec,0x1cc))return 0;
     uint32_t mode=MEM32(driver+0x2c0),count=MEM32(spec+0x1c8);
     return (mode==1 || mode==3 || mode==4) && count>=4 && count<=6 &&
            fabsf(MEMF(car+0x430))<1.f?(int)count:0;
@@ -514,13 +514,12 @@ void sub_00055C80(void)
     }
     /* Mirrors show the road and traffic; exclude the local shell/interior. */
     if(player_rear)MEM32(camera+0x280)=MEM32(esi+0x2c);
-    uint32_t m=mover&0x7fffffffu;
     if(main_camera && (MEM32(0x00428e34u)!=6 || MEM32(esp)!=0x000612d2u)) {
         restored_mover=restored_car=0;
         if(MEM32(0x00428e34u)!=6)quest_xr_cockpit_select(0);
     }
     int driving_mover=main_camera && MEM32(esp)==0x000612d2u &&
-        m>=0x10000 && m<0x03fff000 && MEM32(mover)==0x00344880u &&
+        xyz_xbox_address(mover,0x60) && MEM32(mover)==0x00344880u &&
         MEM32(mover+0x10)==1 && MEM32(mover+0x1c)==camera && MEM32(0x00428e34u)==6;
     uint32_t car=0;
     if(driving_mover) {
@@ -532,7 +531,7 @@ void sub_00055C80(void)
             last_mover=mover; last_mode=mode;
         }
         car=MEM32(mover+0x2c);
-        if(quest_rear_pointer(car,0x600) && !cockpit_replay_camera_selected(MEM32(0x449414u)))
+        if(xyz_xbox_address(car,0x600) && !cockpit_replay_camera_selected(MEM32(0x449414u)))
             cockpit_restore_camera(mover,car);
     }
     /* Retail enters stage 1 for the roll-in (0x1FA8FD), then stages 2/3
@@ -548,14 +547,14 @@ void sub_00055C80(void)
             startline=1;
         }
     }
-    if(quest_rear_pointer(car,0x600) && quest_rear_pointer(target,64)) {
+    if(xyz_xbox_address(car,0x600) && xyz_xbox_address(target,64)) {
         float rotation[12], position[3], matrix[16];
         /* Car and type addresses can be reused when changing vehicles. */
         static char fitted_name[33];
         static int fitted_index;
         uint32_t type=MEM32(car+0x0c);
         char name[33]={0};
-        if(quest_rear_pointer(type,32))memcpy(name,(const void *)XBOX_PTR(type),32);
+        if(xyz_xbox_address(type,32))memcpy(name,(const void *)XBOX_PTR(type),32);
         if(strcmp(name,fitted_name)) {
             fitted_index=quest_cockpit_vehicle_index(name);
             memcpy(fitted_name,name,sizeof fitted_name);
@@ -644,16 +643,16 @@ extern void sub_001E32E0_gen(void);
 void sub_001E32E0(void)
 {
 #if defined(__ANDROID__) || defined(NFSU2_PCVR)
-    uint32_t manager=ecx, p=manager&0x7fffffffu;
+    uint32_t manager=ecx;
     if(quest_xr_enabled() && MEM32(esp)==0x001f2c6eu &&
-       p>=0x10000 && p<0x03fffd00 && MEM32(0x00428e34u)==6) {
+       xyz_xbox_address(manager,0x250) && MEM32(0x00428e34u)==6) {
         /* A recorded driving camera click belongs to the original race. */
         if(cockpit_replay_camera_selected(manager)) {
             uint32_t mover=cockpit_replay_track_mover(manager);
             eax=mover?MEM32(mover+0x48):0;esp+=8;return;
         }
-        uint32_t mover=MEM32(manager+0x238),m=mover&0x7fffffffu;
-        if(m>=0x10000 && m<0x03fff000 && MEM32(mover)==0x00344880u &&
+        uint32_t mover=MEM32(manager+0x238);
+        if(xyz_xbox_address(mover,0x60) && MEM32(mover)==0x00344880u &&
            MEM32(mover+0x10)==1 && MEM32(mover+0x1c)==MEM32(0x003f5b70u)) {
             uint32_t player=MEM32(manager+0x10);
             if(player<2) {
@@ -763,7 +762,7 @@ static uint32_t cockpit_music_voice(uint32_t handle,uint32_t *bank)
         if(!MEM32(base+0x34) || !(group&0xf0000000u) || !(group&0x0f000000u))continue;
         for(unsigned slot=0;slot<24;++slot)if(handle&(1u<<slot)) {
             uint32_t voice=MEM32(base+0x58+4*slot);
-            if(quest_rear_pointer(voice,0x58)){*bank=base;return voice;}
+            if(xyz_xbox_address(voice,0x58)){*bank=base;return voice;}
         }
     }
     return 0;
@@ -783,10 +782,10 @@ static int cockpit_radio_start(uint32_t bank,int track)
 {
     if(!bank || track<0 || track>=27 || !MEM8(0x46d4e4u) || MEM32(0x46d4e8u))return 0;
     uint32_t sequence=MEM32(bank+0x34),events=MEM32(bank+0x40);
-    if(!quest_rear_pointer(sequence,20) || MEM8(sequence+15)<=track ||
-       !quest_rear_pointer(events,2u*(track+1)))return 0;
+    if(!xyz_xbox_address(sequence,20) || MEM8(sequence+15)<=track ||
+       !xyz_xbox_address(events,2u*(track+1)))return 0;
     uint32_t source=sequence+4*(int16_t)MEM16(events+2*track);
-    if(!quest_rear_pointer(source,32) || !cockpit_radio_event(source) || MEM8(source+12)!=track)return 0;
+    if(!xyz_xbox_address(source,32) || !cockpit_radio_event(source) || MEM8(source+12)!=track)return 0;
     /* Use the sequencer's bank selection, private event allocator and enqueue
      * from 0x282E70. The normal preview stops the channel before enqueuing a
      * non-interrupting event. With a pending start timer that strands the
@@ -828,7 +827,7 @@ static const QuestRadioSong *cockpit_radio_song(int index)
     char *fields[]={song.title,song.artist};
     for(int i=0;i<2;++i) {
         uint32_t addr=MEM32(0x3924c0u+16u*index+4u*i);
-        if(!quest_rear_pointer(addr,sizeof song.title))continue;
+        if(!xyz_xbox_address(addr,sizeof song.title))continue;
         const char *src=(const char *)XBOX_PTR(addr);
         size_t len=0;
         while(len<sizeof song.title-1 && src[len])++len;
@@ -843,11 +842,11 @@ static const QuestRadioSong *cockpit_radio_song(int index)
 static void cockpit_radio_voices(uint32_t stream,uint32_t voices[2])
 {
     uint32_t slot=MEM32(stream+0x18),state=MEM32(stream+0x10);
-    if(slot>=MEM8(0x46a346u) || !quest_rear_pointer(state,8) || MEM32(0x469ed0u+4*slot)!=state)return;
+    if(slot>=MEM8(0x46a346u) || !xyz_xbox_address(state,8) || MEM32(0x469ed0u+4*slot)!=state)return;
     uint32_t handle=MEM32(state+4),id=handle&255u,table=MEM32(0x46a4d4u);
     unsigned first=MEM8(0x46a335u),soft=MEM8(0x46a670u);
     uint32_t base=MEM32(0x46a848u);
-    if(id>=MEM16(0x46a474u) || !quest_rear_pointer(table,(id+1)*0x90) || !soft || !quest_rear_pointer(base,soft*0x5c))return;
+    if(id>=MEM16(0x46a474u) || !xyz_xbox_address(table,(id+1)*0x90) || !soft || !xyz_xbox_address(base,soft*0x5c))return;
     uint32_t sound=table+id*0x90;
     unsigned channels=MEM8(sound+0x23);
     if(MEM32(sound)!=handle || !MEM8(sound+0x6d) || !channels || channels>2)return;
@@ -869,7 +868,7 @@ static void cockpit_radio_channel(recomp_func_t render)
      * resampled blocks distorts the spectrum and audio diagnostics. */
     if(depth)return;
     uint32_t frames=eax;
-    if(frames && frames<=capacity && frames<=4096 && quest_rear_pointer(dest,frames*sizeof(float))) {
+    if(frames && frames<=capacity && frames<=4096 && xyz_xbox_address(dest,frames*sizeof(float))) {
         vr_music_stock_samples(voice,(const float *)XBOX_PTR(dest),frames);
         /* Owned headless QA: isolate the EA song from engines and the custom
          * music mixer. No capture without both explicit probe and pad script. */
@@ -877,7 +876,7 @@ static void cockpit_radio_channel(recomp_func_t render)
         if(probe<0)probe=getenv("NFSU2_STOCK_AUDIO_PROBE") && getenv("RECOMP_PAD_SCRIPT");
         if(probe && !done && MEM32(0x428e34)==6){
             uint32_t stream=MEM32(0x3e5afc),voices[2]={0};
-            if(quest_rear_pointer(stream,0x1a4))cockpit_radio_voices(stream,voices);
+            if(xyz_xbox_address(stream,0x1a4))cockpit_radio_voices(stream,voices);
             if(voice==voices[0] && voice){
                 uint32_t node=MEM32(0x3e5140);
                 if(voice!=capture_voice || node!=capture_node){capture_voice=voice;capture_node=node;used=0;}
@@ -900,10 +899,10 @@ static void cockpit_radio(int driving,int replay,int cockpit)
     static uint32_t custom_player,custom_handle,custom_voice;
     static int requested=-1,submitted,last_played=-1;
     uint32_t system=MEM32(0x391f84u),stream=MEM32(0x3e5afcu),player=0;
-    if(quest_rear_pointer(system,0x94) && quest_rear_pointer(stream,0x1a4) &&
+    if(xyz_xbox_address(system,0x94) && xyz_xbox_address(stream,0x1a4) &&
        MEM32(system+0x38)==0x406ce8u)
         player=MEM32(system+0x90);
-    int live=quest_rear_pointer(player,0xd4) && MEM32(player)==0x346744u;
+    int live=xyz_xbox_address(player,0xd4) && MEM32(player)==0x346744u;
     int race=live && MEM32(0x00428e34u)==6 && (replay || MEM32(system+0x80)!=1);
     uint32_t handle=live?MEM32(stream+0x17c):0;
     uint32_t bank=0,voice=live?cockpit_music_voice(handle,&bank):0;
@@ -1019,8 +1018,9 @@ void sub_000A1800(void)
         was_racing=racing;
         if(!racing || (restored_mover && MEM32(0x003f5b74u)!=restored_mover+4))
             restored_mover=restored_car=0;
-        int change=quest_rear_update(&owned_rear_camera,cockpit_ui_read,NULL,
-            cockpit_rear_camera,quest_xr_cockpit_requested() || quest_xr_cockpit_active());
+        extern uint32_t g_xbox_contig_size;
+        int change=quest_rear_update_range(&owned_rear_camera,cockpit_ui_read,NULL,
+            cockpit_rear_camera,quest_xr_cockpit_requested() || quest_xr_cockpit_active(),g_xbox_contig_size);
         if(change)
             fprintf(stderr,"[Cockpit] rear-camera lifetime %s: manager=%08x mover=%08x\n",
                 change>0?"attached":"released",owned_rear_camera.manager,owned_rear_camera.rear_mover);
@@ -1036,7 +1036,7 @@ void sub_000A1800(void)
      * with no pending frontend request. Director event 18 requires stage 4+. */
     uint32_t map_director=MEM32(0x449438u);
     int world_map=driving && MEM32(0x41c338u)==1 && !MEM32(0x3cc470u) && !MEM8(0x405368u) &&
-                  quest_rear_pointer(map_director,4) && (int32_t)MEM32(map_director)>=4;
+                  xyz_xbox_address(map_director,4) && (int32_t)MEM32(map_director)>=4;
     quest_xr_driving_publish(driving,world_map,driving && quest_xr_enabled()?cockpit_engine_rumble():0);
     int menu=quest_cockpit_ui_menu(cockpit_ui_read,NULL);
     uint32_t replay=cockpit_replay_open()?MEM32(0x3f9c64u):0;
@@ -4173,11 +4173,11 @@ void sub_0033518D(void)
  * callback, and this direct call deliberately invokes its unchanged parser. */
 static void community_load_career(void)
 {
-    if(quest_xr_hidden_races() && quest_rear_pointer(esp,8)) {
+    if(quest_xr_hidden_races() && xyz_xbox_address(esp,8)) {
         uint32_t chunk=MEM32(esp+4);
-        if(quest_rear_pointer(chunk,8) && MEM32(chunk)==0x80034a10u) {
+        if(xyz_xbox_address(chunk,8) && MEM32(chunk)==0x80034a10u) {
             uint32_t bytes=MEM32(chunk+4);
-            if(bytes<=131064 && quest_rear_pointer(chunk,bytes+8)) {
+            if(bytes<=131064 && xyz_xbox_address(chunk,bytes+8)) {
                 int changed=vr_mod_hidden_races((void *)XBOX_PTR(chunk),bytes+8,1);
                 if(changed==1)fprintf(stderr,"[Community mods] Show Hidden Races: 33 races revealed; stage caps raised to 8\n");
                 else if(changed<0)fprintf(stderr,"[Community mods] Show Hidden Races skipped: unsupported career tables\n");

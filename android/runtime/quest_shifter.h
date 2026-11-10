@@ -12,6 +12,7 @@ enum { QUEST_DRIVER_READY, QUEST_DRIVER_GRID_LOCK, QUEST_DRIVER_NO_INPUT };
 static inline int quest_shifter_before_start(int stage) { return stage==2 || stage==3; }
 #define QUEST_SHIFT_PITCH .045f
 #define QUEST_SHIFT_THROW .060f
+#define QUEST_SHIFT_GRAB_RADIUS .065f
 typedef struct {
     int hand, blocked[2], gear, lane, rebase, first_only, at_lever;
     float x,z,offset_x,offset_z,last_x,last_z;
@@ -49,7 +50,7 @@ static inline int quest_shifter_in_reach(const QuestShifter *s,int vehicle,const
 {
     float knob[3];quest_shifter_knob(s,vehicle,knob);
     float dx=hand[0]-knob[0],dy=hand[1]-knob[1],dz=hand[2]-knob[2];
-    return dx*dx+dy*dy+dz*dz<=.065f*.065f;
+    return dx*dx+dy*dy+dz*dz<=QUEST_SHIFT_GRAB_RADIUS*QUEST_SHIFT_GRAB_RADIUS;
 }
 
 /* Return a request only on changing detents. Moving sideways is possible in
